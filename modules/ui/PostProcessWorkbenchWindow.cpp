@@ -19,6 +19,7 @@
 #include <QStatusBar>
 #include <QTextEdit>
 #include <QTabWidget>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -83,6 +84,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     content->setCollapsible(0, false);
     content->setCollapsible(2, false);
     content->setSizes({260, 850, 300});
+    QTimer::singleShot(0, content, [content] { content->setSizes({280, 840, 320}); });
     rootLayout->addWidget(content, 1);
     rootLayout->addWidget(createTimeline());
     setCentralWidget(workbench);
