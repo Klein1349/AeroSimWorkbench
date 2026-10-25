@@ -29,7 +29,7 @@ VtkSceneViewer::VtkSceneViewer(QWidget *parent) : QWidget(parent)
     renderer_ = vtkSmartPointer<vtkRenderer>::New();
     renderer_->SetBackground(0.055, 0.102, 0.157);
     renderWindow_->AddRenderer(renderer_);
-    widget_->setRenderWindow(renderWindow_);
+    widget_->SetRenderWindow(renderWindow_);
 
     // This neutral primitive is only a Viewer readiness cue. It is not a
     // dataset or a replacement for the visualization data/scene service.

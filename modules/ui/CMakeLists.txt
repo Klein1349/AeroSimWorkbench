@@ -10,6 +10,9 @@ target_link_libraries(aerosim_ui
     PUBLIC
         aerosim_contracts
         Qt5::Widgets)
+if(MSVC)
+    target_compile_options(aerosim_ui PRIVATE /utf-8)
+endif()
 
 add_executable(aerosim_postprocess_ui_smoke
     tests/PostProcessWorkbenchWindowSmoke.cpp)
