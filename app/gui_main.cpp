@@ -29,26 +29,28 @@ int main(int argc, char *argv[])
         return 3;
     }
 
+    const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
     aerosim::PostProcessWorkbenchWindow window;
     window.bindServices({controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr});
 #ifdef AEROSIM_HAS_VTK_VIEWER
-    auto *viewer = new aerosim::visualization::VtkSceneViewer;
-    if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
-        delete viewer;
-        QTextStream(stderr) << "Failed to insert VTK viewer\n";
-        return 4;
+    if (!smoke) {
+        auto *viewer = new aerosim::visualization::VtkSceneViewer;
+        if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
+            delete viewer;
+            QTextStream(stderr) << "Failed to insert VTK viewer\n";
+            return 4;
+        }
+        QObject::connect(&window, &aerosim::PostProcessWorkbenchWindow::viewRequested, viewer,
+                         [viewer](const QString &orientation) {
+            if (orientation == QStringLiteral("reset"))
+                viewer->resetCamera();
+            else
+                viewer->setCameraOrientation(orientation);
+        });
     }
-    QObject::connect(&window, &aerosim::PostProcessWorkbenchWindow::viewRequested, viewer,
-                     [viewer](const QString &orientation) {
-        if (orientation == QStringLiteral("reset"))
-            viewer->resetCamera();
-        else
-            viewer->setCameraOrientation(orientation);
-    });
 #endif
     window.show();
 
-    const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
     bool smokePassed = false;
     if (smoke) {
         QObject::connect(controller.tasks(), &aerosim::ITaskService::taskEventOccurred, &app,
