@@ -8,9 +8,9 @@
 #include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
-#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMenuBar>
 #include <QPushButton>
 #include <QSlider>
@@ -21,8 +21,6 @@
 #include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -97,7 +95,12 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
         "QTabWidget::pane, QFrame#viewportFrame, QGroupBox { background: #ffffff; border: 1px solid #cbd4df; }"
         "QTabBar::tab { padding: 8px 18px; background: #e6ebf1; }"
         "QTabBar::tab:selected { background: #ffffff; color: #0b5ca8; }"
-        "QTreeWidget { border: 0; background: #ffffff; }"
+        "QListWidget { border: 0; background: #ffffff; outline: 0; }"
+        "QListWidget::item { min-height: 34px; padding: 5px 8px; border-bottom: 1px solid #edf1f5; }"
+        "QListWidget::item:selected { background: #e4eef9; color: #0b5ca8; }"
+        "QFrame#dataCard { background: #f5f8fc; border: 1px solid #d9e3ee; border-radius: 5px; }"
+        "QPushButton#primaryAction { background: #0b69b7; color: white; border: 0; border-radius: 4px; padding: 5px 10px; }"
+        "QLabel#mutedText { color: #6e7f91; font-size: 12px; }"
         "QLabel#sectionTitle { color: #31445d; font-weight: bold; padding: 5px 2px; }"
         "QGroupBox { margin-top: 12px; padding: 8px; font-weight: bold; }"
         "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }"
@@ -155,23 +158,36 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
     auto *panel = new QWidget(this);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
-    layout->addWidget(sectionLabel(QStringLiteral("结果数据集"), panel));
-    dataTree_ = new QTreeWidget(panel);
-    dataTree_->setObjectName(QStringLiteral("postProcessDataTree"));
-    dataTree_->setHeaderLabels({QStringLiteral("名称"), QStringLiteral("状态")});
-    dataTree_->header()->setStretchLastSection(false);
-    dataTree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    auto *dataset = new QTreeWidgetItem(dataTree_, {QStringLiteral("尚未加载结果"), QStringLiteral("等待导入")});
-    dataset->setData(0, Qt::UserRole, QStringLiteral("dataset"));
-    new QTreeWidgetItem(dataset, {QStringLiteral("网格与 Zone"), QStringLiteral("—")});
-    new QTreeWidgetItem(dataset, {QStringLiteral("物理场"), QStringLiteral("—")});
-    new QTreeWidgetItem(dataset, {QStringLiteral("时间帧"), QStringLiteral("—")});
-    dataset->setExpanded(true);
-    layout->addWidget(dataTree_, 1);
-    auto *hint = new QLabel(QStringLiteral("支持多文件、Zone、字段和时序帧。读取状态由数据服务异步更新。"), panel);
+    auto *titleRow = new QHBoxLayout;
+    titleRow->addWidget(sectionLabel(QStringLiteral("结果数据"), panel));
+    titleRow->addStretch();
+    auto *addResult = new QPushButton(QStringLiteral("＋ 导入"), panel);
+    addResult->setObjectName(QStringLiteral("primaryAction"));
+    titleRow->addWidget(addResult);
+    layout->addLayout(titleRow);
+    auto *datasetCard = new QFrame(panel);
+    datasetCard->setObjectName(QStringLiteral("dataCard"));
+    auto *cardLayout = new QVBoxLayout(datasetCard);
+    auto *datasetName = new QLabel(QStringLiteral("尚未加载结果"), datasetCard);
+    datasetName->setStyleSheet(QStringLiteral("font-weight: 600; color: #25364c;"));
+    auto *datasetStatus = new QLabel(QStringLiteral("导入 CGNS、VTK 或 Tecplot 数据文件"), datasetCard);
+    datasetStatus->setObjectName(QStringLiteral("mutedText"));
+    cardLayout->addWidget(datasetName);
+    cardLayout->addWidget(datasetStatus);
+    layout->addWidget(datasetCard);
+    auto *categories = new QListWidget(panel);
+    categories->setObjectName(QStringLiteral("dataCategories"));
+    categories->addItems({QStringLiteral("▦  网格与 Zone"), QStringLiteral("◉  物理场"), QStringLiteral("◷  时间序列")});
+    categories->setCurrentRow(0);
+    layout->addWidget(categories);
+    auto *hint = new QLabel(QStringLiteral("数据按类型浏览，不使用层级树。读取状态由数据服务异步更新。"), panel);
     hint->setWordWrap(true);
     hint->setStyleSheet(QStringLiteral("color: #66788a; padding: 4px;"));
     layout->addWidget(hint);
+    connect(addResult, &QPushButton::clicked, this, [this] {
+        emit postProcessCommandRequested(QStringLiteral("importResults"));
+        appendMessage(QStringLiteral("导入结果请求已提交；读取服务接入后将在工作线程加载。"));
+    });
     return panel;
 }
 
@@ -180,26 +196,35 @@ QWidget *PostProcessWorkbenchWindow::createScenePanel()
     auto *panel = new QWidget(this);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
-    layout->addWidget(sectionLabel(QStringLiteral("场景对象"), panel));
-    sceneTree_ = new QTreeWidget(panel);
-    sceneTree_->setObjectName(QStringLiteral("postProcessSceneTree"));
-    sceneTree_->setHeaderLabels({QStringLiteral("对象"), QStringLiteral("可见")});
-    sceneTree_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-    auto *root = new QTreeWidgetItem(sceneTree_, {QStringLiteral("当前场景"), QStringLiteral("✓")});
-    root->setData(0, Qt::UserRole, QStringLiteral("scene"));
-    new QTreeWidgetItem(root, {QStringLiteral("原始网格"), QStringLiteral("—")});
-    new QTreeWidgetItem(root, {QStringLiteral("切面"), QStringLiteral("—")});
-    new QTreeWidgetItem(root, {QStringLiteral("等值线 / 等值面"), QStringLiteral("—")});
-    new QTreeWidgetItem(root, {QStringLiteral("流线 / 迹线"), QStringLiteral("—")});
-    root->setExpanded(true);
-    layout->addWidget(sceneTree_, 1);
+    auto *titleRow = new QHBoxLayout;
+    titleRow->addWidget(sectionLabel(QStringLiteral("显示图层"), panel));
+    titleRow->addStretch();
+    auto *newLayer = new QPushButton(QStringLiteral("＋ 新建"), panel);
+    titleRow->addWidget(newLayer);
+    layout->addLayout(titleRow);
+    auto *subtitle = new QLabel(QStringLiteral("图层是平铺对象，可单独显隐和编辑。"), panel);
+    subtitle->setObjectName(QStringLiteral("mutedText"));
+    layout->addWidget(subtitle);
+    sceneList_ = new QListWidget(panel);
+    sceneList_->setObjectName(QStringLiteral("sceneLayerList"));
+    sceneList_->setSelectionMode(QAbstractItemView::SingleSelection);
+    const QStringList layers = {QStringLiteral("◉  原始网格     可见"), QStringLiteral("◌  云图         未创建"),
+                                QStringLiteral("╱  切面         未创建"), QStringLiteral("◇  等值面       未创建"),
+                                QStringLiteral("≈  流线         未创建")};
+    sceneList_->addItems(layers);
+    sceneList_->setCurrentRow(0);
+    layout->addWidget(sceneList_, 1);
     auto *actions = new QHBoxLayout;
     auto *showButton = new QPushButton(QStringLiteral("显隐"), panel);
     auto *removeButton = new QPushButton(QStringLiteral("删除"), panel);
     actions->addWidget(showButton);
     actions->addWidget(removeButton);
     layout->addLayout(actions);
-    connect(sceneTree_, &QTreeWidget::itemSelectionChanged, this, &PostProcessWorkbenchWindow::updateSelectionDetails);
+    connect(newLayer, &QPushButton::clicked, this, [this] {
+        emit postProcessCommandRequested(QStringLiteral("newLayer"));
+        appendMessage(QStringLiteral("新建显示图层请求已提交。"));
+    });
+    connect(sceneList_, &QListWidget::itemSelectionChanged, this, &PostProcessWorkbenchWindow::updateSelectionDetails);
     connect(showButton, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("场景对象显隐请求已记录。")); });
     connect(removeButton, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("场景对象删除请求已记录。")); });
     return panel;
@@ -257,7 +282,7 @@ QWidget *PostProcessWorkbenchWindow::createPropertiesPanel()
     propertiesStack_ = new QStackedWidget(panel);
     propertiesStack_->setObjectName(QStringLiteral("postProcessProperties"));
 
-    auto *empty = new QLabel(QStringLiteral("在场景树中选择对象\n以编辑其显示与参数。"), propertiesStack_);
+    auto *empty = new QLabel(QStringLiteral("在左侧图层中选择对象\n以编辑其显示与参数。"), propertiesStack_);
     empty->setAlignment(Qt::AlignCenter);
     empty->setWordWrap(true);
     propertiesStack_->addWidget(empty);
@@ -359,12 +384,12 @@ void PostProcessWorkbenchWindow::appendMessage(const QString &message)
 
 void PostProcessWorkbenchWindow::updateSelectionDetails()
 {
-    const auto selected = sceneTree_->selectedItems();
+    const auto selected = sceneList_->selectedItems();
     if (selected.isEmpty()) {
         propertiesStack_->setCurrentIndex(0);
         return;
     }
-    selectionName_->setText(selected.first()->text(0));
+    selectionName_->setText(selected.first()->text());
     propertiesStack_->setCurrentIndex(1);
 }
 

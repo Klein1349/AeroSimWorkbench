@@ -10,6 +10,7 @@
 #endif
 
 #include <QApplication>
+#include <QProcessEnvironment>
 #include <QTextStream>
 #include <QTimer>
 
@@ -33,7 +34,11 @@ int main(int argc, char *argv[])
     aerosim::PostProcessWorkbenchWindow window;
     window.bindServices({controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr});
 #ifdef AEROSIM_HAS_VTK_VIEWER
-    if (!smoke) {
+    // The workbench remains usable without a native OpenGL surface.  This is
+    // also the safe default on remote desktop sessions where VTK's native
+    // widget may not be backed by the expected graphics driver.
+    const bool enableVtkViewer = qEnvironmentVariableIntValue("AEROSIM_ENABLE_VTK_VIEWER") == 1;
+    if (!smoke && enableVtkViewer) {
         auto *viewer = new aerosim::visualization::VtkSceneViewer;
         if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
             delete viewer;

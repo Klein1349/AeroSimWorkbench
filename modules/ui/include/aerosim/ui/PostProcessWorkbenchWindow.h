@@ -6,10 +6,10 @@
 
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QSlider;
 class QStackedWidget;
 class QTextEdit;
-class QTreeWidget;
 class QVBoxLayout;
 class QWidget;
 
@@ -42,8 +42,7 @@ private:
 
     QVBoxLayout *viewportLayout_ = nullptr;
     QWidget *emptyViewport_ = nullptr;
-    QTreeWidget *dataTree_ = nullptr;
-    QTreeWidget *sceneTree_ = nullptr;
+    QListWidget *sceneList_ = nullptr;
     QStackedWidget *propertiesStack_ = nullptr;
     QLineEdit *selectionName_ = nullptr;
     QSlider *timeSlider_ = nullptr;
