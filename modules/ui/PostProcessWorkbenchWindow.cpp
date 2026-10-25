@@ -1,4 +1,4 @@
-﻿#include "aerosim/ui/PostProcessWorkbenchWindow.h"
+#include "aerosim/ui/PostProcessWorkbenchWindow.h"
 
 #include <QAction>
 #include <QCheckBox>
@@ -49,7 +49,7 @@ QLabel *sectionLabel(const QString &text, QWidget *parent)
 PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainWindow(parent)
 {
     setObjectName(QStringLiteral("postProcessWorkbench"));
-    setWindowTitle(QStringLiteral("AeroSimWorkbench - 后处理工作台"));
+    setWindowTitle(QStringLiteral("AeroSimWorkbench - \u540e\u5904\u7406\u5de5\u4f5c\u53f0"));
     resize(1440, 900);
     setMinimumSize(1120, 680);
     createActions();
@@ -63,8 +63,8 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     content->setObjectName(QStringLiteral("postProcessContent"));
     auto *leftTabs = new QTabWidget(content);
     leftTabs->setObjectName(QStringLiteral("postProcessNavigator"));
-    leftTabs->addTab(createDataPanel(), QStringLiteral("数据"));
-    leftTabs->addTab(createScenePanel(), QStringLiteral("场景"));
+    leftTabs->addTab(createDataPanel(), QStringLiteral("\u6570\u636e"));
+    leftTabs->addTab(createScenePanel(), QStringLiteral("\u573a\u666f"));
     content->addWidget(leftTabs);
     content->addWidget(createViewportPanel());
     content->addWidget(createPropertiesPanel());
@@ -76,7 +76,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     rootLayout->addWidget(createTimeline());
     setCentralWidget(workbench);
 
-    auto *messageDock = new QDockWidget(QStringLiteral("后处理消息"), this);
+    auto *messageDock = new QDockWidget(QStringLiteral("\u540e\u5904\u7406\u6d88\u606f"), this);
     messageDock->setObjectName(QStringLiteral("postProcessMessageDock"));
     events_ = new QTextEdit(messageDock);
     events_->setObjectName(QStringLiteral("postProcessEvents"));
@@ -86,7 +86,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     addDockWidget(Qt::BottomDockWidgetArea, messageDock);
     messageDock->hide();
 
-    statusBar()->showMessage(QStringLiteral("后处理工作台已就绪：等待结果数据与 VTK 场景服务接入"));
+    statusBar()->showMessage(QStringLiteral("\u540e\u5904\u7406\u5de5\u4f5c\u53f0\u5df2\u5c31\u7eea\uff1a\u7b49\u5f85\u7ed3\u679c\u6570\u636e\u4e0e VTK \u573a\u666f\u670d\u52a1\u63a5\u5165"));
     setStyleSheet(QStringLiteral(
         "QMainWindow { background: #edf1f5; }"
         "QToolBar { background: #ffffff; border-bottom: 1px solid #cbd4df; spacing: 8px; padding: 4px; }"
@@ -109,43 +109,43 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
 
 void PostProcessWorkbenchWindow::createActions()
 {
-    auto *fileMenu = menuBar()->addMenu(QStringLiteral("文件"));
-    auto *importAction = fileMenu->addAction(QStringLiteral("导入结果…"));
-    auto *exportAction = fileMenu->addAction(QStringLiteral("导出当前对象…"));
-    auto *viewMenu = menuBar()->addMenu(QStringLiteral("视图"));
-    auto *fitAction = viewMenu->addAction(QStringLiteral("适配视图"));
-    auto *featureMenu = menuBar()->addMenu(QStringLiteral("特征"));
-    auto *sliceAction = featureMenu->addAction(QStringLiteral("创建切面"));
-    auto *isoAction = featureMenu->addAction(QStringLiteral("创建等值面"));
-    auto *streamAction = featureMenu->addAction(QStringLiteral("创建流线"));
-    auto *analysisMenu = menuBar()->addMenu(QStringLiteral("分析"));
-    auto *curveAction = analysisMenu->addAction(QStringLiteral("打开曲线分析"));
+    auto *fileMenu = menuBar()->addMenu(QStringLiteral("\u6587\u4ef6"));
+    auto *importAction = fileMenu->addAction(QStringLiteral("\u5bfc\u5165\u7ed3\u679c\u2026"));
+    auto *exportAction = fileMenu->addAction(QStringLiteral("\u5bfc\u51fa\u5f53\u524d\u5bf9\u8c61\u2026"));
+    auto *viewMenu = menuBar()->addMenu(QStringLiteral("\u89c6\u56fe"));
+    auto *fitAction = viewMenu->addAction(QStringLiteral("\u9002\u914d\u89c6\u56fe"));
+    auto *featureMenu = menuBar()->addMenu(QStringLiteral("\u7279\u5f81"));
+    auto *sliceAction = featureMenu->addAction(QStringLiteral("\u521b\u5efa\u5207\u9762"));
+    auto *isoAction = featureMenu->addAction(QStringLiteral("\u521b\u5efa\u7b49\u503c\u9762"));
+    auto *streamAction = featureMenu->addAction(QStringLiteral("\u521b\u5efa\u6d41\u7ebf"));
+    auto *analysisMenu = menuBar()->addMenu(QStringLiteral("\u5206\u6790"));
+    auto *curveAction = analysisMenu->addAction(QStringLiteral("\u6253\u5f00\u66f2\u7ebf\u5206\u6790"));
 
-    auto *toolbar = addToolBar(QStringLiteral("后处理"));
+    auto *toolbar = addToolBar(QStringLiteral("\u540e\u5904\u7406"));
     toolbar->setObjectName(QStringLiteral("postProcessToolbar"));
-    auto *importButton = addToolButton(toolbar, QStringLiteral("导入结果"), QStringLiteral("导入一个或多个结果文件"));
-    auto *meshButton = addToolButton(toolbar, QStringLiteral("网格"), QStringLiteral("切换网格和边线显示"));
-    auto *contourButton = addToolButton(toolbar, QStringLiteral("云图"), QStringLiteral("选择场变量并显示云图"));
-    auto *sliceButton = addToolButton(toolbar, QStringLiteral("切面"), QStringLiteral("创建独立的切面对象"));
-    auto *isoButton = addToolButton(toolbar, QStringLiteral("等值面"), QStringLiteral("创建三维等值面"));
-    auto *streamButton = addToolButton(toolbar, QStringLiteral("流线"), QStringLiteral("设置种子并创建流线"));
-    auto *fitButton = addToolButton(toolbar, QStringLiteral("适配视图"), QStringLiteral("使场景适配当前视口"));
-    auto *exportButton = addToolButton(toolbar, QStringLiteral("导出"), QStringLiteral("导出特征、图像或动画"));
+    auto *importButton = addToolButton(toolbar, QStringLiteral("\u5bfc\u5165\u7ed3\u679c"), QStringLiteral("\u5bfc\u5165\u4e00\u4e2a\u6216\u591a\u4e2a\u7ed3\u679c\u6587\u4ef6"));
+    auto *meshButton = addToolButton(toolbar, QStringLiteral("\u7f51\u683c"), QStringLiteral("\u5207\u6362\u7f51\u683c\u548c\u8fb9\u7ebf\u663e\u793a"));
+    auto *contourButton = addToolButton(toolbar, QStringLiteral("\u4e91\u56fe"), QStringLiteral("\u9009\u62e9\u573a\u53d8\u91cf\u5e76\u663e\u793a\u4e91\u56fe"));
+    auto *sliceButton = addToolButton(toolbar, QStringLiteral("\u5207\u9762"), QStringLiteral("\u521b\u5efa\u72ec\u7acb\u7684\u5207\u9762\u5bf9\u8c61"));
+    auto *isoButton = addToolButton(toolbar, QStringLiteral("\u7b49\u503c\u9762"), QStringLiteral("\u521b\u5efa\u4e09\u7ef4\u7b49\u503c\u9762"));
+    auto *streamButton = addToolButton(toolbar, QStringLiteral("\u6d41\u7ebf"), QStringLiteral("\u8bbe\u7f6e\u79cd\u5b50\u5e76\u521b\u5efa\u6d41\u7ebf"));
+    auto *fitButton = addToolButton(toolbar, QStringLiteral("\u9002\u914d\u89c6\u56fe"), QStringLiteral("\u4f7f\u573a\u666f\u9002\u914d\u5f53\u524d\u89c6\u53e3"));
+    auto *exportButton = addToolButton(toolbar, QStringLiteral("\u5bfc\u51fa"), QStringLiteral("\u5bfc\u51fa\u7279\u5f81\u3001\u56fe\u50cf\u6216\u52a8\u753b"));
 
     auto command = [this](const QString &name, const QString &message) {
         emit postProcessCommandRequested(name);
         appendMessage(message);
     };
-    connect(importAction, &QAction::triggered, this, [command] { command(QStringLiteral("importResults"), QStringLiteral("导入结果请求已提交；读取服务接入后将在工作线程加载。")); });
-    connect(exportAction, &QAction::triggered, this, [command] { command(QStringLiteral("exportObject"), QStringLiteral("导出请求已提交；等待选中的场景对象。")); });
-    connect(fitAction, &QAction::triggered, this, [this] { emit viewRequested(QStringLiteral("reset")); appendMessage(QStringLiteral("视图已重置。")); });
-    connect(sliceAction, &QAction::triggered, this, [command] { command(QStringLiteral("createSlice"), QStringLiteral("创建切面请求已提交。")); });
-    connect(isoAction, &QAction::triggered, this, [command] { command(QStringLiteral("createIsoSurface"), QStringLiteral("创建等值面请求已提交。")); });
-    connect(streamAction, &QAction::triggered, this, [command] { command(QStringLiteral("createStreamline"), QStringLiteral("创建流线请求已提交。")); });
-    connect(curveAction, &QAction::triggered, this, [command] { command(QStringLiteral("openCurveAnalysis"), QStringLiteral("曲线分析工作区请求已提交。")); });
+    connect(importAction, &QAction::triggered, this, [command] { command(QStringLiteral("importResults"), QStringLiteral("\u5bfc\u5165\u7ed3\u679c\u8bf7\u6c42\u5df2\u63d0\u4ea4\uff1b\u8bfb\u53d6\u670d\u52a1\u63a5\u5165\u540e\u5c06\u5728\u5de5\u4f5c\u7ebf\u7a0b\u52a0\u8f7d\u3002")); });
+    connect(exportAction, &QAction::triggered, this, [command] { command(QStringLiteral("exportObject"), QStringLiteral("\u5bfc\u51fa\u8bf7\u6c42\u5df2\u63d0\u4ea4\uff1b\u7b49\u5f85\u9009\u4e2d\u7684\u573a\u666f\u5bf9\u8c61\u3002")); });
+    connect(fitAction, &QAction::triggered, this, [this] { emit viewRequested(QStringLiteral("reset")); appendMessage(QStringLiteral("\u89c6\u56fe\u5df2\u91cd\u7f6e\u3002")); });
+    connect(sliceAction, &QAction::triggered, this, [command] { command(QStringLiteral("createSlice"), QStringLiteral("\u521b\u5efa\u5207\u9762\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(isoAction, &QAction::triggered, this, [command] { command(QStringLiteral("createIsoSurface"), QStringLiteral("\u521b\u5efa\u7b49\u503c\u9762\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(streamAction, &QAction::triggered, this, [command] { command(QStringLiteral("createStreamline"), QStringLiteral("\u521b\u5efa\u6d41\u7ebf\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(curveAction, &QAction::triggered, this, [command] { command(QStringLiteral("openCurveAnalysis"), QStringLiteral("\u66f2\u7ebf\u5206\u6790\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
     connect(importButton, &QToolButton::clicked, importAction, &QAction::trigger);
-    connect(meshButton, &QToolButton::clicked, this, [command] { command(QStringLiteral("toggleMesh"), QStringLiteral("网格显示层切换请求已提交。")); });
-    connect(contourButton, &QToolButton::clicked, this, [command] { command(QStringLiteral("toggleContour"), QStringLiteral("云图显示层切换请求已提交。")); });
+    connect(meshButton, &QToolButton::clicked, this, [command] { command(QStringLiteral("toggleMesh"), QStringLiteral("\u7f51\u683c\u663e\u793a\u5c42\u5207\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(contourButton, &QToolButton::clicked, this, [command] { command(QStringLiteral("toggleContour"), QStringLiteral("\u4e91\u56fe\u663e\u793a\u5c42\u5207\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
     connect(sliceButton, &QToolButton::clicked, sliceAction, &QAction::trigger);
     connect(isoButton, &QToolButton::clicked, isoAction, &QAction::trigger);
     connect(streamButton, &QToolButton::clicked, streamAction, &QAction::trigger);
@@ -159,34 +159,34 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
     auto *titleRow = new QHBoxLayout;
-    titleRow->addWidget(sectionLabel(QStringLiteral("结果数据"), panel));
+    titleRow->addWidget(sectionLabel(QStringLiteral("\u7ed3\u679c\u6570\u636e"), panel));
     titleRow->addStretch();
-    auto *addResult = new QPushButton(QStringLiteral("＋ 导入"), panel);
+    auto *addResult = new QPushButton(QStringLiteral("\uff0b \u5bfc\u5165"), panel);
     addResult->setObjectName(QStringLiteral("primaryAction"));
     titleRow->addWidget(addResult);
     layout->addLayout(titleRow);
     auto *datasetCard = new QFrame(panel);
     datasetCard->setObjectName(QStringLiteral("dataCard"));
     auto *cardLayout = new QVBoxLayout(datasetCard);
-    auto *datasetName = new QLabel(QStringLiteral("尚未加载结果"), datasetCard);
+    auto *datasetName = new QLabel(QStringLiteral("\u5c1a\u672a\u52a0\u8f7d\u7ed3\u679c"), datasetCard);
     datasetName->setStyleSheet(QStringLiteral("font-weight: 600; color: #25364c;"));
-    auto *datasetStatus = new QLabel(QStringLiteral("导入 CGNS、VTK 或 Tecplot 数据文件"), datasetCard);
+    auto *datasetStatus = new QLabel(QStringLiteral("\u5bfc\u5165 CGNS\u3001VTK \u6216 Tecplot \u6570\u636e\u6587\u4ef6"), datasetCard);
     datasetStatus->setObjectName(QStringLiteral("mutedText"));
     cardLayout->addWidget(datasetName);
     cardLayout->addWidget(datasetStatus);
     layout->addWidget(datasetCard);
     auto *categories = new QListWidget(panel);
     categories->setObjectName(QStringLiteral("dataCategories"));
-    categories->addItems({QStringLiteral("▦  网格与 Zone"), QStringLiteral("◉  物理场"), QStringLiteral("◷  时间序列")});
+    categories->addItems({QStringLiteral("\u25a6  \u7f51\u683c\u4e0e Zone"), QStringLiteral("\u25c9  \u7269\u7406\u573a"), QStringLiteral("\u25f7  \u65f6\u95f4\u5e8f\u5217")});
     categories->setCurrentRow(0);
     layout->addWidget(categories);
-    auto *hint = new QLabel(QStringLiteral("数据按类型浏览，不使用层级树。读取状态由数据服务异步更新。"), panel);
+    auto *hint = new QLabel(QStringLiteral("\u6570\u636e\u6309\u7c7b\u578b\u6d4f\u89c8\uff0c\u4e0d\u4f7f\u7528\u5c42\u7ea7\u6811\u3002\u8bfb\u53d6\u72b6\u6001\u7531\u6570\u636e\u670d\u52a1\u5f02\u6b65\u66f4\u65b0\u3002"), panel);
     hint->setWordWrap(true);
     hint->setStyleSheet(QStringLiteral("color: #66788a; padding: 4px;"));
     layout->addWidget(hint);
     connect(addResult, &QPushButton::clicked, this, [this] {
         emit postProcessCommandRequested(QStringLiteral("importResults"));
-        appendMessage(QStringLiteral("导入结果请求已提交；读取服务接入后将在工作线程加载。"));
+        appendMessage(QStringLiteral("\u5bfc\u5165\u7ed3\u679c\u8bf7\u6c42\u5df2\u63d0\u4ea4\uff1b\u8bfb\u53d6\u670d\u52a1\u63a5\u5165\u540e\u5c06\u5728\u5de5\u4f5c\u7ebf\u7a0b\u52a0\u8f7d\u3002"));
     });
     return panel;
 }
@@ -197,36 +197,36 @@ QWidget *PostProcessWorkbenchWindow::createScenePanel()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
     auto *titleRow = new QHBoxLayout;
-    titleRow->addWidget(sectionLabel(QStringLiteral("显示图层"), panel));
+    titleRow->addWidget(sectionLabel(QStringLiteral("\u663e\u793a\u56fe\u5c42"), panel));
     titleRow->addStretch();
-    auto *newLayer = new QPushButton(QStringLiteral("＋ 新建"), panel);
+    auto *newLayer = new QPushButton(QStringLiteral("\uff0b \u65b0\u5efa"), panel);
     titleRow->addWidget(newLayer);
     layout->addLayout(titleRow);
-    auto *subtitle = new QLabel(QStringLiteral("图层是平铺对象，可单独显隐和编辑。"), panel);
+    auto *subtitle = new QLabel(QStringLiteral("\u56fe\u5c42\u662f\u5e73\u94fa\u5bf9\u8c61\uff0c\u53ef\u5355\u72ec\u663e\u9690\u548c\u7f16\u8f91\u3002"), panel);
     subtitle->setObjectName(QStringLiteral("mutedText"));
     layout->addWidget(subtitle);
     sceneList_ = new QListWidget(panel);
     sceneList_->setObjectName(QStringLiteral("sceneLayerList"));
     sceneList_->setSelectionMode(QAbstractItemView::SingleSelection);
-    const QStringList layers = {QStringLiteral("◉  原始网格     可见"), QStringLiteral("◌  云图         未创建"),
-                                QStringLiteral("╱  切面         未创建"), QStringLiteral("◇  等值面       未创建"),
-                                QStringLiteral("≈  流线         未创建")};
+    const QStringList layers = {QStringLiteral("\u25c9  \u539f\u59cb\u7f51\u683c     \u53ef\u89c1"), QStringLiteral("\u25cc  \u4e91\u56fe         \u672a\u521b\u5efa"),
+                                QStringLiteral("\u2571  \u5207\u9762         \u672a\u521b\u5efa"), QStringLiteral("\u25c7  \u7b49\u503c\u9762       \u672a\u521b\u5efa"),
+                                QStringLiteral("\u2248  \u6d41\u7ebf         \u672a\u521b\u5efa")};
     sceneList_->addItems(layers);
     sceneList_->setCurrentRow(0);
     layout->addWidget(sceneList_, 1);
     auto *actions = new QHBoxLayout;
-    auto *showButton = new QPushButton(QStringLiteral("显隐"), panel);
-    auto *removeButton = new QPushButton(QStringLiteral("删除"), panel);
+    auto *showButton = new QPushButton(QStringLiteral("\u663e\u9690"), panel);
+    auto *removeButton = new QPushButton(QStringLiteral("\u5220\u9664"), panel);
     actions->addWidget(showButton);
     actions->addWidget(removeButton);
     layout->addLayout(actions);
     connect(newLayer, &QPushButton::clicked, this, [this] {
         emit postProcessCommandRequested(QStringLiteral("newLayer"));
-        appendMessage(QStringLiteral("新建显示图层请求已提交。"));
+        appendMessage(QStringLiteral("\u65b0\u5efa\u663e\u793a\u56fe\u5c42\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002"));
     });
     connect(sceneList_, &QListWidget::itemSelectionChanged, this, &PostProcessWorkbenchWindow::updateSelectionDetails);
-    connect(showButton, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("场景对象显隐请求已记录。")); });
-    connect(removeButton, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("场景对象删除请求已记录。")); });
+    connect(showButton, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("\u573a\u666f\u5bf9\u8c61\u663e\u9690\u8bf7\u6c42\u5df2\u8bb0\u5f55\u3002")); });
+    connect(removeButton, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("\u573a\u666f\u5bf9\u8c61\u5220\u9664\u8bf7\u6c42\u5df2\u8bb0\u5f55\u3002")); });
     return panel;
 }
 
@@ -242,30 +242,30 @@ QWidget *PostProcessWorkbenchWindow::createViewportPanel()
     auto *layout = new QVBoxLayout(emptyViewport_);
     layout->setContentsMargins(20, 20, 20, 20);
     auto *viewTools = new QHBoxLayout;
-    auto *viewTitle = new QLabel(QStringLiteral("三维结果视口"), emptyViewport_);
+    auto *viewTitle = new QLabel(QStringLiteral("\u4e09\u7ef4\u7ed3\u679c\u89c6\u53e3"), emptyViewport_);
     viewTitle->setStyleSheet(QStringLiteral("font-weight: bold; color: #e8f0f8;"));
     viewTools->addWidget(viewTitle);
     viewTools->addStretch();
-    for (const QString &text : {QStringLiteral("正视"), QStringLiteral("俯视"), QStringLiteral("侧视"), QStringLiteral("重置")}) {
+    for (const QString &text : {QStringLiteral("\u6b63\u89c6"), QStringLiteral("\u4fef\u89c6"), QStringLiteral("\u4fa7\u89c6"), QStringLiteral("\u91cd\u7f6e")}) {
         auto *button = new QPushButton(text, emptyViewport_);
         button->setObjectName(QStringLiteral("viewportControl"));
         viewTools->addWidget(button);
         connect(button, &QPushButton::clicked, this, [this, text] {
-            const QString orientation = text == QStringLiteral("正视") ? QStringLiteral("front")
-                : text == QStringLiteral("俯视") ? QStringLiteral("top")
-                : text == QStringLiteral("侧视") ? QStringLiteral("side") : QStringLiteral("reset");
+            const QString orientation = text == QStringLiteral("\u6b63\u89c6") ? QStringLiteral("front")
+                : text == QStringLiteral("\u4fef\u89c6") ? QStringLiteral("top")
+                : text == QStringLiteral("\u4fa7\u89c6") ? QStringLiteral("side") : QStringLiteral("reset");
             emit viewRequested(orientation);
-            appendMessage(QStringLiteral("%1视图命令已提交。").arg(text));
+            appendMessage(QStringLiteral("%1\u89c6\u56fe\u547d\u4ee4\u5df2\u63d0\u4ea4\u3002").arg(text));
         });
     }
     layout->addLayout(viewTools);
     layout->addStretch();
-    auto *placeholder = new QLabel(QStringLiteral("VTK 三维视口\n\n结果加载后在此显示网格、云图、切面、等值面和流线"), emptyViewport_);
+    auto *placeholder = new QLabel(QStringLiteral("VTK \u4e09\u7ef4\u89c6\u53e3\n\n\u7ed3\u679c\u52a0\u8f7d\u540e\u5728\u6b64\u663e\u793a\u7f51\u683c\u3001\u4e91\u56fe\u3001\u5207\u9762\u3001\u7b49\u503c\u9762\u548c\u6d41\u7ebf"), emptyViewport_);
     placeholder->setObjectName(QStringLiteral("viewportEmptyText"));
     placeholder->setAlignment(Qt::AlignCenter);
     placeholder->setStyleSheet(QStringLiteral("font-size: 18px; color: #c9d6e4;"));
     layout->addWidget(placeholder, 1);
-    auto *overlay = new QLabel(QStringLiteral("X  →     Y  ↑     Z  ⊙"), emptyViewport_);
+    auto *overlay = new QLabel(QStringLiteral("X  \u2192     Y  \u2191     Z  \u2299"), emptyViewport_);
     overlay->setStyleSheet(QStringLiteral("color: #9fb5c9;"));
     layout->addWidget(overlay, 0, Qt::AlignRight);
     emptyViewport_->setStyleSheet(QStringLiteral("background: #182432;"));
@@ -278,46 +278,46 @@ QWidget *PostProcessWorkbenchWindow::createPropertiesPanel()
     auto *panel = new QWidget(this);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
-    layout->addWidget(sectionLabel(QStringLiteral("属性与显示"), panel));
+    layout->addWidget(sectionLabel(QStringLiteral("\u5c5e\u6027\u4e0e\u663e\u793a"), panel));
     propertiesStack_ = new QStackedWidget(panel);
     propertiesStack_->setObjectName(QStringLiteral("postProcessProperties"));
 
-    auto *empty = new QLabel(QStringLiteral("在左侧图层中选择对象\n以编辑其显示与参数。"), propertiesStack_);
+    auto *empty = new QLabel(QStringLiteral("\u5728\u5de6\u4fa7\u56fe\u5c42\u4e2d\u9009\u62e9\u5bf9\u8c61\n\u4ee5\u7f16\u8f91\u5176\u663e\u793a\u4e0e\u53c2\u6570\u3002"), propertiesStack_);
     empty->setAlignment(Qt::AlignCenter);
     empty->setWordWrap(true);
     propertiesStack_->addWidget(empty);
 
     auto *details = new QWidget(propertiesStack_);
     auto *detailsLayout = new QVBoxLayout(details);
-    auto *identity = new QGroupBox(QStringLiteral("对象"), details);
+    auto *identity = new QGroupBox(QStringLiteral("\u5bf9\u8c61"), details);
     auto *identityForm = new QFormLayout(identity);
     selectionName_ = new QLineEdit(identity);
     selectionName_->setReadOnly(true);
-    identityForm->addRow(QStringLiteral("名称"), selectionName_);
-    auto *visible = new QCheckBox(QStringLiteral("在三维视口中显示"), identity);
+    identityForm->addRow(QStringLiteral("\u540d\u79f0"), selectionName_);
+    auto *visible = new QCheckBox(QStringLiteral("\u5728\u4e09\u7ef4\u89c6\u53e3\u4e2d\u663e\u793a"), identity);
     visible->setChecked(true);
     identityForm->addRow(visible);
     detailsLayout->addWidget(identity);
 
-    auto *display = new QGroupBox(QStringLiteral("显示"), details);
+    auto *display = new QGroupBox(QStringLiteral("\u663e\u793a"), details);
     auto *displayForm = new QFormLayout(display);
     auto *field = new QComboBox(display);
-    field->addItems({QStringLiteral("未选择字段"), QStringLiteral("压力"), QStringLiteral("速度模"), QStringLiteral("温度")});
+    field->addItems({QStringLiteral("\u672a\u9009\u62e9\u5b57\u6bb5"), QStringLiteral("\u538b\u529b"), QStringLiteral("\u901f\u5ea6\u6a21"), QStringLiteral("\u6e29\u5ea6")});
     auto *style = new QComboBox(display);
-    style->addItems({QStringLiteral("云图"), QStringLiteral("网格线"), QStringLiteral("表面"), QStringLiteral("边线"), QStringLiteral("矢量")});
+    style->addItems({QStringLiteral("\u4e91\u56fe"), QStringLiteral("\u7f51\u683c\u7ebf"), QStringLiteral("\u8868\u9762"), QStringLiteral("\u8fb9\u7ebf"), QStringLiteral("\u77e2\u91cf")});
     auto *opacity = new QSlider(Qt::Horizontal, display);
     opacity->setRange(0, 100);
     opacity->setValue(100);
-    displayForm->addRow(QStringLiteral("字段"), field);
-    displayForm->addRow(QStringLiteral("显示方式"), style);
-    displayForm->addRow(QStringLiteral("不透明度"), opacity);
+    displayForm->addRow(QStringLiteral("\u5b57\u6bb5"), field);
+    displayForm->addRow(QStringLiteral("\u663e\u793a\u65b9\u5f0f"), style);
+    displayForm->addRow(QStringLiteral("\u4e0d\u900f\u660e\u5ea6"), opacity);
     detailsLayout->addWidget(display);
 
-    auto *parameters = new QGroupBox(QStringLiteral("特征参数"), details);
+    auto *parameters = new QGroupBox(QStringLiteral("\u7279\u5f81\u53c2\u6570"), details);
     auto *parameterForm = new QFormLayout(parameters);
-    auto *value = new QLineEdit(QStringLiteral("待选择对象"), parameters);
+    auto *value = new QLineEdit(QStringLiteral("\u5f85\u9009\u62e9\u5bf9\u8c61"), parameters);
     value->setReadOnly(true);
-    parameterForm->addRow(QStringLiteral("切面 / 等值值"), value);
+    parameterForm->addRow(QStringLiteral("\u5207\u9762 / \u7b49\u503c\u503c"), value);
     detailsLayout->addWidget(parameters);
     detailsLayout->addStretch();
     propertiesStack_->addWidget(details);
@@ -331,19 +331,19 @@ QWidget *PostProcessWorkbenchWindow::createTimeline()
     frame->setObjectName(QStringLiteral("postProcessTimeline"));
     auto *layout = new QHBoxLayout(frame);
     layout->setContentsMargins(8, 5, 8, 5);
-    layout->addWidget(new QLabel(QStringLiteral("时间序列"), frame));
-    for (const QString &text : {QStringLiteral("|◀"), QStringLiteral("◀"), QStringLiteral("▶"), QStringLiteral("▶|")}) {
+    layout->addWidget(new QLabel(QStringLiteral("\u65f6\u95f4\u5e8f\u5217"), frame));
+    for (const QString &text : {QStringLiteral("|\u25c0"), QStringLiteral("\u25c0"), QStringLiteral("\u25b6"), QStringLiteral("\u25b6|")}) {
         auto *button = new QPushButton(text, frame);
         button->setFixedWidth(36);
         layout->addWidget(button);
-        connect(button, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("时间帧切换请求已记录。")); });
+        connect(button, &QPushButton::clicked, this, [this] { appendMessage(QStringLiteral("\u65f6\u95f4\u5e27\u5207\u6362\u8bf7\u6c42\u5df2\u8bb0\u5f55\u3002")); });
     }
     timeSlider_ = new QSlider(Qt::Horizontal, frame);
     timeSlider_->setObjectName(QStringLiteral("postProcessTimeSlider"));
     timeSlider_->setRange(0, 0);
     timeSlider_->setEnabled(false);
     layout->addWidget(timeSlider_, 1);
-    timeLabel_ = new QLabel(QStringLiteral("未加载时序结果"), frame);
+    timeLabel_ = new QLabel(QStringLiteral("\u672a\u52a0\u8f7d\u65f6\u5e8f\u7ed3\u679c"), frame);
     layout->addWidget(timeLabel_);
     return frame;
 }
