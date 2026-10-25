@@ -79,6 +79,9 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     content->setStretchFactor(0, 0);
     content->setStretchFactor(1, 1);
     content->setStretchFactor(2, 0);
+    content->setChildrenCollapsible(false);
+    content->setCollapsible(0, false);
+    content->setCollapsible(2, false);
     content->setSizes({260, 850, 300});
     rootLayout->addWidget(content, 1);
     rootLayout->addWidget(createTimeline());
