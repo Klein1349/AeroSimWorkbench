@@ -7,8 +7,8 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     aerosim::PostProcessWorkbenchWindow window;
-    if (!window.findChild<QWidget *>(QStringLiteral("postProcessDataTree")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessSceneTree")) ||
+    if (!window.findChild<QWidget *>(QStringLiteral("dataCategories")) ||
+        !window.findChild<QWidget *>(QStringLiteral("sceneLayerList")) ||
         !window.findChild<QWidget *>(QStringLiteral("postProcessTimeSlider")))
         return 1;
 
