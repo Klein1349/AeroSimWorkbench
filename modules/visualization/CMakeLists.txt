@@ -10,11 +10,13 @@ endif()
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core)
 option(AEROSIM_BUILD_VISUALIZATION_FEATURES
        "Build VTK-backed spatial feature algorithms" ON)
+option(AEROSIM_BUILD_VISUALIZATION_SCENE
+       "Build the Qt/VTK scene viewer" OFF)
 
 if(AEROSIM_BUILD_VISUALIZATION_FEATURES)
     find_package(VTK 8.2.0 EXACT REQUIRED COMPONENTS
         vtkCommonCore vtkCommonDataModel vtkFiltersCore vtkFiltersGeneral
-        vtkFiltersGeometry vtkIOXML vtkIOLegacy)
+        vtkFiltersGeometry vtkFiltersSources vtkIOXML vtkIOLegacy)
     find_package(Threads REQUIRED)
 
     add_library(aerosim_spatial_features STATIC
@@ -33,6 +35,29 @@ if(AEROSIM_BUILD_VISUALIZATION_FEATURES)
         # Target machine only has VTK Debug. Never accidentally link its CRT to Release.
         target_compile_definitions(aerosim_spatial_features PRIVATE
             "$<$<NOT:$<CONFIG:Debug>>:AEROSIM_FEATURES_REQUIRES_DEBUG>")
+    endif()
+endif()
+
+if(AEROSIM_BUILD_VISUALIZATION_SCENE)
+    find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Widgets)
+    find_package(VTK 8.2.0 EXACT REQUIRED COMPONENTS
+        vtkRenderingCore vtkRenderingOpenGL2 vtkInteractionStyle vtkGUISupportQt)
+
+    add_library(aerosim_visualization_scene STATIC
+        src/scene/VtkSceneViewer.cpp
+        include/aerosim/visualization/scene/VtkSceneViewer.h)
+    add_library(aerosim::visualization_scene ALIAS aerosim_visualization_scene)
+    target_include_directories(aerosim_visualization_scene
+        PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    target_include_directories(aerosim_visualization_scene SYSTEM PUBLIC ${VTK_INCLUDE_DIRS})
+    target_link_libraries(aerosim_visualization_scene
+        PUBLIC Qt5::Widgets ${VTK_LIBRARIES})
+    set_target_properties(aerosim_visualization_scene PROPERTIES
+        CXX_STANDARD 14 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+    if(MSVC)
+        target_compile_options(aerosim_visualization_scene PRIVATE /utf-8)
+        target_compile_definitions(aerosim_visualization_scene PRIVATE
+            "$<$<NOT:$<CONFIG:Debug>>:AEROSIM_SCENE_REQUIRES_DEBUG>")
     endif()
 endif()
 

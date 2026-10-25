@@ -18,7 +18,7 @@ modules/ui/ 主窗口与后处理工作区
 app/ 应用装配 -> 各服务及 IWidgetHost；CLI 只依赖 Core 服务
 ```
 
-模块按数据读取/规范化与数据集/帧索引、空间特征、统一场景入口、非 UI 多工况分析、后处理工作区拆分。当前已定义 `aerosim_spatial_features`；`aerosim_visualization_data`、`aerosim_visualization_scene`、`aerosim_postprocess_analysis` 是后续统一命名，尚未定义。后处理工作区归 `modules/ui/`，不在 visualization 中创建第二套主窗口。无 VTK 的数据索引、公式元信息不应强制链接 VTK；CLI 不依赖 Widgets。
+模块按数据读取/规范化与数据集/帧索引、空间特征、统一场景入口、非 UI 多工况分析、后处理工作区拆分。当前已定义 `aerosim_spatial_features`、`aerosim_visualization_scene` 的最小 `VtkSceneViewer`，以及 `modules/ui` 的 `PostProcessWorkbenchWindow`；`aerosim_visualization_data`、完整场景服务和 `aerosim_postprocess_analysis` 仍未定义。后处理工作区归 `modules/ui`，不在 visualization 中创建第二套主窗口。无 VTK 的数据索引、公式元信息不应强制链接 VTK；CLI 不依赖 Widgets。
 
 ## 场景及数据所有权草案
 

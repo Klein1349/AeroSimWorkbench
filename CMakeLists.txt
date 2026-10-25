@@ -25,8 +25,17 @@ add_subdirectory(contracts)
 add_subdirectory(mocks/services)
 
 if(AEROSIM_BUILD_GUI)
-    add_subdirectory(mocks/ui)
+    add_subdirectory(modules/ui)
 endif()
+
+if(AEROSIM_BUILD_VISUALIZATION)
+    if(NOT DEFINED AEROSIM_BUILD_VISUALIZATION_SCENE)
+        set(AEROSIM_BUILD_VISUALIZATION_SCENE ${AEROSIM_BUILD_GUI} CACHE BOOL
+            "Build the Qt/VTK scene viewer")
+    endif()
+    add_subdirectory(modules/visualization)
+endif()
+
 add_subdirectory(app)
 
 if(AEROSIM_BUILD_TESTS)
@@ -35,6 +44,8 @@ if(AEROSIM_BUILD_TESTS)
     if(AEROSIM_BUILD_GUI)
         add_test(NAME gui_mock_smoke COMMAND aerosim_gui --smoke)
         set_tests_properties(gui_mock_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        add_test(NAME postprocess_ui_smoke COMMAND aerosim_postprocess_ui_smoke)
+        set_tests_properties(postprocess_ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endif()
     add_test(NAME postprocess_fixture_check
         COMMAND "${CMAKE_COMMAND}"
@@ -44,10 +55,6 @@ endif()
 
 if(AEROSIM_BUILD_STACK_PROBE)
     add_subdirectory(cmake/stack_probe)
-endif()
-
-if(AEROSIM_BUILD_VISUALIZATION)
-    add_subdirectory(modules/visualization)
 endif()
 
 # Other modules add their own targets and dependencies under modules/ when delivered.
