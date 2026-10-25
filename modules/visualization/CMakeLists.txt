@@ -16,7 +16,7 @@ option(AEROSIM_BUILD_VISUALIZATION_SCENE
 if(AEROSIM_BUILD_VISUALIZATION_FEATURES)
     find_package(VTK 8.2.0 EXACT REQUIRED COMPONENTS
         vtkCommonCore vtkCommonDataModel vtkFiltersCore vtkFiltersGeneral
-        vtkFiltersGeometry vtkFiltersSources vtkIOXML vtkIOLegacy)
+        vtkFiltersGeometry vtkIOXML vtkIOLegacy)
     find_package(Threads REQUIRED)
 
     add_library(aerosim_spatial_features STATIC

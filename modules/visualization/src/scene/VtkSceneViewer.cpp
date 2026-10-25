@@ -3,13 +3,8 @@
 #include <QVBoxLayout>
 
 #include <QVTKOpenGLNativeWidget.h>
-#include <vtkActor.h>
 #include <vtkCamera.h>
-#include <vtkCubeSource.h>
 #include <vtkGenericOpenGLRenderWindow.h>
-#include <vtkNew.h>
-#include <vtkPolyDataMapper.h>
-#include <vtkProperty.h>
 #include <vtkRenderer.h>
 
 namespace aerosim {
@@ -31,22 +26,6 @@ VtkSceneViewer::VtkSceneViewer(QWidget *parent) : QWidget(parent)
     renderWindow_->AddRenderer(renderer_);
     widget_->SetRenderWindow(renderWindow_);
 
-    // This neutral primitive is only a Viewer readiness cue. It is not a
-    // dataset or a replacement for the visualization data/scene service.
-    vtkNew<vtkCubeSource> cube;
-    cube->SetXLength(1.8);
-    cube->SetYLength(0.8);
-    cube->SetZLength(0.35);
-    vtkNew<vtkPolyDataMapper> mapper;
-    mapper->SetInputConnection(cube->GetOutputPort());
-    vtkNew<vtkActor> actor;
-    actor->SetMapper(mapper);
-    actor->GetProperty()->SetColor(0.25, 0.58, 0.85);
-    actor->GetProperty()->SetOpacity(0.85);
-    actor->GetProperty()->SetEdgeVisibility(true);
-    actor->GetProperty()->SetEdgeColor(0.85, 0.92, 1.0);
-    renderer_->AddActor(actor);
-    renderer_->ResetCamera();
 }
 
 VtkSceneViewer::~VtkSceneViewer() = default;
