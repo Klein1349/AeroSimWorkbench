@@ -57,7 +57,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
 {
     setObjectName(uiText(u"postProcessWorkbench"));
     setWindowTitle(uiText(u"AeroSimWorkbench - \u540e\u5904\u7406\u5de5\u4f5c\u53f0"));
-    resize(1440, 900);
+    resize(1200, 760);
     setMinimumSize(1120, 680);
     createActions();
 
