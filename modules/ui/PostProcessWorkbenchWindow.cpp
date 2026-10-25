@@ -69,6 +69,8 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     content->setObjectName(uiText(u"postProcessContent"));
     auto *leftTabs = new QTabWidget(content);
     leftTabs->setObjectName(uiText(u"postProcessNavigator"));
+    leftTabs->setMinimumWidth(260);
+    leftTabs->setMaximumWidth(340);
     leftTabs->addTab(createDataPanel(), uiText(u"\u6570\u636e"));
     leftTabs->addTab(createScenePanel(), uiText(u"\u573a\u666f"));
     content->addWidget(leftTabs);
@@ -282,6 +284,8 @@ QWidget *PostProcessWorkbenchWindow::createViewportPanel()
 QWidget *PostProcessWorkbenchWindow::createPropertiesPanel()
 {
     auto *panel = new QWidget(this);
+    panel->setMinimumWidth(280);
+    panel->setMaximumWidth(360);
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
     layout->addWidget(sectionLabel(uiText(u"\u5c5e\u6027\u4e0e\u663e\u793a"), panel));
