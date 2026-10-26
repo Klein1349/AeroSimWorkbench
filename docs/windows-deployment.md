@@ -17,6 +17,6 @@ F:\AeroSimWorkbench\dist\aerosim_cli.exe --mock-once
 
 `dist\aerosim_gui.exe` 可在已登录的 Windows 桌面直接启动。当前目标机还注册了手动触发的交互式计划任务 `AeroSimWorkbench-CPP-GUI`，可运行 `schtasks /run /tn AeroSimWorkbench-CPP-GUI` 再次打开窗口。该任务不会在开机时自动运行。打包目录 `dist` 不纳入 Git；修改源码后需重新构建、复制 EXE，并再次运行 `windeployqt`。
 
-本部署包仅包含 Qt GUI/CLI 骨架。后处理工作区与 VTKViewer 尚未接入，不能从当前窗口启动后处理；正式后处理模块需要 C++/Qt 5.12.12/VTK 8.2.0 的匹配构建及单独验证。
+本 Release 部署包包含 Qt 后处理工作台，但未启用 VTK 时中央区域是明确标记的视口占位画布。启用实际 `VtkSceneViewer` 需改用 Qt 5.12.12 / VTK 8.2.0 的匹配 **Debug** 构建，并设置 `AEROSIM_BUILD_VISUALIZATION=ON` 和 VTK 路径；结果读取、场景对象管理及正式后处理服务仍需单独验证。
 
 命令行输出中的 `MOCK` 表明只是消息闭环演示，不会运行真实求解器。若在另一台 Windows 主机复制 `dist`，仍需满足相应的 Microsoft Visual C++ 运行库要求。

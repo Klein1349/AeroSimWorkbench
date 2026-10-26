@@ -12,11 +12,15 @@ cmake_args=(
     "-DCMAKE_BUILD_TYPE=${configuration}"
     "-DCMAKE_PREFIX_PATH=${AEROSIM_QT_ROOT}"
     "-DAEROSIM_BUILD_GUI=${AEROSIM_BUILD_GUI:-ON}"
+    "-DAEROSIM_BUILD_VISUALIZATION=${AEROSIM_BUILD_VISUALIZATION:-OFF}"
     "-DAEROSIM_BUILD_STACK_PROBE=${AEROSIM_BUILD_STACK_PROBE:-OFF}"
 )
+if [[ "${AEROSIM_BUILD_STACK_PROBE:-OFF}" == ON || "${AEROSIM_BUILD_VISUALIZATION:-OFF}" == ON ]]; then
+    : "${AEROSIM_VTK_DIR:?Set AEROSIM_VTK_DIR to the VTK 8.2.0 CMake package directory}"
+    cmake_args+=("-DVTK_DIR=${AEROSIM_VTK_DIR}")
+fi
 if [[ "${AEROSIM_BUILD_STACK_PROBE:-OFF}" == ON ]]; then
-    cmake_args+=("-DVTK_DIR=${AEROSIM_VTK_DIR:-}"
-                 "-DSARIBBON_SOURCE_DIR=${AEROSIM_SARIBBON_SOURCE_DIR:-}")
+    cmake_args+=("-DSARIBBON_SOURCE_DIR=${AEROSIM_SARIBBON_SOURCE_DIR:-}")
 fi
 cmake -S "${repo_root}" -B "${build_dir}" "${cmake_args[@]}"
 

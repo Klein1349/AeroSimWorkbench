@@ -10,6 +10,10 @@ set_target_properties(aerosim_cli PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_B
 if(AEROSIM_BUILD_GUI)
     add_executable(aerosim_gui gui_main.cpp)
     target_link_libraries(aerosim_gui PRIVATE
-        aerosim_application aerosim_mock aerosim_ui_mock Qt5::Widgets)
+        aerosim_application aerosim_mock aerosim_ui Qt5::Widgets)
+    if(AEROSIM_BUILD_VISUALIZATION AND AEROSIM_BUILD_VISUALIZATION_SCENE)
+        target_link_libraries(aerosim_gui PRIVATE aerosim_visualization_scene)
+        target_compile_definitions(aerosim_gui PRIVATE AEROSIM_HAS_VTK_VIEWER=1)
+    endif()
     set_target_properties(aerosim_gui PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 endif()

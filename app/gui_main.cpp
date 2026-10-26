@@ -1,10 +1,16 @@
 #include "ApplicationController.h"
 #include "MockTaskService.h"
 #include "MockWorkflowService.h"
-#include "MockWindow.h"
+#include "aerosim/ui/PostProcessWorkbenchWindow.h"
+
+#ifdef AEROSIM_HAS_VTK_VIEWER
+#include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include <QSurfaceFormat>
+#include <QVTKOpenGLNativeWidget.h>
+#endif
 
 #include <QApplication>
-#include <QLabel>
+#include <QProcessEnvironment>
 #include <QTextStream>
 #include <QTimer>
 
@@ -12,6 +18,9 @@
 
 int main(int argc, char *argv[])
 {
+#ifdef AEROSIM_HAS_VTK_VIEWER
+    QSurfaceFormat::setDefaultFormat(QVTKOpenGLNativeWidget::defaultFormat());
+#endif
     QApplication app(argc, argv);
     aerosim::ApplicationController controller(
         std::unique_ptr<aerosim::IWorkflowService>(new aerosim::MockWorkflowService),
@@ -21,18 +30,32 @@ int main(int argc, char *argv[])
         return 3;
     }
 
-    aerosim::MockWindow window;
+    const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
+    aerosim::PostProcessWorkbenchWindow window;
     window.bindServices({controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr});
-    auto *placeholder = new QLabel(QStringLiteral("VTK viewport placeholder\nFormal C++ viewer will replace this"));
-    placeholder->setAlignment(Qt::AlignCenter);
-    if (!window.insertWidget(aerosim::WidgetSlot::Viewport, placeholder)) {
-        delete placeholder;
-        QTextStream(stderr) << "Failed to insert placeholder viewport\n";
-        return 4;
+#ifdef AEROSIM_HAS_VTK_VIEWER
+    // The workbench remains usable without a native OpenGL surface.  This is
+    // also the safe default on remote desktop sessions where VTK's native
+    // widget may not be backed by the expected graphics driver.
+    const bool enableVtkViewer = qEnvironmentVariableIntValue("AEROSIM_ENABLE_VTK_VIEWER") == 1;
+    if (!smoke && enableVtkViewer) {
+        auto *viewer = new aerosim::visualization::VtkSceneViewer;
+        if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
+            delete viewer;
+            QTextStream(stderr) << "Failed to insert VTK viewer\n";
+            return 4;
+        }
+        QObject::connect(&window, &aerosim::PostProcessWorkbenchWindow::viewRequested, viewer,
+                         [viewer](const QString &orientation) {
+            if (orientation == QStringLiteral("reset"))
+                viewer->resetCamera();
+            else
+                viewer->setCameraOrientation(orientation);
+        });
     }
+#endif
     window.show();
 
-    const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
     bool smokePassed = false;
     if (smoke) {
         QObject::connect(controller.tasks(), &aerosim::ITaskService::taskEventOccurred, &app,

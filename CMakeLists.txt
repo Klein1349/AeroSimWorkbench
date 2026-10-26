@@ -13,6 +13,8 @@ option(AEROSIM_BUILD_GUI "Build the temporary Qt Widgets GUI shell" ON)
 option(AEROSIM_BUILD_TESTS "Build and register skeleton smoke tests" ON)
 
 option(AEROSIM_BUILD_STACK_PROBE "Build the optional Qt/VTK/SARibbon compatibility probe" OFF)
+# Owns optional VTK-backed post-processing targets under modules/visualization.
+option(AEROSIM_BUILD_VISUALIZATION "Build optional visualization/post-processing modules" OFF)
 
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core)
 if(AEROSIM_BUILD_GUI)
@@ -23,8 +25,17 @@ add_subdirectory(contracts)
 add_subdirectory(mocks/services)
 
 if(AEROSIM_BUILD_GUI)
-    add_subdirectory(mocks/ui)
+    add_subdirectory(modules/ui)
 endif()
+
+if(AEROSIM_BUILD_VISUALIZATION)
+    if(NOT DEFINED AEROSIM_BUILD_VISUALIZATION_SCENE)
+        set(AEROSIM_BUILD_VISUALIZATION_SCENE ${AEROSIM_BUILD_GUI} CACHE BOOL
+            "Build the Qt/VTK scene viewer")
+    endif()
+    add_subdirectory(modules/visualization)
+endif()
+
 add_subdirectory(app)
 
 if(AEROSIM_BUILD_TESTS)
@@ -33,6 +44,8 @@ if(AEROSIM_BUILD_TESTS)
     if(AEROSIM_BUILD_GUI)
         add_test(NAME gui_mock_smoke COMMAND aerosim_gui --smoke)
         set_tests_properties(gui_mock_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        add_test(NAME postprocess_ui_smoke COMMAND aerosim_postprocess_ui_smoke)
+        set_tests_properties(postprocess_ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endif()
     add_test(NAME postprocess_fixture_check
         COMMAND "${CMAKE_COMMAND}"
@@ -44,5 +57,4 @@ if(AEROSIM_BUILD_STACK_PROBE)
     add_subdirectory(cmake/stack_probe)
 endif()
 
-# B-G modules add their own targets and dependencies under modules/ when delivered.
-# VTK 8.2 and SARibbon are intentionally not linked by this A-owned placeholder.
+# Other modules add their own targets and dependencies under modules/ when delivered.
