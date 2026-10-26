@@ -56,6 +56,7 @@ private:
     QSlider *timeSlider_ = nullptr;
     QLabel *timeLabel_ = nullptr;
     QLabel *sessionContext_ = nullptr;
+    QLabel *availabilityHint_ = nullptr;
     QLabel *viewportTitle_ = nullptr;
     QLabel *viewportHint_ = nullptr;
     QLabel *propertyContextTitle_ = nullptr;

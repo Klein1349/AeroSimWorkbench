@@ -7,6 +7,7 @@
 #include <QDockWidget>
 #include <QFormLayout>
 #include <QFrame>
+#include <QFont>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -40,7 +41,8 @@ QToolButton *addToolButton(QToolBar *toolbar, const QString &text, const QString
     auto *button = new QToolButton(toolbar);
     button->setText(text);
     button->setToolTip(toolTip);
-    button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    button->setProperty("availableToolTip", toolTip);
+    button->setToolButtonStyle(Qt::ToolButtonTextOnly);
     toolbar->addWidget(button);
     return button;
 }
@@ -60,6 +62,9 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     setWindowTitle(uiText(u"AeroSimWorkbench - \u540e\u5904\u7406\u5de5\u4f5c\u53f0"));
     resize(1200, 760);
     setMinimumSize(1120, 680);
+    QFont workbenchFont(uiText(u"Microsoft YaHei UI"));
+    workbenchFont.setPointSize(10);
+    setFont(workbenchFont);
     createActions();
 
     auto *workbench = new QWidget(this);
@@ -100,12 +105,19 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     addDockWidget(Qt::BottomDockWidgetArea, messageDock);
     messageDock->hide();
 
-    statusBar()->showMessage(uiText(u"\u540e\u5904\u7406\u5de5\u4f5c\u53f0\u5df2\u5c31\u7eea\uff1a\u7b49\u5f85\u7ed3\u679c\u6570\u636e\u4e0e VTK \u573a\u666f\u670d\u52a1\u63a5\u5165"));
+    statusBar()->showMessage(uiText(u"Mock \u5de5\u4f5c\u53f0\u5df2\u5c31\u7eea\uff1a\u53ef\u4ece\u5de6\u4fa7\u5207\u6362\u5165\u53e3\u573a\u666f\uff0c\u6240\u6709\u64cd\u4f5c\u4ec5\u6f14\u793a UI \u72b6\u6001\u3002"));
     setStyleSheet(uiText(u""
-        "QMainWindow { background: #edf1f5; }"
-        "QToolBar { background: #ffffff; border-bottom: 1px solid #cbd4df; spacing: 8px; padding: 4px; }"
-        "QToolButton { min-width: 52px; min-height: 40px; color: #233246; }"
-        "QToolButton:hover { background: #e4eef9; border-radius: 4px; }"
+        "QMainWindow { background: #edf1f5; color: #223247; }"
+        "QMenuBar { background: #ffffff; border-bottom: 1px solid #d8e0e8; padding: 2px 6px; }"
+        "QMenuBar::item { padding: 5px 10px; border-radius: 4px; }"
+        "QMenuBar::item:selected, QMenu::item:selected { background: #e4eef9; color: #0b5ca8; }"
+        "QMenu { background: #ffffff; border: 1px solid #cbd4df; padding: 4px; }"
+        "QMenu::item { padding: 7px 28px 7px 12px; }"
+        "QToolBar { background: #ffffff; border-bottom: 1px solid #cbd4df; spacing: 6px; padding: 6px 8px; }"
+        "QToolButton { min-width: 62px; min-height: 30px; color: #233246; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; font-weight: 600; }"
+        "QToolButton:hover { background: #e4eef9; border-color: #bed2e7; }"
+        "QToolButton:pressed { background: #cfe2f5; }"
+        "QToolButton:disabled { color: #9aa8b5; background: #f3f5f7; }"
         "QTabWidget::pane, QFrame#viewportFrame, QGroupBox { background: #ffffff; border: 1px solid #cbd4df; }"
         "QTabBar::tab { padding: 8px 18px; background: #e6ebf1; }"
         "QTabBar::tab:selected { background: #ffffff; color: #0b5ca8; }"
@@ -113,13 +125,22 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
         "QListWidget::item { min-height: 34px; padding: 5px 8px; border-bottom: 1px solid #edf1f5; }"
         "QListWidget::item:selected { background: #e4eef9; color: #0b5ca8; }"
         "QFrame#dataCard { background: #f5f8fc; border: 1px solid #d9e3ee; border-radius: 5px; }"
+        "QFrame#postProcessTimeline { background: #ffffff; border: 1px solid #cbd4df; border-radius: 4px; }"
+        "QComboBox, QLineEdit { min-height: 27px; border: 1px solid #c4d0dc; border-radius: 4px; padding: 2px 7px; background: #ffffff; }"
+        "QComboBox:hover, QLineEdit:hover { border-color: #73a6d3; }"
+        "QPushButton { min-height: 28px; border: 1px solid #c4d0dc; border-radius: 4px; background: #ffffff; padding: 3px 9px; }"
+        "QPushButton:hover { background: #e4eef9; border-color: #73a6d3; }"
+        "QPushButton:disabled { color: #9aa8b5; background: #f3f5f7; border-color: #e2e7ec; }"
         "QPushButton#primaryAction { background: #0b69b7; color: white; border: 0; border-radius: 4px; padding: 5px 10px; }"
+        "QPushButton#primaryAction:hover { background: #095997; }"
         "QLabel#mutedText { color: #6e7f91; font-size: 12px; }"
+        "QLabel#availabilityHint { color: #426481; background: #eef5fb; border: 1px solid #d5e4f1; border-radius: 4px; padding: 6px 7px; font-size: 12px; }"
         "QLabel#sectionTitle { color: #31445d; font-weight: bold; padding: 5px 2px; }"
         "QGroupBox { margin-top: 12px; padding: 8px; font-weight: bold; }"
         "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }"
         "QTextEdit { background: #182432; color: #cfe2f5; border: 0; }"));
-    activateMockEntry(0);
+    mockEntrySelector_->setCurrentIndex(1);
+    activateMockEntry(1);
 }
 
 void PostProcessWorkbenchWindow::createActions()
@@ -161,12 +182,23 @@ void PostProcessWorkbenchWindow::createActions()
         emit postProcessCommandRequested(name);
         appendMessage(message);
     };
+    auto createMockLayer = [this, command](const QString &commandName, const QString &layerName,
+                                            const QString &message) {
+        command(commandName, message);
+        if (!sceneList_)
+            return;
+        sceneList_->addItem(layerName);
+        sceneList_->setCurrentRow(sceneList_->count() - 1);
+    };
     connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"\u5bfc\u5165\u7ed3\u679c\u8bf7\u6c42\u5df2\u63d0\u4ea4\uff1b\u8bfb\u53d6\u670d\u52a1\u63a5\u5165\u540e\u5c06\u5728\u5de5\u4f5c\u7ebf\u7a0b\u52a0\u8f7d\u3002")); });
     connect(exportAction, &QAction::triggered, this, [command] { command(uiText(u"exportObject"), uiText(u"\u5bfc\u51fa\u8bf7\u6c42\u5df2\u63d0\u4ea4\uff1b\u7b49\u5f85\u9009\u4e2d\u7684\u573a\u666f\u5bf9\u8c61\u3002")); });
     connect(fitAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"reset")); appendMessage(uiText(u"\u89c6\u56fe\u5df2\u91cd\u7f6e\u3002")); });
-    connect(sliceAction, &QAction::triggered, this, [command] { command(uiText(u"createSlice"), uiText(u"\u521b\u5efa\u5207\u9762\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
-    connect(isoAction, &QAction::triggered, this, [command] { command(uiText(u"createIsoSurface"), uiText(u"\u521b\u5efa\u7b49\u503c\u9762\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
-    connect(streamAction, &QAction::triggered, this, [command] { command(uiText(u"createStreamline"), uiText(u"\u521b\u5efa\u6d41\u7ebf\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    auto createSlice = [createMockLayer] { createMockLayer(uiText(u"createSlice"), uiText(u"╱  切面 #1       Mock 已创建"), uiText(u"已创建切面 #1；右侧可继续编辑切面参数。")); };
+    auto createIso = [createMockLayer] { createMockLayer(uiText(u"createIsoSurface"), uiText(u"◇  等值面 #1     Mock 已创建"), uiText(u"已创建等值面 #1；右侧可继续编辑等值值。")); };
+    auto createStream = [createMockLayer] { createMockLayer(uiText(u"createStreamline"), uiText(u"≈  流线 #1       Mock 已创建"), uiText(u"已创建流线 #1；右侧可继续编辑种子与积分参数。")); };
+    connect(sliceAction, &QAction::triggered, this, createSlice);
+    connect(isoAction, &QAction::triggered, this, createIso);
+    connect(streamAction, &QAction::triggered, this, createStream);
     connect(curveAction, &QAction::triggered, this, [command] { command(uiText(u"openCurveAnalysis"), uiText(u"\u66f2\u7ebf\u5206\u6790\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
     auto openDeepSeekHarness = [this] {
         if (!deepSeekHarnessDock_) {
@@ -212,10 +244,10 @@ void PostProcessWorkbenchWindow::createActions()
     connect(deepSeekAction, &QAction::triggered, this, openDeepSeekHarness);
     connect(importButton, &QToolButton::clicked, importAction, &QAction::trigger);
     connect(meshButton, &QToolButton::clicked, this, [command] { command(uiText(u"toggleMesh"), uiText(u"\u7f51\u683c\u663e\u793a\u5c42\u5207\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
-    connect(contourButton, &QToolButton::clicked, this, [command] { command(uiText(u"toggleContour"), uiText(u"\u4e91\u56fe\u663e\u793a\u5c42\u5207\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
-    connect(sliceButton, &QToolButton::clicked, sliceAction, &QAction::trigger);
-    connect(isoButton, &QToolButton::clicked, isoAction, &QAction::trigger);
-    connect(streamButton, &QToolButton::clicked, streamAction, &QAction::trigger);
+    connect(contourButton, &QToolButton::clicked, this, [createMockLayer] { createMockLayer(uiText(u"toggleContour"), uiText(u"◉  Pressure 云图  Mock 已创建"), uiText(u"已创建 Pressure 云图；右侧可切换字段与显示样式。")); });
+    connect(sliceButton, &QToolButton::clicked, this, createSlice);
+    connect(isoButton, &QToolButton::clicked, this, createIso);
+    connect(streamButton, &QToolButton::clicked, this, createStream);
     connect(fitButton, &QToolButton::clicked, fitAction, &QAction::trigger);
     connect(exportButton, &QToolButton::clicked, exportAction, &QAction::trigger);
     connect(deepSeekButton, &QToolButton::clicked, this, openDeepSeekHarness);
@@ -256,6 +288,10 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
         uiText(u"\u65f6\u5e8f\u7ed3\u679c\u96c6"), uiText(u"\u65f6\u95f4\u5e27 t = 1.0 s"),
         uiText(u"\u6536\u655b / \u76d1\u63a7\u8bb0\u5f55")});
     layout->addWidget(mockEntrySelector_);
+    availabilityHint_ = new QLabel(panel);
+    availabilityHint_->setObjectName(uiText(u"availabilityHint"));
+    availabilityHint_->setWordWrap(true);
+    layout->addWidget(availabilityHint_);
     sessionOutline_ = new QListWidget(panel);
     sessionOutline_->setObjectName(uiText(u"postProcessSessionOutline"));
     sessionOutline_->setSelectionMode(QAbstractItemView::NoSelection);
@@ -447,8 +483,13 @@ void PostProcessWorkbenchWindow::setFeatureButtonsEnabled(bool mesh, bool contou
                                                           bool iso, bool streamline)
 {
     const bool states[] = {mesh, contour, slice, iso, streamline};
-    for (int i = 0; i < featureButtons_.size() && i < 5; ++i)
-        featureButtons_.at(i)->setEnabled(states[i]);
+    for (int i = 0; i < featureButtons_.size() && i < 5; ++i) {
+        auto *button = featureButtons_.at(i);
+        button->setEnabled(states[i]);
+        const QString normalTip = button->property("availableToolTip").toString();
+        button->setToolTip(states[i] ? normalTip
+            : uiText(u"当前 Mock 入口不支持此操作；切换为结果集、字段或时序入口后可使用。"));
+    }
 }
 
 void PostProcessWorkbenchWindow::activateMockEntry(int index)
@@ -564,6 +605,18 @@ void PostProcessWorkbenchWindow::activateMockEntry(int index)
         timeLabel_->setText(index == 7 ? uiText(u"t = 1.0 s") : uiText(u"Frame 0 / t = 0.0 s"));
     }
     setFeatureButtonsEnabled(mesh, contour, slice, iso, streamline);
+    if (availabilityHint_) {
+        QStringList enabledFeatures;
+        if (mesh) enabledFeatures << uiText(u"网格");
+        if (contour) enabledFeatures << uiText(u"云图");
+        if (slice) enabledFeatures << uiText(u"切面");
+        if (iso) enabledFeatures << uiText(u"等值面");
+        if (streamline) enabledFeatures << uiText(u"流线");
+        availabilityHint_->setText(enabledFeatures.isEmpty()
+            ? uiText(u"当前入口没有可执行的空间后处理功能。请切换到结果集、边界或时序入口。")
+            : uiText(u"当前入口可用：%1。点击工具栏后会在“场景”页新增 Mock 图层。")
+                  .arg(enabledFeatures.join(uiText(u" · "))));
+    }
 }
 
 bool PostProcessWorkbenchWindow::insertWidget(WidgetSlot slot, QWidget *widget)

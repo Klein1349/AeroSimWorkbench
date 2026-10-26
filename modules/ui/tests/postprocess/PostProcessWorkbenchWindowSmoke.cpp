@@ -3,6 +3,8 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QLabel>
+#include <QListWidget>
+#include <QToolButton>
 
 int main(int argc, char *argv[])
 {
@@ -15,8 +17,14 @@ int main(int argc, char *argv[])
         return 1;
 
     auto *entry = window.findChild<QComboBox *>(QStringLiteral("postProcessMockEntry"));
-    if (!entry || entry->count() != 9)
+    auto *layers = window.findChild<QListWidget *>(QStringLiteral("sceneLayerList"));
+    auto *contour = window.findChild<QToolButton *>(QStringLiteral("postProcessContourButton"));
+    if (!entry || entry->count() != 9 || entry->currentIndex() != 1 || !layers || !contour)
         return 4;
+    const int layerCount = layers->count();
+    contour->click();
+    if (layers->count() != layerCount + 1)
+        return 7;
     entry->setCurrentIndex(6);
     if (window.findChild<QWidget *>(QStringLiteral("postProcessTimeline"))->isHidden())
         return 5;
