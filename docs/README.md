@@ -36,4 +36,4 @@
 | [第一阶段验证记录](phase1-validation.md) | 按日期保存曾执行的构建、CTest 和技术栈探针结果 | 历史记录；已退役原型的结果不代表当前功能 |
 | [Windows 骨架部署](windows-deployment.md) | 不链接 VTK 的 Qt GUI/CLI Release 骨架打包与启动 | 骨架范围有效；不适用于正式 VTK Release 集成 |
 
-当前根 CMake 只接入骨架、Mock、夹具检查和可选技术栈探针；`modules/` 的正式业务目标尚未定义。后处理建议目标名与场景 API 应在接口评审后再写入构建配置。
+当前根 CMake 已接入 `modules/ui` 主窗口、Mock 服务、夹具检查和可选技术栈探针。参见 [UI 模块说明](../modules/ui/README.md) 和 [UI 验证记录](ui-validation.md)。其余正式业务目标尚未定义。后处理建议目标名与场景 API 应在接口评审后再写入构建配置。

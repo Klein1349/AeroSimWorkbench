@@ -1,6 +1,6 @@
 # AeroSimWorkbench 开发约定
 
-本文件适用于仓库内的 Codex 开发任务。按任务选择文档，不必每次通读 `docs/`；文档导航见 `docs/README.md`。当前仓库包含第一阶段 Qt 主工程、公共契约和 Mock；`modules/` 尚无正式业务构建目标。
+本文件适用于仓库内的 Codex 开发任务。按任务选择文档，不必每次通读 `docs/`；文档导航见 `docs/README.md`。当前仓库包含第一阶段 Qt 主工程、公共契约和 Mock；`modules/ui/` 已提供主窗口目标，其余正式业务模块待接入。
 
 ## 架构与模块边界
 

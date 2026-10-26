@@ -26,7 +26,8 @@ if /I "%AEROSIM_BUILD_STACK_PROBE%"=="ON" (
     cmake -S "%ROOT%" -B "%AEROSIM_BUILD_DIR%" -G "Visual Studio 15 2017 Win64" ^
         "-DCMAKE_PREFIX_PATH=%AEROSIM_QT_ROOT%" ^
         "-DAEROSIM_BUILD_GUI=%AEROSIM_BUILD_GUI%" ^
-        "-DAEROSIM_BUILD_STACK_PROBE=OFF"
+        "-DAEROSIM_BUILD_STACK_PROBE=OFF" ^
+        "-DSARIBBON_SOURCE_DIR=%AEROSIM_SARIBBON_SOURCE_DIR%"
 )
 if errorlevel 1 exit /b %errorlevel%
 

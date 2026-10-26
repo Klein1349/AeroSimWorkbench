@@ -1,10 +1,10 @@
 #include "ApplicationController.h"
 #include "MockTaskService.h"
 #include "MockWorkflowService.h"
-#include "MockWindow.h"
+#include "aerosim/ui/MainWindow.h"
 
 #include <QApplication>
-#include <QLabel>
+#include <QPixmap>
 #include <QTextStream>
 #include <QTimer>
 
@@ -21,17 +21,18 @@ int main(int argc, char *argv[])
         return 3;
     }
 
-    aerosim::MockWindow window;
+    aerosim::MainWindow window;
     window.bindServices({controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr});
-    auto *placeholder = new QLabel(QStringLiteral("VTK viewport placeholder\nFormal C++ viewer will replace this"));
-    placeholder->setAlignment(Qt::AlignCenter);
-    if (!window.insertWidget(aerosim::WidgetSlot::Viewport, placeholder)) {
-        delete placeholder;
-        QTextStream(stderr) << "Failed to insert placeholder viewport\n";
-        return 4;
-    }
     window.show();
 
+    const int screenshotIndex = app.arguments().indexOf(QStringLiteral("--screenshot"));
+    if (screenshotIndex >= 0) {
+        if (screenshotIndex + 1 >= app.arguments().size()) return 2;
+        const QString path = app.arguments().at(screenshotIndex + 1);
+        QTimer::singleShot(500, &window, [&window, &app, path] {
+            app.exit(window.grab().save(path) ? 0 : 2);
+        });
+    }
     const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
     bool smokePassed = false;
     if (smoke) {

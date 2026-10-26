@@ -1,5 +1,8 @@
 # 第一阶段主工程与集成说明
 
+更新：GUI 入口现已使用 `modules/ui` 的 SARibbon `MainWindow`，实现四类组件插槽；工作流和任务仍为 Mock。以下 MockWindow/无正式 UI 目标描述保留为第一阶段历史背景，当前窗口接入与构建以 [UI 模块说明](../modules/ui/README.md) 为准。
+
+
 本阶段只验证主工程、公共契约和异步装配。项目保持 UI、Service、Infrastructure & Adapter 三层架构。真实求解、网格、参数和监控能力尚未接入；本页记录当前骨架的技术边界，不代替正式模块设计。正式后处理采用 C++、Qt 5.12.12 和 VTK 8.2.0。
 
 ## 目录

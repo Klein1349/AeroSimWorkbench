@@ -2,16 +2,17 @@
 
 本仓库当前包含 C++/Qt 主工程骨架。正式后处理技术路线为 **C++、Qt 5.12.12、VTK 8.2.0**；后处理工作区和 VTKViewer 尚未作为正式业务模块接入。
 
-目录按能力组织：`app/` 放 GUI/CLI 入口与装配，`contracts/` 放公共契约，`modules/` 放正式业务模块，`mocks/` 放当前占位实现，`tests/fixtures/postprocess/` 放小型解析测试数据。`modules/` 目前只有模块说明，尚无正式业务目标。详见[文档导航](docs/README.md)和[目录与接入说明](docs/phase1-integration.md)。
+目录按能力组织：`app/` 放 GUI/CLI 入口与装配，`contracts/` 放公共契约，`modules/` 放正式业务模块，`mocks/` 放当前占位实现，`tests/fixtures/postprocess/` 放小型解析测试数据。`modules/ui/` 已提供 SARibbon 主窗口目标，其余业务模块待接入。详见[文档导航](docs/README.md)和[目录与接入说明](docs/phase1-integration.md)。
 
 ## 快速开始
 
-统一开发基线为 C++14、CMake 3.18.2、Qt 5.12.12、Windows VS2017 v141 x64 **Debug**。正式业务模块尚未接入，普通骨架只查找 Qt Core/Widgets；目标机 VTK 8.2.0 仅提供 Debug 导出，因此完整 C++ 技术栈只在 Debug 配置下验证。环境配置和 Linux 模板见[开发环境说明](docs/DevelopmentEnvironment.md)，代码规范见[开发规范](docs/DevelopmentGuide.md)。
+统一开发基线为 C++14、CMake 3.18.2、Qt 5.12.12、Windows VS2017 v141 x64 **Debug**。GUI 依赖 Qt Core/Widgets/Svg 和 SARibbon 2.9.3；CLI 仅需 Qt Core；目标机 VTK 8.2.0 仅提供 Debug 导出，因此完整 C++ 技术栈只在 Debug 配置下验证。环境配置和 Linux 模板见[开发环境说明](docs/DevelopmentEnvironment.md)，代码规范见[开发规范](docs/DevelopmentGuide.md)。
 
 Windows（VS2017 开发者命令提示符）：
 
 ```bat
 set "AEROSIM_QT_ROOT=C:\Qt\5.12.12\msvc2017_64"
+set "AEROSIM_SARIBBON_SOURCE_DIR=<本机 SARibbon 2.9.3 源码目录>"
 scripts\build-windows.cmd all Debug
 build-windows\Debug\aerosim_cli.exe --mock-once
 build-windows\Debug\aerosim_gui.exe
@@ -21,18 +22,19 @@ Linux（需自行准备同版本 Qt；当前尚未实机验证）：
 
 ```bash
 export AEROSIM_QT_ROOT=/path/to/qt-5.12.12
+export AEROSIM_SARIBBON_SOURCE_DIR=/path/to/SARibbon-2.9.3
 ./scripts/build-linux.sh all
 ./build-linux/aerosim_cli --mock-once
 ```
 
-无界面构建设置 `AEROSIM_BUILD_GUI=OFF`；仅编译某个当前模块时将 `all` 换为 `aerosim_contracts`、`aerosim_application`、`aerosim_mock` 或 `aerosim_ui_mock`。CMake 3.18 不支持 Presets，因此统一使用脚本。VTK/SARibbon 只在显式启用 `AEROSIM_BUILD_STACK_PROBE=ON` 时查找；缺少它们不会阻断普通骨架构建。
+无界面构建设置 `AEROSIM_BUILD_GUI=OFF`；仅编译某个当前模块时将 `all` 换为 `aerosim_contracts`、`aerosim_application`、`aerosim_mock` 或 `aerosim_ui_mock`。CMake 3.18 不支持 Presets，因此统一使用脚本。GUI 必须配置 SARibbon 2.9.3；VTK 只在启用 `AEROSIM_BUILD_STACK_PROBE=ON` 时查找。详见 [UI 模块](modules/ui/README.md)。
 
 ## 模块边界
 
 ```text
 GUI / CLI entry ──> ApplicationController ──> contracts <── Mock services
       │                      │                    ▲
-      └── MockWindow ──> UI integration ports ────┘
+      └── MainWindow ──> UI integration ports ────┘
 
 正式接入：GUI → workflow/project services → visualization/configuration/runtime services → adapters
 ```
