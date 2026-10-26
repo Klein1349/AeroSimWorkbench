@@ -164,6 +164,8 @@ void PostProcessWorkbenchWindow::createActions()
         if (!deepSeekHarnessDock_) {
             deepSeekHarnessDock_ = new QDockWidget(uiText(u"DeepSeek Harness"), this);
             deepSeekHarnessDock_->setObjectName(uiText(u"deepSeekHarnessDock"));
+            deepSeekHarnessDock_->setMinimumWidth(400);
+            deepSeekHarnessDock_->resize(460, 620);
             auto *panel = new QWidget(deepSeekHarnessDock_);
             auto *layout = new QVBoxLayout(panel);
             auto *description = new QLabel(uiText(u"\u9488\u5bf9\u5f53\u524d\u7ed3\u679c\u3001\u9009\u4e2d\u56fe\u5c42\u6216\u540e\u5904\u7406\u6d41\u7a0b\u63d0\u4ea4\u4efb\u52a1\u3002"), panel);
@@ -175,7 +177,7 @@ void PostProcessWorkbenchWindow::createActions()
             auto *prompt = new QTextEdit(panel);
             prompt->setObjectName(uiText(u"deepSeekHarnessPrompt"));
             prompt->setPlaceholderText(uiText(u"\u4f8b\u5982\uff1a\u751f\u6210\u538b\u529b\u4e91\u56fe\u5e76\u63d0\u53d6 0.8 \u7b49\u503c\u9762\u3002"));
-            prompt->setMinimumHeight(120);
+            prompt->setMinimumHeight(220);
             layout->addWidget(prompt);
             auto *run = new QPushButton(uiText(u"\u8fd0\u884c Harness"), panel);
             run->setObjectName(uiText(u"primaryAction"));
