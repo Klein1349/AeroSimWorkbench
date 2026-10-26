@@ -1,6 +1,7 @@
-#include "aerosim/ui/PostProcessWorkbenchWindow.h"
+#include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 
 #include <QAction>
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDockWidget>
@@ -118,6 +119,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
         "QGroupBox { margin-top: 12px; padding: 8px; font-weight: bold; }"
         "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }"
         "QTextEdit { background: #182432; color: #cfe2f5; border: 0; }"));
+    activateMockEntry(0);
 }
 
 void PostProcessWorkbenchWindow::createActions()
@@ -148,6 +150,12 @@ void PostProcessWorkbenchWindow::createActions()
     auto *exportButton = addToolButton(toolbar, uiText(u"\u5bfc\u51fa"), uiText(u"\u5bfc\u51fa\u7279\u5f81\u3001\u56fe\u50cf\u6216\u52a8\u753b"));
     toolbar->addSeparator();
     auto *deepSeekButton = addToolButton(toolbar, uiText(u"DeepSeek\nHarness"), uiText(u"\u6253\u5f00 DeepSeek Harness \u52a9\u624b\u5165\u53e3"));
+    featureButtons_ = {meshButton, contourButton, sliceButton, isoButton, streamButton};
+    meshButton->setObjectName(uiText(u"postProcessMeshButton"));
+    contourButton->setObjectName(uiText(u"postProcessContourButton"));
+    sliceButton->setObjectName(uiText(u"postProcessSliceButton"));
+    isoButton->setObjectName(uiText(u"postProcessIsoButton"));
+    streamButton->setObjectName(uiText(u"postProcessStreamButton"));
 
     auto command = [this](const QString &name, const QString &message) {
         emit postProcessCommandRequested(name);
@@ -219,7 +227,7 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(7, 7, 7, 7);
     auto *titleRow = new QHBoxLayout;
-    titleRow->addWidget(sectionLabel(uiText(u"\u7ed3\u679c\u6570\u636e"), panel));
+    titleRow->addWidget(sectionLabel(uiText(u"\u5f53\u524d\u540e\u5904\u7406\u4f1a\u8bdd"), panel));
     titleRow->addStretch();
     auto *addResult = new QPushButton(uiText(u"\uff0b \u5bfc\u5165"), panel);
     addResult->setObjectName(uiText(u"primaryAction"));
@@ -228,19 +236,31 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
     auto *datasetCard = new QFrame(panel);
     datasetCard->setObjectName(uiText(u"dataCard"));
     auto *cardLayout = new QVBoxLayout(datasetCard);
-    auto *datasetName = new QLabel(uiText(u"\u5c1a\u672a\u52a0\u8f7d\u7ed3\u679c"), datasetCard);
-    datasetName->setStyleSheet(uiText(u"font-weight: 600; color: #25364c;"));
-    auto *datasetStatus = new QLabel(uiText(u"\u5bfc\u5165 CGNS\u3001VTK \u6216 Tecplot \u6570\u636e\u6587\u4ef6"), datasetCard);
+    sessionContext_ = new QLabel(datasetCard);
+    sessionContext_->setObjectName(uiText(u"postProcessSessionContext"));
+    sessionContext_->setStyleSheet(uiText(u"font-weight: 600; color: #25364c;"));
+    sessionContext_->setWordWrap(true);
+    auto *datasetStatus = new QLabel(uiText(u"\u5f00\u53d1\u671f Mock \u5165\u53e3\uff1b\u771f\u5b9e\u5de5\u7a0b\u9009\u62e9\u5c06\u66ff\u6362\u6b64\u5904"), datasetCard);
     datasetStatus->setObjectName(uiText(u"mutedText"));
-    cardLayout->addWidget(datasetName);
+    datasetStatus->setWordWrap(true);
+    cardLayout->addWidget(sessionContext_);
     cardLayout->addWidget(datasetStatus);
     layout->addWidget(datasetCard);
-    auto *categories = new QListWidget(panel);
-    categories->setObjectName(uiText(u"dataCategories"));
-    categories->addItems({uiText(u"\u25a6  \u7f51\u683c\u4e0e Zone"), uiText(u"\u25c9  \u7269\u7406\u573a"), uiText(u"\u25f7  \u65f6\u95f4\u5e8f\u5217")});
-    categories->setCurrentRow(0);
-    layout->addWidget(categories);
-    auto *hint = new QLabel(uiText(u"\u6570\u636e\u6309\u7c7b\u578b\u6d4f\u89c8\uff0c\u4e0d\u4f7f\u7528\u5c42\u7ea7\u6811\u3002\u8bfb\u53d6\u72b6\u6001\u7531\u6570\u636e\u670d\u52a1\u5f02\u6b65\u66f4\u65b0\u3002"), panel);
+    layout->addWidget(sectionLabel(uiText(u"Mock \u9009\u62e9\u5165\u53e3"), panel));
+    mockEntrySelector_ = new QComboBox(panel);
+    mockEntrySelector_->setObjectName(uiText(u"postProcessMockEntry"));
+    mockEntrySelector_->addItems({
+        uiText(u"\u65e0\u6709\u6548\u7ed3\u679c"), uiText(u"\u7ed3\u679c\u96c6 / \u4f53\u7f51\u683c"),
+        uiText(u"Zone / \u7ec4\u4ef6"), uiText(u"\u8fb9\u754c / \u8868\u9762"),
+        uiText(u"\u5b57\u6bb5 Pressure"), uiText(u"\u70b9 / \u5355\u5143"),
+        uiText(u"\u65f6\u5e8f\u7ed3\u679c\u96c6"), uiText(u"\u65f6\u95f4\u5e27 t = 1.0 s"),
+        uiText(u"\u6536\u655b / \u76d1\u63a7\u8bb0\u5f55")});
+    layout->addWidget(mockEntrySelector_);
+    sessionOutline_ = new QListWidget(panel);
+    sessionOutline_->setObjectName(uiText(u"postProcessSessionOutline"));
+    sessionOutline_->setSelectionMode(QAbstractItemView::NoSelection);
+    layout->addWidget(sessionOutline_, 1);
+    auto *hint = new QLabel(uiText(u"\u4ec5\u5c55\u793a\u5f53\u524d\u4f1a\u8bdd\u7684\u8f93\u5165\u5bf9\u8c61\u4e0e\u6d3e\u751f\u5bf9\u8c61\uff0c\u4e0d\u662f\u5168\u5c40\u5de5\u7a0b\u6811\u3002"), panel);
     hint->setWordWrap(true);
     hint->setStyleSheet(uiText(u"color: #66788a; padding: 4px;"));
     layout->addWidget(hint);
@@ -248,6 +268,8 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
         emit postProcessCommandRequested(uiText(u"importResults"));
         appendMessage(uiText(u"\u5bfc\u5165\u7ed3\u679c\u8bf7\u6c42\u5df2\u63d0\u4ea4\uff1b\u8bfb\u53d6\u670d\u52a1\u63a5\u5165\u540e\u5c06\u5728\u5de5\u4f5c\u7ebf\u7a0b\u52a0\u8f7d\u3002"));
     });
+    connect(mockEntrySelector_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &PostProcessWorkbenchWindow::activateMockEntry);
     return panel;
 }
 
@@ -302,9 +324,9 @@ QWidget *PostProcessWorkbenchWindow::createViewportPanel()
     auto *layout = new QVBoxLayout(emptyViewport_);
     layout->setContentsMargins(20, 20, 20, 20);
     auto *viewTools = new QHBoxLayout;
-    auto *viewTitle = new QLabel(uiText(u"\u4e09\u7ef4\u7ed3\u679c\u89c6\u53e3"), emptyViewport_);
-    viewTitle->setStyleSheet(uiText(u"font-weight: bold; color: #e8f0f8;"));
-    viewTools->addWidget(viewTitle);
+    viewportTitle_ = new QLabel(uiText(u"\u4e09\u7ef4\u7ed3\u679c\u89c6\u53e3"), emptyViewport_);
+    viewportTitle_->setStyleSheet(uiText(u"font-weight: bold; color: #e8f0f8;"));
+    viewTools->addWidget(viewportTitle_);
     viewTools->addStretch();
     for (const QString &text : {uiText(u"\u6b63\u89c6"), uiText(u"\u4fef\u89c6"), uiText(u"\u4fa7\u89c6"), uiText(u"\u91cd\u7f6e")}) {
         auto *button = new QPushButton(text, emptyViewport_);
@@ -320,11 +342,12 @@ QWidget *PostProcessWorkbenchWindow::createViewportPanel()
     }
     layout->addLayout(viewTools);
     layout->addStretch();
-    auto *placeholder = new QLabel(uiText(u"VTK \u4e09\u7ef4\u89c6\u53e3\n\n\u7ed3\u679c\u52a0\u8f7d\u540e\u5728\u6b64\u663e\u793a\u7f51\u683c\u3001\u4e91\u56fe\u3001\u5207\u9762\u3001\u7b49\u503c\u9762\u548c\u6d41\u7ebf"), emptyViewport_);
-    placeholder->setObjectName(uiText(u"viewportEmptyText"));
-    placeholder->setAlignment(Qt::AlignCenter);
-    placeholder->setStyleSheet(uiText(u"font-size: 18px; color: #c9d6e4;"));
-    layout->addWidget(placeholder, 1);
+    viewportHint_ = new QLabel(emptyViewport_);
+    viewportHint_->setObjectName(uiText(u"viewportEmptyText"));
+    viewportHint_->setAlignment(Qt::AlignCenter);
+    viewportHint_->setWordWrap(true);
+    viewportHint_->setStyleSheet(uiText(u"font-size: 18px; color: #c9d6e4;"));
+    layout->addWidget(viewportHint_, 1);
     auto *overlay = new QLabel(uiText(u"X  \u2192     Y  \u2191     Z  \u2299"), emptyViewport_);
     overlay->setStyleSheet(uiText(u"color: #9fb5c9;"));
     layout->addWidget(overlay, 0, Qt::AlignRight);
@@ -351,6 +374,16 @@ QWidget *PostProcessWorkbenchWindow::createPropertiesPanel()
 
     auto *details = new QWidget(propertiesStack_);
     auto *detailsLayout = new QVBoxLayout(details);
+    propertyContextTitle_ = new QLabel(details);
+    propertyContextTitle_->setObjectName(uiText(u"postProcessContextTitle"));
+    propertyContextTitle_->setStyleSheet(uiText(u"font-size: 15px; font-weight: 600; color: #234d7a;"));
+    propertyContextTitle_->setWordWrap(true);
+    propertyContextHint_ = new QLabel(details);
+    propertyContextHint_->setObjectName(uiText(u"postProcessContextHint"));
+    propertyContextHint_->setObjectName(uiText(u"mutedText"));
+    propertyContextHint_->setWordWrap(true);
+    detailsLayout->addWidget(propertyContextTitle_);
+    detailsLayout->addWidget(propertyContextHint_);
     auto *identity = new QGroupBox(uiText(u"\u5bf9\u8c61"), details);
     auto *identityForm = new QFormLayout(identity);
     selectionName_ = new QLineEdit(identity);
@@ -408,6 +441,129 @@ QWidget *PostProcessWorkbenchWindow::createTimeline()
     timeLabel_ = new QLabel(uiText(u"\u672a\u52a0\u8f7d\u65f6\u5e8f\u7ed3\u679c"), frame);
     layout->addWidget(timeLabel_);
     return frame;
+}
+
+void PostProcessWorkbenchWindow::setFeatureButtonsEnabled(bool mesh, bool contour, bool slice,
+                                                          bool iso, bool streamline)
+{
+    const bool states[] = {mesh, contour, slice, iso, streamline};
+    for (int i = 0; i < featureButtons_.size() && i < 5; ++i)
+        featureButtons_.at(i)->setEnabled(states[i]);
+}
+
+void PostProcessWorkbenchWindow::activateMockEntry(int index)
+{
+    if (!mockEntrySelector_ || !sessionOutline_ || !sceneList_ || !propertiesStack_)
+        return;
+
+    QString context;
+    QString title;
+    QString description;
+    QString viewport;
+    QStringList outline;
+    QStringList layers;
+    bool timeMode = false;
+    bool curveMode = false;
+    bool mesh = true;
+    bool contour = true;
+    bool slice = true;
+    bool iso = true;
+    bool streamline = true;
+
+    switch (index) {
+    case 0:
+        context = uiText(u"\u65e0\u6709\u6548\u7ed3\u679c \u00b7 Empty");
+        title = uiText(u"\u7b49\u5f85\u540e\u5904\u7406\u8f93\u5165");
+        description = uiText(u"\u6ca1\u6709\u7ed1\u5b9a\u7f51\u683c\u3001\u7ed3\u679c\u6216\u76d1\u63a7\u8bb0\u5f55\u3002");
+        viewport = uiText(u"\u8bf7\u4ece\u5de5\u7a0b\u4e2d\u9009\u4e2d\u7ed3\u679c\u5bf9\u8c61\u540e\u8fdb\u5165\u540e\u5904\u7406\u3002");
+        outline << uiText(u"\u25cb  \u6682\u65e0\u540e\u5904\u7406\u8f93\u5165");
+        mesh = contour = slice = iso = streamline = false;
+        break;
+    case 1:
+        context = uiText(u"MockCase-A / \u7ed3\u679c\u96c6 / \u4f53\u7f51\u683c");
+        title = uiText(u"Spatial \u6a21\u5f0f\uff1a\u7ed3\u679c\u96c6");
+        description = uiText(u"\u53ef\u5728\u4f53\u7f51\u683c\u4e0a\u6267\u884c\u7f51\u683c\u3001\u4e91\u56fe\u3001\u5207\u9762\u3001\u7b49\u503c\u9762\u548c\u4f53\u6d41\u7ebf\u64cd\u4f5c\u3002");
+        viewport = uiText(u"Spatial \u6a21\u5f0f\n\n\u5df2\u9009\u4e2d\u4f53\u7f51\u683c\u7ed3\u679c\u96c6\u3002\nVTK \u89c6\u53e3\u63a5\u5165\u540e\u5c06\u5728\u6b64\u663e\u793a\u3002");
+        outline << uiText(u"\u25a6  Volume Mesh") << uiText(u"\u25c9  Pressure, Temperature, Velocity")
+                << uiText(u"\u25a7  Zone: Flow Volume");
+        layers << uiText(u"\u25c9  \u4f53\u7f51\u683c     \u53ef\u89c1") << uiText(u"\u25cc  \u4e91\u56fe         \u5f85\u521b\u5efa");
+        break;
+    case 2:
+        context = uiText(u"MockCase-A / Wing Zone");
+        title = uiText(u"Spatial \u6a21\u5f0f\uff1aZone / \u7ec4\u4ef6");
+        description = uiText(u"\u4e09\u7ef4\u89c6\u53e3\u805a\u7126\u5f53\u524d Zone\uff0c\u5176\u4ed6 Zone \u7531\u573a\u666f\u670d\u52a1\u51b3\u5b9a\u663e\u9690\u3002");
+        viewport = uiText(u"Zone Focus \u6a21\u5f0f\n\n\u5df2\u9009\u4e2d Wing Zone\u3002");
+        outline << uiText(u"\u25a6  Zone: Wing") << uiText(u"\u25c9  Pressure, Velocity") << uiText(u"\u25a7  Wall Boundary");
+        layers << uiText(u"\u25c9  Wing Zone      \u53ef\u89c1") << uiText(u"\u25cb  \u5176\u4ed6 Zone      \u6de1\u5316");
+        break;
+    case 3:
+        context = uiText(u"MockCase-A / Wall Boundary");
+        title = uiText(u"Surface \u6a21\u5f0f\uff1a\u8fb9\u754c\u9762");
+        description = uiText(u"\u64cd\u4f5c\u53ea\u4f5c\u7528\u4e8e\u5f53\u524d\u8fb9\u754c\u9762\uff0c\u4e0d\u5bf9\u6574\u4e2a\u4f53\u7f51\u683c\u521b\u5efa\u7b49\u503c\u9762\u3002");
+        viewport = uiText(u"Surface Focus \u6a21\u5f0f\n\n\u5df2\u9009\u4e2d Wall Boundary\u3002");
+        outline << uiText(u"\u25a6  Zone: Wing") << uiText(u"\u25a7  Boundary: Wall") << uiText(u"\u25c9  Surface Pressure");
+        layers << uiText(u"\u25c9  Wall Boundary  \u53ef\u89c1");
+        slice = iso = false;
+        break;
+    case 4:
+        context = uiText(u"MockCase-A / Field: Pressure");
+        title = uiText(u"Field Focus\uff1aPressure [Pa]");
+        description = uiText(u"\u5f53\u524d\u5b57\u6bb5\u6210\u4e3a\u4e91\u56fe\u3001\u7b49\u503c\u7ebf\u548c\u7b49\u503c\u9762\u7684\u9ed8\u8ba4\u8f93\u5165\u3002");
+        viewport = uiText(u"Field Focus \u6a21\u5f0f\n\n\u5f53\u524d\u5b57\u6bb5\uff1aPressure [Pa]\u3002");
+        outline << uiText(u"\u25a6  Volume Mesh") << uiText(u"\u25c9  Field: Pressure [Pa]") << uiText(u"\u25f7  \u8272\u6807\u4e0e\u503c\u57df");
+        layers << uiText(u"\u25c9  Pressure \u4e91\u56fe   \u5f85\u521b\u5efa");
+        break;
+    case 5:
+        context = uiText(u"MockCase-A / Cell #128");
+        title = uiText(u"Probe \u6a21\u5f0f\uff1a\u70b9 / \u5355\u5143\u67e5\u8be2");
+        description = uiText(u"\u5f53\u524d\u5355\u5143\u5c06\u5728\u89c6\u53e3\u9ad8\u4eae\uff0c\u53ef\u67e5\u770b ID\u3001\u5750\u6807\u548c\u7269\u7406\u91cf\u3002");
+        viewport = uiText(u"Probe \u6a21\u5f0f\n\n\u5df2\u9009\u4e2d Cell #128\u3002");
+        outline << uiText(u"\u25a6  Volume Mesh") << uiText(u"\u25ce  Cell #128") << uiText(u"\u25c9  Pressure, Temperature, Velocity");
+        layers << uiText(u"\u25ce  Cell #128      \u5f53\u524d\u9009\u4e2d");
+        mesh = contour = slice = iso = false;
+        break;
+    case 6:
+    case 7:
+        timeMode = true;
+        context = index == 6 ? uiText(u"MockCase-A / \u65f6\u5e8f\u7ed3\u679c") : uiText(u"MockCase-A / Frame 1 / t = 1.0 s");
+        title = index == 6 ? uiText(u"Spatial + Time \u6a21\u5f0f") : uiText(u"\u65f6\u95f4\u5e27 t = 1.0 s");
+        description = uiText(u"\u5e95\u90e8\u65f6\u95f4\u8f74\u63a7\u5236\u5f53\u524d\u5e27\uff0c\u7a7a\u95f4\u529f\u80fd\u4ecd\u4f5c\u7528\u4e8e\u5f53\u524d\u5e27\u3002");
+        viewport = index == 6 ? uiText(u"Spatial + Time \u6a21\u5f0f\n\n\u5f53\u524d\u663e\u793a Frame 0\u3002") : uiText(u"Spatial + Time \u6a21\u5f0f\n\n\u5df2\u5b9a\u4f4d Frame 1 / t = 1.0 s\u3002");
+        outline << uiText(u"\u25f7  Frame 0  t = 0.0 s") << uiText(u"\u25c9  Frame 1  t = 1.0 s") << uiText(u"\u25f7  Frame 2  t = 2.0 s");
+        layers << uiText(u"\u25c9  \u5f53\u524d\u5e27        \u53ef\u89c1");
+        break;
+    default:
+        curveMode = true;
+        context = uiText(u"MockCase-A / \u6536\u655b\u4e0e\u76d1\u63a7");
+        title = uiText(u"Curve \u6a21\u5f0f\uff1a\u6536\u655b / \u76d1\u63a7\u8bb0\u5f55");
+        description = uiText(u"\u4e2d\u592e\u5de5\u4f5c\u533a\u663e\u793a\u4e8c\u7ef4\u66f2\u7ebf\u753b\u5e03\uff0c\u4ecd\u590d\u7528\u540c\u4e00\u4e2a\u540e\u5904\u7406\u4e3b\u6846\u67b6\u3002");
+        viewport = uiText(u"Curve \u6a21\u5f0f\n\n\u9009\u4e2d\u6b8b\u503c\u6216\u76d1\u63a7\u8bb0\u5f55\u540e\uff0c\u771f\u5b9e\u66f2\u7ebf\u7ec4\u4ef6\u5c06\u5728\u6b64\u6e32\u67d3\u3002");
+        outline << uiText(u"\u223f  Residual: Density") << uiText(u"\u223f  Residual: Energy") << uiText(u"\u223f  Force Coefficient: Cz");
+        layers << uiText(u"\u223f  Density Residual") << uiText(u"\u223f  Cz Monitor");
+        mesh = contour = slice = iso = streamline = false;
+        break;
+    }
+
+    sessionContext_->setText(context);
+    sessionOutline_->clear();
+    sessionOutline_->addItems(outline);
+    sceneList_->clear();
+    sceneList_->addItems(layers);
+    if (!layers.isEmpty()) sceneList_->setCurrentRow(0);
+    viewportTitle_->setText(curveMode ? uiText(u"\u6536\u655b\u4e0e\u76d1\u63a7\u66f2\u7ebf") : uiText(u"\u4e09\u7ef4\u7ed3\u679c\u89c6\u53e3"));
+    viewportHint_->setText(viewport);
+    propertyContextTitle_->setText(title);
+    propertyContextHint_->setText(description);
+    propertiesStack_->setCurrentIndex(index == 0 ? 0 : 1);
+    auto *timeline = findChild<QWidget *>(uiText(u"postProcessTimeline"));
+    if (timeline) timeline->setVisible(timeMode);
+    if (timeMode) {
+        timeSlider_->setRange(0, 2);
+        timeSlider_->setEnabled(true);
+        timeSlider_->setValue(index == 7 ? 1 : 0);
+        timeLabel_->setText(index == 7 ? uiText(u"t = 1.0 s") : uiText(u"Frame 0 / t = 0.0 s"));
+    }
+    setFeatureButtonsEnabled(mesh, contour, slice, iso, streamline);
 }
 
 bool PostProcessWorkbenchWindow::insertWidget(WidgetSlot slot, QWidget *widget)

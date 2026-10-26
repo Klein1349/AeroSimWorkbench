@@ -1,5 +1,5 @@
 #include "aerosim/ui/MainWindow.h"
-#include "aerosim/ui/PostProcessWorkbenchWindow.h"
+#include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include <QAction>
 #include <QApplication>
 #include <QLabel>

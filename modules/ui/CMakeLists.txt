@@ -18,12 +18,13 @@ endif()
 include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/SARibbonDependency.cmake")
 add_library(aerosim_ui STATIC
     src/MainWindow.cpp include/aerosim/ui/MainWindow.h
-    PostProcessWorkbenchWindow.cpp include/aerosim/ui/PostProcessWorkbenchWindow.h)
+    src/postprocess/PostProcessWorkbenchWindow.cpp
+    include/aerosim/ui/postprocess/PostProcessWorkbenchWindow.h)
 add_library(aerosim::ui ALIAS aerosim_ui)
 target_include_directories(aerosim_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets SARibbonBar::SARibbonBar)
 if(AEROSIM_BUILD_TESTS)
-    add_executable(aerosim_postprocess_ui_smoke tests/PostProcessWorkbenchWindowSmoke.cpp)
+    add_executable(aerosim_postprocess_ui_smoke tests/postprocess/PostProcessWorkbenchWindowSmoke.cpp)
     target_link_libraries(aerosim_postprocess_ui_smoke PRIVATE aerosim_ui)
     add_test(NAME postprocess_ui_smoke COMMAND aerosim_postprocess_ui_smoke)
     set_tests_properties(postprocess_ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

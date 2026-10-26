@@ -64,6 +64,10 @@ VTK Viewer、统一场景入口和异步数据读取应分别由后续 `modules/
 
 `aerosim_postprocess_ui_smoke` 验证核心控件以及视口插槽只能接受一个 Viewer。
 
+后处理窗口源码位于 `include/aerosim/ui/postprocess/` 与 `src/postprocess/`，测试位于
+`tests/postprocess/`。开发期的 Mock 入口只用于切换 P0/P1 的会话初始状态；它明确不
+承担数据读取、VTK 算法或场景管理，真实工程选择服务接入后将替换该入口。
+
 默认启动 Ribbon 主窗口，选择“后处理 → 后处理工作台”打开同一进程中的独立工作台窗口（重复点击复用实例）；也可运行 `aerosim_gui --postprocess` 直接打开。工作台的平铺数据/场景面板、时间轴、属性面板及 DeepSeek Harness 入口保留。两个窗口由 GUI 入口绑定同一组服务，主窗口不持有 VTK 数据。
 
 VTK 接入保留在后处理工作台：编译设置 `AEROSIM_BUILD_VISUALIZATION=ON`，运行设置 `AEROSIM_ENABLE_VTK_VIEWER=1` 才创建 Viewer；`--smoke` 始终跳过原生 OpenGL。`--screenshot` 可与 `--postprocess` 组合检查工作台。

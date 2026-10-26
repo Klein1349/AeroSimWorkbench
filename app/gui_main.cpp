@@ -1,7 +1,7 @@
 #include "ApplicationController.h"
 #include "MockTaskService.h"
 #include "MockWorkflowService.h"
-#include "aerosim/ui/PostProcessWorkbenchWindow.h"
+#include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include "aerosim/ui/MainWindow.h"
 #include <QPixmap>
 

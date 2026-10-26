@@ -2,15 +2,18 @@
 
 #include "aerosim/ui/IntegrationPorts.h"
 
+#include <QList>
 #include <QMainWindow>
 
 class QLabel;
+class QComboBox;
 class QLineEdit;
 class QListWidget;
 class QDockWidget;
 class QSlider;
 class QStackedWidget;
 class QTextEdit;
+class QToolButton;
 class QVBoxLayout;
 class QWidget;
 
@@ -38,18 +41,28 @@ private:
     QWidget *createPropertiesPanel();
     QWidget *createTimeline();
     void createActions();
+    void activateMockEntry(int index);
+    void setFeatureButtonsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline);
     void appendMessage(const QString &message);
     void updateSelectionDetails();
 
     QVBoxLayout *viewportLayout_ = nullptr;
     QWidget *emptyViewport_ = nullptr;
+    QComboBox *mockEntrySelector_ = nullptr;
+    QListWidget *sessionOutline_ = nullptr;
     QListWidget *sceneList_ = nullptr;
     QStackedWidget *propertiesStack_ = nullptr;
     QLineEdit *selectionName_ = nullptr;
     QSlider *timeSlider_ = nullptr;
     QLabel *timeLabel_ = nullptr;
+    QLabel *sessionContext_ = nullptr;
+    QLabel *viewportTitle_ = nullptr;
+    QLabel *viewportHint_ = nullptr;
+    QLabel *propertyContextTitle_ = nullptr;
+    QLabel *propertyContextHint_ = nullptr;
     QTextEdit *events_ = nullptr;
     QDockWidget *deepSeekHarnessDock_ = nullptr;
+    QList<QToolButton *> featureButtons_;
     ServiceBindings services_;
     bool bound_ = false;
 };
