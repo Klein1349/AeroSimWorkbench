@@ -27,3 +27,11 @@ Windows VS2017 v141 x64 Debug、Qt 5.12.12 环境未在此次验证中运行；�
 使用 offscreen 平台实际创建 1440×960 主窗口并截图检查：九类 Ribbon、工程树/工作流、视口占位、属性草稿和五类输出页签布局完整。修复了静态链接时 SARibbon 资源未注册，以及 SARibbon 延迟应用主题覆盖本窗口样式的问题。截图可通过 `aerosim_gui --screenshot <输出PNG路径>` 重现。
 
 这组结果仅是 macOS / Qt 5.15 的补充检查，不替代 Qt 5.12.12 / Windows 目标机验收。尚未验证完整 VTK 栈、真实业务、Windows 打包、其他 DPI/屏幕尺寸及长时间高频监控。
+
+## 与远端后处理工作台合并后的复验
+
+合并 `origin/main` 的 `853995c`：保留远端可视化源码和后处理工作台，默认入口使用 Ribbon 主窗口，通过“后处理 → 后处理工作台”或 `--postprocess` 进入原工作台。保留原 VTK 编译选项、运行开关及 smoke 模式禁用 OpenGL 的逻辑；不修改公共契约。
+
+同一隔离 macOS / Qt 5.15.19 环境中重新配置并编译：主工程 CTest **6/6**、UI 独立构建 CTest **2/2**、GUI=OFF CTest **2/2** 通过。新增检查覆盖 Ribbon 打开工作台、关闭后再次打开，并分别运行两个 GUI 入口的 Mock smoke。Linux 构建脚本通过 `bash -n`；Windows 构建脚本保留远端的可视化和 SARibbon 参数。
+
+本次没有 Qt 5.12.12 / VTK 8.2 / VS2017 目标环境，因此未重新验证 Windows 全栈或可视化算法测试，不以补充检查代替正式基线验收。

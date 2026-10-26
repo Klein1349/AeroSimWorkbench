@@ -66,7 +66,7 @@ build-windows\Debug\aerosim_gui.exe
 scripts\build-windows.cmd aerosim_contracts Debug
 scripts\build-windows.cmd aerosim_application Debug
 scripts\build-windows.cmd aerosim_mock Debug
-scripts\build-windows.cmd aerosim_ui_mock Debug
+scripts\build-windows.cmd aerosim_ui Debug
 ```
 
 只需无界面服务时，先执行 `set "AEROSIM_BUILD_GUI=OFF"`，再运行脚本；该配置只要求 Qt Core，不查找 Widgets/VTK/SARibbon。恢复 GUI 时将其设为 `ON`，建议另设 `AEROSIM_BUILD_DIR` 以隔离两种缓存。新增模块应提供独立 CMake 库目标和测试目标，再接入主工程；用 `cmake --build <build-dir> --target <module-target>` 即可只编译该模块。当前尚未接入的正式业务目标不能被声称已完成独立构建。
@@ -98,7 +98,7 @@ export AEROSIM_SARIBBON_SOURCE_DIR=/path/to/SARibbon-2.9.3
 ./build-linux/aerosim_gui
 ```
 
-如需全栈探针，再设置 `AEROSIM_BUILD_STACK_PROBE=ON`、`AEROSIM_VTK_DIR=/path/to/vtk-8.2/lib/cmake/vtk-8.2`、`AEROSIM_VTK_LIB=/path/to/vtk-8.2/lib`、`AEROSIM_SARIBBON_SOURCE_DIR=/path/to/SARibbon`。`AEROSIM_BUILD_GUI=OFF ./scripts/build-linux.sh all` 可仅构建 CLI。Linux 图形和 OpenGL 运行测试依赖可用显示服务器；无界面环境只保证 CLI 骨架与不要求 GUI 的目标。
+如需正式后处理 Viewer，设置 `AEROSIM_BUILD_VISUALIZATION=ON`、`AEROSIM_VTK_DIR=/path/to/vtk-8.2/lib/cmake/vtk-8.2`、`AEROSIM_VTK_LIB=/path/to/vtk-8.2/lib`。如需全栈探针，额外设置 `AEROSIM_BUILD_STACK_PROBE=ON` 与 `AEROSIM_SARIBBON_SOURCE_DIR=/path/to/SARibbon`。`AEROSIM_BUILD_GUI=OFF ./scripts/build-linux.sh all` 可仅构建 CLI。Linux 图形和 OpenGL 运行测试依赖可用显示服务器；无界面环境只保证 CLI 骨架与不要求 GUI 的目标。
 
 ## 常见环境错误
 

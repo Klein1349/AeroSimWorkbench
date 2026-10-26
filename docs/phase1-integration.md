@@ -1,6 +1,6 @@
 # 第一阶段主工程与集成说明
 
-更新：GUI 入口现已使用 `modules/ui` 的 SARibbon `MainWindow`，实现四类组件插槽；工作流和任务仍为 Mock。以下 MockWindow/无正式 UI 目标描述保留为第一阶段历史背景，当前窗口接入与构建以 [UI 模块说明](../modules/ui/README.md) 为准。
+更新：GUI 入口现已使用 `modules/ui` 的 SARibbon `MainWindow`，实现四类组件插槽；原后处理工作台通过 Ribbon 入口或 `--postprocess` 保留，工作流和任务仍为 Mock。以下 MockWindow/无正式 UI 目标描述保留为第一阶段历史背景，当前窗口接入与构建以 [UI 模块说明](../modules/ui/README.md) 为准。
 
 
 本阶段只验证主工程、公共契约和异步装配。项目保持 UI、Service、Infrastructure & Adapter 三层架构。真实求解、网格、参数和监控能力尚未接入；本页记录当前骨架的技术边界，不代替正式模块设计。正式后处理采用 C++、Qt 5.12.12 和 VTK 8.2.0。
@@ -15,8 +15,8 @@
 │   ├── include/aerosim/contracts/
 │   ├── include/aerosim/ui/IntegrationPorts.h
 │   └── src/RegisterMetaTypes.cpp
-├── modules/                   # 正式模块预留区，当前仅有模块说明
-│   ├── ui/                    # 主窗口与界面
+├── modules/                   # 正式模块
+│   ├── ui/                    # 后处理工作台与界面
 │   ├── visualization/         # VTK 与网格/结果
 │   ├── configuration/         # 参数与工况
 │   ├── logging_ui/            # 日志与错误控件
@@ -24,16 +24,15 @@
 │   ├── project/               # 工程管理
 │   └── workflow/              # 工作流管理
 ├── mocks/services/            # 工作流/任务服务的临时实现
-├── mocks/ui/                  # 主窗口的临时实现
 ├── tests/fixtures/postprocess/ # 后处理解析测试数据及 CMake 检查
 ├── cmake/stack_probe/         # 可选 Qt/VTK/SARibbon 兼容性探针
 ├── scripts/                   # 统一构建脚本
 └── docs/                      # 开发、集成和验证说明
 ```
 
-`aerosim_contracts` 只依赖 Qt Core；UI 插入契约只有 `QWidget` 前置声明，不使 CLI 链接 Widgets。`aerosim_application` 和 `aerosim_mock` 也只依赖 Qt Core；`aerosim_ui_mock` 依赖 Qt Widgets。CLI 不链接 Qt Widgets。顶层 CMake 当前只接入骨架、Mock、数据夹具检查和可选技术栈探针；`modules/` 中没有正式业务目标。
+`aerosim_contracts` 只依赖 Qt Core；UI 插入契约只有 `QWidget` 前置声明，不使 CLI 链接 Widgets。`aerosim_application` 和 `aerosim_mock` 也只依赖 Qt Core；`aerosim_ui` 依赖 Qt Widgets。CLI 不链接 Qt Widgets。顶层 CMake 接入后处理工作台、Mock 服务、数据夹具检查，以及可选的 VTK 场景 Viewer 和技术栈探针。
 
-MockWindow 只提供任务通信按钮和占位视口。正式后处理视口拟通过主窗口的 `IWidgetHost` 接入；具体场景接口仍待评审。主工程当前不会启动后处理子进程。
+`PostProcessWorkbenchWindow` 通过 `IWidgetHost` 提供数据/场景树、属性面板、时间轴和视口插槽。启用可视化目标时，`VtkSceneViewer` 注入中央视口；场景对象协议和结果数据服务仍待评审。主工程当前不会启动后处理子进程。
 
 ## 公共契约
 
@@ -51,8 +50,8 @@ MockWindow 只提供任务通信按钮和占位视口。正式后处理视口拟
 
 | 模块 | 接入点与当前未实现能力 |
 | --- | --- |
-| `modules/ui/` | 以正式 `SARibbonMainWindow` 替换 `MockWindow`，实现 `IWidgetHost`，展示 `WorkflowView`；提供独立 CMake 目标。 |
-| `modules/visualization/` | 实现 `IMeshAccess`/`IResultAccess`、VTK 8.2 viewer 和数据/后处理模块；通过 `WidgetSlot::Viewport` 插入主窗口。 |
+| `modules/ui/` | `PostProcessWorkbenchWindow` 已实现 `IWidgetHost` 和独立 CMake 目标；SARibbon、`WorkflowView` 展示与业务命令适配仍待接入。 |
+| `modules/visualization/` | 最小 VTK 8.2 Viewer 已可通过 `WidgetSlot::Viewport` 插入主窗口；`IMeshAccess`/`IResultAccess`、数据读取和正式场景对象服务仍待实现。 |
 | `modules/configuration/` | 实现 `IParameterAccess`、配置与工况模型、专业校验及 JSON；保持服务层可在 CLI 使用。 |
 | `modules/logging_ui/` | 实现日志与错误 QWidget，通过 `WidgetSlot::Log/Error` 插入，消费公共 `LogEntry`/`ErrorInfo`。 |
 | `modules/runtime/` | 实现 `ITaskService`、TaskRecord 可靠保存、去重、求解器进程/适配器和日志后端；保留 `taskEventOccurred` 契约。真实 Shell 命令解析与执行也在本模块，当前 CLI 只是入口示范。 |
@@ -62,4 +61,4 @@ MockWindow 只提供任务通信按钮和占位视口。正式后处理视口拟
 
 ## 验收边界
 
-`aerosim_cli --mock-once` 输出排队命令、Prepared/Finished 事件，并检查处理没有在提交调用栈内同步发生。`aerosim_gui --smoke` 创建占位窗口并跑同一消息闭环。两者都不代表参数有效、任务真正执行或结果可用。真实 VTK、SARibbon、求解器、MPI/HPC 和完整工作流不在本阶段。
+`aerosim_cli --mock-once` 输出排队命令、Prepared/Finished 事件，并检查处理没有在提交调用栈内同步发生。`aerosim_gui --smoke` 创建后处理工作台并跑同一消息闭环；`aerosim_postprocess_ui_smoke` 检查视口插槽和核心控件。两者都不代表参数有效、任务真正执行或结果可用。真实结果数据、SARibbon、求解器、MPI/HPC 和完整工作流不在本阶段。

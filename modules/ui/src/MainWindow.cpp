@@ -103,7 +103,7 @@ void MainWindow::createRibbon()
         {"状态管理", "新建状态|状态模板|多状态配置"},
         {"求解", "求解器设置|并行设置|多状态计算 / 传热|耦合控制|启动|暂停|续算|停止"},
         {"监控", "计算状态|日志|收敛曲线|任务管理"},
-        {"后处理", "云图|切面|等值面|流线|曲线|动画"},
+        {"后处理", "后处理工作台|云图|切面|等值面|流线|曲线|动画"},
         {"数据处理", "多状态数据处理"},
         {"工具", "恢复默认布局|工程导航|属性面板|输出面板"},
         {"帮助", "使用说明|关于"}
@@ -124,7 +124,12 @@ void MainWindow::createRibbon()
             panel->addLargeAction(action);
             action->setEnabled(false);
             action->setToolTip(name + QStringLiteral("：等待对应业务模块接入"));
-            if (name == QStringLiteral("启动")) {
+            if (name == QStringLiteral("后处理工作台")) {
+                action->setObjectName(QStringLiteral("openPostProcessAction"));
+                action->setEnabled(true);
+                action->setToolTip(QStringLiteral("打开数据、场景、时间轴与可选 VTK 视口"));
+                connect(action, &QAction::triggered, this, &MainWindow::openPostProcessRequested);
+            } else if (name == QStringLiteral("启动")) {
                 runAction_ = action;
                 action->setObjectName(QStringLiteral("runAction"));
                 connect(action, &QAction::triggered, this, &MainWindow::submitRun);

@@ -32,6 +32,7 @@ public:
     void displayTaskEvent(const TaskEvent &event);
 
 signals:
+    void openPostProcessRequested();
     void navigationRequested(const QString &pageId, const QString &objectId, const QString &fieldKey);
     void parameterDraftChanged(const QString &pageId, const QVariantMap &values);
 

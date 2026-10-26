@@ -1,6 +1,6 @@
 # 后处理功能交接表（16 项）
 
-本表按功能与依赖组织，保留原任务编号。它说明待接入能力的输入、输出、接口和测试条件，**不表示功能已经实现或接口已冻结**。`modules/visualization/` 目前没有正式 C++ 构建目标；下表的 data/features/scene/analysis/ui 是建议的能力位置，不是已存在的 CMake Target。复用 `ResourceRef`、`MeshRef`、`ResultRef`、`DatasetRef`、`SceneObjectRef`；三维结果拟经统一 Viewer/场景入口显示，具体 API 待评审。
+本表按功能与依赖组织，保留原任务编号。它说明待接入能力的输入、输出、接口和测试条件，**不表示接口已经冻结**。`modules/visualization/` 已有正式 C++ 目标 `aerosim_spatial_features`，实现了 ④⑤⑥⑭ 的模块内算法与 VTP 导出；它不含数据读取、场景或 UI。下表的 data/features/scene/analysis/ui 仍用于标示其余能力位置，不表示相应 CMake Target 已存在。复用 `ResourceRef`、`MeshRef`、`ResultRef`、`DatasetRef`、`SceneObjectRef`；三维结果仍须经统一 Viewer/场景入口显示，具体 API 待评审。
 
 ## 网格、读取与格式
 
@@ -29,7 +29,7 @@
 | ⑩ 时序动画 | frameId/物理时间/有效性、显示数据集 | 播放状态、帧切换事件与时间定位 | ⑨、场景入口、字段/网格匹配 | data/timeline + ui/scene；`cube_t00..02.vtk`，0/1/2 s。 |
 | ⑯ 时序动画导出 | ⑩的帧序列、场景/相机快照与编码配置 | 逐帧图像或动画文件、导出进度/错误 | ⑩、统一 Viewer、编解码器 | ui/animation-export + scene；检查三帧顺序和尺寸，视频编码与离屏方案待评审。 |
 
-后处理工作区承载文件列表、三维视口、功能入口和参数面板；主窗口通过 `IWidgetHost` 插入视口。工作区和场景操作协议尚未作为正式 C++ 目标交付。
+后处理工作区已承载文件列表、场景树、三维视口插槽、功能入口、参数面板和时间轴；主窗口通过 `IWidgetHost` 插入视口。最小 `VtkSceneViewer` 已作为可选 C++ 目标交付；数据读取、场景对象操作协议与异步业务服务尚未交付。
 
 ## 多状态分析
 

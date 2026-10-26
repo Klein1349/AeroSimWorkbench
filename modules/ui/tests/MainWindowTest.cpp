@@ -1,4 +1,5 @@
 #include "aerosim/ui/MainWindow.h"
+#include "aerosim/ui/PostProcessWorkbenchWindow.h"
 #include <QAction>
 #include <QApplication>
 #include <QLabel>
@@ -36,6 +37,17 @@ int main(int argc, char **argv)
         delete duplicate;
         if (!check(rejected, "Occupied slot must reject without taking ownership")) return 3;
     }
+    aerosim::PostProcessWorkbenchWindow postprocess;
+    QObject::connect(&window, &aerosim::MainWindow::openPostProcessRequested,
+                     &postprocess, &QWidget::show);
+    auto *openPostprocess = window.findChild<QAction *>("openPostProcessAction");
+    if (!check(openPostprocess && openPostprocess->isEnabled(), "Missing postprocess entry")) return 9;
+    openPostprocess->trigger();
+    if (!check(postprocess.isVisible(), "Postprocess entry failed to open workbench")) return 10;
+    postprocess.close();
+    openPostprocess->trigger();
+    if (!check(postprocess.isVisible(), "Closed workbench cannot be reopened")) return 11;
+    postprocess.close();
     Workflow workflow;
     aerosim::ServiceBindings bindings;
     bindings.workflow = &workflow;
