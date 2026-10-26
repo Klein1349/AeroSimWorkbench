@@ -1,21 +1,34 @@
-add_library(aerosim_ui STATIC
-    PostProcessWorkbenchWindow.cpp
-    include/aerosim/ui/PostProcessWorkbenchWindow.h)
-add_library(aerosim::ui ALIAS aerosim_ui)
-
-target_include_directories(aerosim_ui
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(aerosim_ui
-    PUBLIC
-        aerosim_contracts
-        Qt5::Widgets)
-if(MSVC)
-    target_compile_options(aerosim_ui PRIVATE /utf-8)
+cmake_minimum_required(VERSION 3.16)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    project(AeroSimUI LANGUAGES CXX)
+    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    set(CMAKE_AUTOMOC ON)
+    if(MSVC)
+        add_compile_options(/utf-8)
+    endif()
+    option(AEROSIM_BUILD_TESTS "Build UI integration tests" ON)
+    if(AEROSIM_BUILD_TESTS)
+        enable_testing()
+    endif()
+    find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core Widgets)
+    add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../contracts" contracts)
 endif()
-
-add_executable(aerosim_postprocess_ui_smoke
-    tests/PostProcessWorkbenchWindowSmoke.cpp)
-target_link_libraries(aerosim_postprocess_ui_smoke PRIVATE aerosim_ui Qt5::Widgets)
-set_target_properties(aerosim_postprocess_ui_smoke PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/SARibbonDependency.cmake")
+add_library(aerosim_ui STATIC
+    src/MainWindow.cpp include/aerosim/ui/MainWindow.h
+    PostProcessWorkbenchWindow.cpp include/aerosim/ui/PostProcessWorkbenchWindow.h)
+add_library(aerosim::ui ALIAS aerosim_ui)
+target_include_directories(aerosim_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets SARibbonBar::SARibbonBar)
+if(AEROSIM_BUILD_TESTS)
+    add_executable(aerosim_postprocess_ui_smoke tests/PostProcessWorkbenchWindowSmoke.cpp)
+    target_link_libraries(aerosim_postprocess_ui_smoke PRIVATE aerosim_ui)
+    add_test(NAME postprocess_ui_smoke COMMAND aerosim_postprocess_ui_smoke)
+    set_tests_properties(postprocess_ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(aerosim_ui_test tests/MainWindowTest.cpp)
+    target_link_libraries(aerosim_ui_test PRIVATE aerosim_ui)
+    add_test(NAME ui_window_integration COMMAND aerosim_ui_test)
+    set_tests_properties(ui_window_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

@@ -2,6 +2,8 @@
 #include "MockTaskService.h"
 #include "MockWorkflowService.h"
 #include "aerosim/ui/PostProcessWorkbenchWindow.h"
+#include "aerosim/ui/MainWindow.h"
+#include <QPixmap>
 
 #ifdef AEROSIM_HAS_VTK_VIEWER
 #include "aerosim/visualization/scene/VtkSceneViewer.h"
@@ -31,8 +33,17 @@ int main(int argc, char *argv[])
     }
 
     const bool smoke = app.arguments().contains(QStringLiteral("--smoke"));
-    aerosim::PostProcessWorkbenchWindow window;
-    window.bindServices({controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr});
+    aerosim::MainWindow window;
+    aerosim::PostProcessWorkbenchWindow postprocess;
+    const aerosim::ServiceBindings bindings = {
+        controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr};
+    window.bindServices(bindings);
+    postprocess.bindServices(bindings);
+    QObject::connect(&window, &aerosim::MainWindow::openPostProcessRequested, &postprocess, [&postprocess] {
+        postprocess.show();
+        postprocess.raise();
+        postprocess.activateWindow();
+    });
 #ifdef AEROSIM_HAS_VTK_VIEWER
     // The workbench remains usable without a native OpenGL surface.  This is
     // also the safe default on remote desktop sessions where VTK's native
@@ -40,12 +51,12 @@ int main(int argc, char *argv[])
     const bool enableVtkViewer = qEnvironmentVariableIntValue("AEROSIM_ENABLE_VTK_VIEWER") == 1;
     if (!smoke && enableVtkViewer) {
         auto *viewer = new aerosim::visualization::VtkSceneViewer;
-        if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
+        if (!postprocess.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
             delete viewer;
             QTextStream(stderr) << "Failed to insert VTK viewer\n";
             return 4;
         }
-        QObject::connect(&window, &aerosim::PostProcessWorkbenchWindow::viewRequested, viewer,
+        QObject::connect(&postprocess, &aerosim::PostProcessWorkbenchWindow::viewRequested, viewer,
                          [viewer](const QString &orientation) {
             if (orientation == QStringLiteral("reset"))
                 viewer->resetCamera();
@@ -54,7 +65,18 @@ int main(int argc, char *argv[])
         });
     }
 #endif
-    window.show();
+    QWidget *initialWindow = app.arguments().contains(QStringLiteral("--postprocess"))
+        ? static_cast<QWidget *>(&postprocess) : static_cast<QWidget *>(&window);
+    initialWindow->show();
+
+    const int screenshotIndex = app.arguments().indexOf(QStringLiteral("--screenshot"));
+    if (screenshotIndex >= 0) {
+        if (screenshotIndex + 1 >= app.arguments().size()) return 2;
+        const QString path = app.arguments().at(screenshotIndex + 1);
+        QTimer::singleShot(500, initialWindow, [initialWindow, &app, path] {
+            app.exit(initialWindow->grab().save(path) ? 0 : 2);
+        });
+    }
 
     bool smokePassed = false;
     if (smoke) {

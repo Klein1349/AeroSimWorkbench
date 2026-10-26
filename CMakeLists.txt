@@ -9,7 +9,7 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-option(AEROSIM_BUILD_GUI "Build the temporary Qt Widgets GUI shell" ON)
+option(AEROSIM_BUILD_GUI "Build the SARibbon main window" ON)
 option(AEROSIM_BUILD_TESTS "Build and register skeleton smoke tests" ON)
 
 option(AEROSIM_BUILD_STACK_PROBE "Build the optional Qt/VTK/SARibbon compatibility probe" OFF)
@@ -19,6 +19,10 @@ option(AEROSIM_BUILD_VISUALIZATION "Build optional visualization/post-processing
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core)
 if(AEROSIM_BUILD_GUI)
     find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Widgets)
+endif()
+
+if(AEROSIM_BUILD_TESTS)
+    enable_testing()
 endif()
 
 add_subdirectory(contracts)
@@ -44,8 +48,8 @@ if(AEROSIM_BUILD_TESTS)
     if(AEROSIM_BUILD_GUI)
         add_test(NAME gui_mock_smoke COMMAND aerosim_gui --smoke)
         set_tests_properties(gui_mock_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-        add_test(NAME postprocess_ui_smoke COMMAND aerosim_postprocess_ui_smoke)
-        set_tests_properties(postprocess_ui_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        add_test(NAME postprocess_gui_mock_smoke COMMAND aerosim_gui --postprocess --smoke)
+        set_tests_properties(postprocess_gui_mock_smoke PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endif()
     add_test(NAME postprocess_fixture_check
         COMMAND "${CMAKE_COMMAND}"

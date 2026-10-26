@@ -1,5 +1,8 @@
 # 开发环境统一说明
 
+当前 GUI 已接入 `aerosim_ui`，默认构建还需通过 `AEROSIM_SARIBBON_SOURCE_DIR` 提供 SARibbon 2.9.3 源码。下文目标机历史验证不代表新 UI 已通过 Windows 验收；新增模块命令与验证见 [UI 模块](../modules/ui/README.md) 和 [UI 验证](ui-validation.md)。CLI 关闭 GUI 后仍只需 Qt Core。
+
+
 本说明以 2026-10-20 对目标 Windows 主机的实际检查为基线。主工程保留 C++14、Qt 5.12.12 和现有 Mock 功能。正式后处理采用 C++/Qt 5.12.12/VTK 8.2.0。VTK、SARibbon、JSON 与日志库按模块引入；未接入的库不构成主工程的默认构建依赖。CMake **3.18.2 是已验证版本**，根配置声明的最低版本是 3.16。
 
 ## 已核验的目标机环境
@@ -51,6 +54,7 @@ VTK 相关目标使用 **8.2.0 x64/MSVC2017 Debug**，安装树应有 `lib/cmake
 
 ```bat
 set "AEROSIM_QT_ROOT=C:\Qt\5.12.12\msvc2017_64"
+set "AEROSIM_SARIBBON_SOURCE_DIR=<本机 SARibbon 2.9.3 源码目录>"
 scripts\build-windows.cmd all Debug
 build-windows\Debug\aerosim_cli.exe --mock-once
 build-windows\Debug\aerosim_gui.exe
@@ -88,6 +92,7 @@ Linux 端必须准备**同版本、同架构**的 Qt 5.12.12 与 VTK 8.2.0 开�
 git clone https://github.com/Klein1349/AeroSimWorkbench.git
 cd AeroSimWorkbench
 export AEROSIM_QT_ROOT=/path/to/qt-5.12.12
+export AEROSIM_SARIBBON_SOURCE_DIR=/path/to/SARibbon-2.9.3
 ./scripts/build-linux.sh all
 ./build-linux/aerosim_cli --mock-once
 ./build-linux/aerosim_gui

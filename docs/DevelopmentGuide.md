@@ -8,7 +8,7 @@
 | --- | --- |
 | 根 `CMakeLists.txt`、`cmake/`、`scripts/`、`contracts/`、`app/` | 统一构建、公共契约、应用装配、系统级异步连接和集成验收 |
 | `contracts/include/aerosim/ui/` | Widget 插入与服务绑定契约 |
-| `mocks/ui/`、`mocks/services/` | 正式模块接入前的明确占位目标 |
+| `mocks/services/` | 正式模块接入前的明确占位目标 |
 | `tests/fixtures/postprocess/` | 小型解析网格、场、时序和多工况测试数据；以 CMake 脚本检查完整性 |
 | `modules/ui/` | SARibbon 主窗口、WorkflowPanel、任务/监控/曲线 UI |
 | `modules/visualization/` | VTK 8.2 viewer、网格/结果读取与空间后处理 |
@@ -17,7 +17,7 @@
 | `modules/runtime/` | SolverManager、TaskRecord、运行适配器、日志后端 |
 | `modules/project/`、`modules/workflow/` | ProjectManager、WorkflowManager 与工程关联 |
 
-`modules/` 目前仅有模块说明，没有正式业务代码或目标。新模块使用独立子目录、`CMakeLists.txt`、库目标和测试目标；先独立构建和自测，再接入根 CMake。UI 依赖公共契约与 Service；Service 不依赖 `QWidget`、主窗口或 VTK 显示控件；Infrastructure 提供文件、进程、数据等适配。CLI 只要求 Qt Core。
+`modules/ui/` 已提供主窗口库及独立测试；可视化模块已提供可选 VTK 目标；其他业务模块待接入。新模块使用独立子目录、`CMakeLists.txt`、库目标和测试目标；先独立构建和自测，再接入根 CMake。UI 依赖公共契约与 Service；Service 不依赖 `QWidget`、主窗口或 VTK 显示控件；Infrastructure 提供文件、进程、数据等适配。CLI 只要求 Qt Core。
 
 `modules/project/` 和 `modules/workflow/` 提供工程与工作流业务服务；`modules/ui/` 展示状态并提交操作请求，不重复业务规则。
 
