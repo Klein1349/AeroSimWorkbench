@@ -7,6 +7,7 @@
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QDockWidget;
 class QSlider;
 class QStackedWidget;
 class QTextEdit;
@@ -48,6 +49,7 @@ private:
     QSlider *timeSlider_ = nullptr;
     QLabel *timeLabel_ = nullptr;
     QTextEdit *events_ = nullptr;
+    QDockWidget *deepSeekHarnessDock_ = nullptr;
     ServiceBindings services_;
     bool bound_ = false;
 };

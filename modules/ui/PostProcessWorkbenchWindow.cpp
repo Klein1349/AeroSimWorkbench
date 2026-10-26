@@ -133,6 +133,8 @@ void PostProcessWorkbenchWindow::createActions()
     auto *streamAction = featureMenu->addAction(uiText(u"\u521b\u5efa\u6d41\u7ebf"));
     auto *analysisMenu = menuBar()->addMenu(uiText(u"\u5206\u6790"));
     auto *curveAction = analysisMenu->addAction(uiText(u"\u6253\u5f00\u66f2\u7ebf\u5206\u6790"));
+    auto *toolsMenu = menuBar()->addMenu(uiText(u"\u5de5\u5177"));
+    auto *deepSeekAction = toolsMenu->addAction(uiText(u"DeepSeek Harness\u2026"));
 
     auto *toolbar = addToolBar(uiText(u"\u540e\u5904\u7406"));
     toolbar->setObjectName(uiText(u"postProcessToolbar"));
@@ -144,6 +146,8 @@ void PostProcessWorkbenchWindow::createActions()
     auto *streamButton = addToolButton(toolbar, uiText(u"\u6d41\u7ebf"), uiText(u"\u8bbe\u7f6e\u79cd\u5b50\u5e76\u521b\u5efa\u6d41\u7ebf"));
     auto *fitButton = addToolButton(toolbar, uiText(u"\u9002\u914d\u89c6\u56fe"), uiText(u"\u4f7f\u573a\u666f\u9002\u914d\u5f53\u524d\u89c6\u53e3"));
     auto *exportButton = addToolButton(toolbar, uiText(u"\u5bfc\u51fa"), uiText(u"\u5bfc\u51fa\u7279\u5f81\u3001\u56fe\u50cf\u6216\u52a8\u753b"));
+    toolbar->addSeparator();
+    auto *deepSeekButton = addToolButton(toolbar, uiText(u"DeepSeek\nHarness"), uiText(u"\u6253\u5f00 DeepSeek Harness \u52a9\u624b\u5165\u53e3"));
 
     auto command = [this](const QString &name, const QString &message) {
         emit postProcessCommandRequested(name);
@@ -156,6 +160,46 @@ void PostProcessWorkbenchWindow::createActions()
     connect(isoAction, &QAction::triggered, this, [command] { command(uiText(u"createIsoSurface"), uiText(u"\u521b\u5efa\u7b49\u503c\u9762\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
     connect(streamAction, &QAction::triggered, this, [command] { command(uiText(u"createStreamline"), uiText(u"\u521b\u5efa\u6d41\u7ebf\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
     connect(curveAction, &QAction::triggered, this, [command] { command(uiText(u"openCurveAnalysis"), uiText(u"\u66f2\u7ebf\u5206\u6790\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    auto openDeepSeekHarness = [this] {
+        if (!deepSeekHarnessDock_) {
+            deepSeekHarnessDock_ = new QDockWidget(uiText(u"DeepSeek Harness"), this);
+            deepSeekHarnessDock_->setObjectName(uiText(u"deepSeekHarnessDock"));
+            auto *panel = new QWidget(deepSeekHarnessDock_);
+            auto *layout = new QVBoxLayout(panel);
+            auto *description = new QLabel(uiText(u"\u9488\u5bf9\u5f53\u524d\u7ed3\u679c\u3001\u9009\u4e2d\u56fe\u5c42\u6216\u540e\u5904\u7406\u6d41\u7a0b\u63d0\u4ea4\u4efb\u52a1\u3002"), panel);
+            description->setWordWrap(true);
+            layout->addWidget(description);
+            auto *scope = new QComboBox(panel);
+            scope->addItems({uiText(u"\u5f53\u524d\u89c6\u53e3"), uiText(u"\u9009\u4e2d\u56fe\u5c42"), uiText(u"\u5f53\u524d\u6570\u636e\u96c6")});
+            layout->addWidget(scope);
+            auto *prompt = new QTextEdit(panel);
+            prompt->setObjectName(uiText(u"deepSeekHarnessPrompt"));
+            prompt->setPlaceholderText(uiText(u"\u4f8b\u5982\uff1a\u751f\u6210\u538b\u529b\u4e91\u56fe\u5e76\u63d0\u53d6 0.8 \u7b49\u503c\u9762\u3002"));
+            prompt->setMinimumHeight(120);
+            layout->addWidget(prompt);
+            auto *run = new QPushButton(uiText(u"\u8fd0\u884c Harness"), panel);
+            run->setObjectName(uiText(u"primaryAction"));
+            layout->addWidget(run);
+            auto *state = new QLabel(uiText(u"\u5c1a\u672a\u8fde\u63a5\u6a21\u578b\u3002UI \u5165\u53e3\u5df2\u5c31\u7eea\u3002"), panel);
+            state->setObjectName(uiText(u"mutedText"));
+            state->setWordWrap(true);
+            layout->addWidget(state);
+            layout->addStretch();
+            deepSeekHarnessDock_->setWidget(panel);
+            addDockWidget(Qt::RightDockWidgetArea, deepSeekHarnessDock_);
+            connect(run, &QPushButton::clicked, this, [this, prompt] {
+                emit postProcessCommandRequested(uiText(u"openDeepSeekHarness"));
+                appendMessage(prompt->toPlainText().isEmpty()
+                    ? uiText(u"DeepSeek Harness \u5df2\u6253\u5f00\uff1a\u8bf7\u8f93\u5165\u540e\u5904\u7406\u4efb\u52a1\u3002")
+                    : uiText(u"DeepSeek Harness \u4efb\u52a1\u5df2\u63d0\u4ea4\uff1b\u7b49\u5f85 Harness \u670d\u52a1\u63a5\u5165\u3002"));
+            });
+        }
+        deepSeekHarnessDock_->show();
+        deepSeekHarnessDock_->raise();
+        emit postProcessCommandRequested(uiText(u"openDeepSeekHarness"));
+        appendMessage(uiText(u"DeepSeek Harness \u5165\u53e3\u5df2\u6253\u5f00\u3002"));
+    };
+    connect(deepSeekAction, &QAction::triggered, this, openDeepSeekHarness);
     connect(importButton, &QToolButton::clicked, importAction, &QAction::trigger);
     connect(meshButton, &QToolButton::clicked, this, [command] { command(uiText(u"toggleMesh"), uiText(u"\u7f51\u683c\u663e\u793a\u5c42\u5207\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
     connect(contourButton, &QToolButton::clicked, this, [command] { command(uiText(u"toggleContour"), uiText(u"\u4e91\u56fe\u663e\u793a\u5c42\u5207\u6362\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
@@ -164,6 +208,7 @@ void PostProcessWorkbenchWindow::createActions()
     connect(streamButton, &QToolButton::clicked, streamAction, &QAction::trigger);
     connect(fitButton, &QToolButton::clicked, fitAction, &QAction::trigger);
     connect(exportButton, &QToolButton::clicked, exportAction, &QAction::trigger);
+    connect(deepSeekButton, &QToolButton::clicked, this, openDeepSeekHarness);
 }
 
 QWidget *PostProcessWorkbenchWindow::createDataPanel()
