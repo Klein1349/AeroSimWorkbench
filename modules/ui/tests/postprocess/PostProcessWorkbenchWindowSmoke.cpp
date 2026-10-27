@@ -1,11 +1,11 @@
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 
+#include <QAction>
 #include <QApplication>
 #include <QLabel>
 #include <QListWidget>
 #include <QSlider>
 #include <QStackedWidget>
-#include <QToolButton>
 #include <QTreeWidget>
 
 int main(int argc, char *argv[])
@@ -19,14 +19,14 @@ int main(int argc, char *argv[])
 
     auto *tree = window.findChild<QTreeWidget *>(QStringLiteral("postProcessDatasetTree"));
     auto *layers = window.findChild<QListWidget *>(QStringLiteral("sceneLayerList"));
-    auto *contour = window.findChild<QToolButton *>(QStringLiteral("postProcessContourButton"));
-    auto *probe = window.findChild<QToolButton *>(QStringLiteral("postProcessProbeButton"));
+    auto *contour = window.findChild<QAction *>(QStringLiteral("postProcessContourAction"));
+    auto *probe = window.findChild<QAction *>(QStringLiteral("postProcessProbeAction"));
     auto *inspector = window.findChild<QStackedWidget *>(QStringLiteral("postProcessProperties"));
     auto *timeSlider = window.findChild<QSlider *>(QStringLiteral("postProcessTimeSlider"));
     if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !inspector || !timeSlider)
         return 4;
     const int layerCount = layers->count();
-    contour->click();
+    contour->trigger();
     if (layers->count() != layerCount + 1)
         return 7;
     if (window.findChild<QWidget *>(QStringLiteral("postProcessTimeline"))->isHidden())
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     layers->setCurrentRow(0);
     if (inspector->currentIndex() != 5)
         return 11;
-    probe->click();
+    probe->trigger();
     if (inspector->currentIndex() != 6)
         return 12;
 

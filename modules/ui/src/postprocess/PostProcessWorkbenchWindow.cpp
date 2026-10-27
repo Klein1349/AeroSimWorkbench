@@ -1,5 +1,8 @@
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 
+#include <SARibbonBar.h>
+#include <SARibbonCategory.h>
+#include <SARibbonPanel.h>
 #include <QAction>
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -13,20 +16,26 @@
 #include <QLineEdit>
 #include <QLinearGradient>
 #include <QListWidget>
-#include <QMenuBar>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
+#include <QResource>
 #include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QStyle>
 #include <QTabWidget>
 #include <QTextEdit>
-#include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+static QWidget *initializeRibbonResources(QWidget *parent)
+{
+    Q_INIT_RESOURCE(SARibbonResource);
+    return parent;
+}
 
 namespace aerosim {
 namespace {
@@ -46,9 +55,11 @@ template <size_t N> QString uiText(const char16_t (&text)[N])
 QLabel *sectionLabel(const QString &text, QWidget *parent) {
     auto *label = new QLabel(text, parent); label->setObjectName(uiText(u"sectionTitle")); return label;
 }
-QToolButton *toolButton(QToolBar *bar, const QString &text, const QString &tip) {
-    auto *button = new QToolButton(bar); button->setText(text); button->setToolTip(tip);
-    button->setProperty("availableToolTip", tip); button->setToolButtonStyle(Qt::ToolButtonTextOnly); bar->addWidget(button); return button;
+QAction *ribbonAction(QWidget *owner, QStyle::StandardPixmap icon, const QString &text,
+                      const QString &tip, const QString &objectName) {
+    auto *action = new QAction(owner->style()->standardIcon(icon), text, owner);
+    action->setObjectName(objectName); action->setToolTip(tip); action->setProperty("availableToolTip", tip);
+    return action;
 }
 
 // Shown only until a real VTK widget is inserted. This is a visual preview, not a fake data source.
@@ -78,7 +89,8 @@ protected:
 };
 }
 
-PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainWindow(parent) {
+PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
+    : SARibbonMainWindow(initializeRibbonResources(parent)) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
     QFont font(uiText(u"Microsoft YaHei UI")); font.setPointSize(10); setFont(font); createActions();
     auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
@@ -93,31 +105,56 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
 }
 
 void PostProcessWorkbenchWindow::createActions() {
-    auto *file = menuBar()->addMenu(uiText(u"文件")); auto *importAction = file->addAction(uiText(u"导入结果…")); auto *exportAction = file->addAction(uiText(u"导出…"));
-    auto *data = menuBar()->addMenu(uiText(u"数据")); data->addAction(uiText(u"结果集信息…")); data->addAction(uiText(u"计算字段…")); data->addSeparator(); auto *convertAction = data->addAction(uiText(u"结构网格转非结构网格…")); auto *excelAction = data->addAction(uiText(u"Excel 工况汇总…"));
-    auto *display = menuBar()->addMenu(uiText(u"显示")); auto *meshAction = display->addAction(uiText(u"显示网格 / 边线")); auto *contourAction = display->addAction(uiText(u"新建云图")); display->addAction(uiText(u"设置色标与范围…"));
-    auto *feature = menuBar()->addMenu(uiText(u"特征")); auto *sliceAction = feature->addAction(uiText(u"添加切面…")); auto *isoAction = feature->addAction(uiText(u"提取等值面…")); auto *streamAction = feature->addAction(uiText(u"生成流线…")); auto *traceAction = feature->addAction(uiText(u"生成轨迹线…"));
-    auto *analysis = menuBar()->addMenu(uiText(u"分析")); for (const QString &text : {uiText(u"收敛与监控曲线…"), uiText(u"多工况六分量汇总…"), uiText(u"公式与舵效计算…"), uiText(u"系列线与图表…"), uiText(u"AI 气动力建模与预测…")}) analysis->addAction(text);
-    file->addSeparator(); auto *geometryExportAction = file->addAction(uiText(u"导出特征几何…")); auto *animationExportAction = file->addAction(uiText(u"导出动画…"));
-    auto *tool = menuBar()->addMenu(uiText(u"工具")); auto *fitAction = tool->addAction(uiText(u"适配视图")); auto *probeAction = tool->addAction(uiText(u"探针查询")); tool->addSeparator(); auto *deepSeekAction = tool->addAction(uiText(u"DeepSeek Harness…"));
-    auto *bar = addToolBar(uiText(u"后处理操作")); bar->setObjectName(uiText(u"postProcessToolbar")); auto *import = toolButton(bar, uiText(u"导入结果"), uiText(u"导入网格、结果或多时间步数据")); bar->addSeparator();
-    auto *mesh = toolButton(bar, uiText(u"显示网格"), uiText(u"切换当前 Zone 的网格和边线")); auto *contour = toolButton(bar, uiText(u"新建云图"), uiText(u"将选中字段以云图方式添加到图层")); bar->addSeparator(); auto *slice = toolButton(bar, uiText(u"添加切面"), uiText(u"在体网格中创建可编辑的切面")); auto *iso = toolButton(bar, uiText(u"提取等值面"), uiText(u"根据选中字段提取三维等值面")); auto *stream = toolButton(bar, uiText(u"生成流线"), uiText(u"从种子点生成流线或表面流线")); auto *trace = toolButton(bar, uiText(u"生成轨迹"), uiText(u"针对时间序结果生成粒子轨迹")); bar->addSeparator(); auto *fit = toolButton(bar, uiText(u"适配视图"), uiText(u"让可见图层适配当前视口")); auto *probe = toolButton(bar, uiText(u"探针"), uiText(u"查询单元、节点的坐标和字段值")); auto *harness = toolButton(bar, uiText(u"DeepSeek\nHarness"), uiText(u"打开 DeepSeek Harness，基于当前选择组织后处理任务")); harness->setMinimumWidth(88); bar->addSeparator(); auto *exportButton = toolButton(bar, uiText(u"导出"), uiText(u"导出图层、几何、图像或动画"));
-    mesh->setObjectName(uiText(u"postProcessMeshButton")); contour->setObjectName(uiText(u"postProcessContourButton")); slice->setObjectName(uiText(u"postProcessSliceButton")); iso->setObjectName(uiText(u"postProcessIsoButton")); stream->setObjectName(uiText(u"postProcessStreamButton")); trace->setObjectName(uiText(u"postProcessTraceButton")); probe->setObjectName(uiText(u"postProcessProbeButton")); featureButtons_ = {mesh, contour, slice, iso, stream, trace};
+    auto *importAction = ribbonAction(this, QStyle::SP_DialogOpenButton, uiText(u"导入结果"), uiText(u"导入网格、结果或多时间步数据"), uiText(u"postProcessImportAction"));
+    auto *exportAction = ribbonAction(this, QStyle::SP_DialogSaveButton, uiText(u"导出"), uiText(u"导出图层、几何、图像或动画"), uiText(u"postProcessExportAction"));
+    auto *convertAction = ribbonAction(this, QStyle::SP_BrowserReload, uiText(u"网格转换"), uiText(u"结构网格转非结构网格"), uiText(u"postProcessConvertAction"));
+    auto *excelAction = ribbonAction(this, QStyle::SP_FileDialogContentsView, uiText(u"工况汇总"), uiText(u"汇总多工况数据并导出 Excel"), uiText(u"postProcessExcelAction"));
+    auto *meshAction = ribbonAction(this, QStyle::SP_FileDialogDetailedView, uiText(u"网格 / 边线"), uiText(u"切换当前 Zone 的网格和边线"), uiText(u"postProcessMeshAction"));
+    auto *contourAction = ribbonAction(this, QStyle::SP_DriveHDIcon, uiText(u"新建云图"), uiText(u"将选中字段以云图方式添加到图层"), uiText(u"postProcessContourAction"));
+    auto *colorAction = ribbonAction(this, QStyle::SP_FileDialogListView, uiText(u"色标范围"), uiText(u"配置字段的色标和值域"), uiText(u"postProcessColorAction"));
+    auto *sliceAction = ribbonAction(this, QStyle::SP_ArrowDown, uiText(u"添加切面"), uiText(u"在体网格中创建可编辑的切面"), uiText(u"postProcessSliceAction"));
+    auto *isoAction = ribbonAction(this, QStyle::SP_DirIcon, uiText(u"等值面"), uiText(u"根据选中字段提取三维等值面"), uiText(u"postProcessIsoAction"));
+    auto *streamAction = ribbonAction(this, QStyle::SP_ArrowForward, uiText(u"流线"), uiText(u"从种子点生成流线或表面流线"), uiText(u"postProcessStreamAction"));
+    auto *traceAction = ribbonAction(this, QStyle::SP_MediaPlay, uiText(u"轨迹"), uiText(u"针对时间序结果生成粒子轨迹"), uiText(u"postProcessTraceAction"));
+    auto *fitAction = ribbonAction(this, QStyle::SP_TitleBarMaxButton, uiText(u"适配视图"), uiText(u"让可见图层适配当前视口"), uiText(u"postProcessFitAction"));
+    auto *probeAction = ribbonAction(this, QStyle::SP_DialogHelpButton, uiText(u"探针"), uiText(u"查询单元、节点的坐标和字段值"), uiText(u"postProcessProbeAction"));
+    auto *deepSeekAction = ribbonAction(this, QStyle::SP_ComputerIcon, uiText(u"DeepSeek Harness"), uiText(u"基于当前选择组织后处理任务"), uiText(u"postProcessHarnessAction"));
+    auto *geometryExportAction = ribbonAction(this, QStyle::SP_DialogSaveButton, uiText(u"特征几何"), uiText(u"导出切面、等值面等派生几何"), uiText(u"postProcessGeometryExportAction"));
+    auto *animationExportAction = ribbonAction(this, QStyle::SP_MediaPlay, uiText(u"时序动画"), uiText(u"导出当前时间序列动画"), uiText(u"postProcessAnimationExportAction"));
+
+    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
+    auto *dataIO = dataCategory->addPanel(uiText(u"结果数据")); dataIO->addSmallAction(importAction); dataIO->addSmallAction(exportAction);
+    auto *dataProcess = dataCategory->addPanel(uiText(u"整理与汇总")); dataProcess->addSmallAction(convertAction); dataProcess->addSmallAction(excelAction);
+    auto *displayCategory = ribbonBar()->addCategoryPage(uiText(u"显示"));
+    auto *displayLayer = displayCategory->addPanel(uiText(u"显示图层")); displayLayer->addSmallAction(meshAction); displayLayer->addSmallAction(contourAction); displayLayer->addSmallAction(colorAction);
+    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"特征"));
+    auto *featurePanel = featureCategory->addPanel(uiText(u"派生对象")); featurePanel->addSmallAction(sliceAction); featurePanel->addSmallAction(isoAction); featurePanel->addSmallAction(streamAction); featurePanel->addSmallAction(traceAction);
+    auto *analysisCategory = ribbonBar()->addCategoryPage(uiText(u"分析"));
+    auto *analysisPanel = analysisCategory->addPanel(uiText(u"结果分析"));
+    const QList<QString> analysisNames = {uiText(u"收敛曲线"), uiText(u"六分量汇总"), uiText(u"公式与舵效"), uiText(u"系列线与图表"), uiText(u"AI 气动预测")};
+    QList<QAction *> analysisActions;
+    for (const QString &name : analysisNames) { auto *action = ribbonAction(this, QStyle::SP_ComputerIcon, name, uiText(u"打开") + name + uiText(u"工作流程"), uiText(u"postProcessAnalysisAction")); analysisPanel->addSmallAction(action); analysisActions.append(action); }
+    auto *toolCategory = ribbonBar()->addCategoryPage(uiText(u"工具"));
+    auto *viewPanel = toolCategory->addPanel(uiText(u"视图与查询")); viewPanel->addSmallAction(fitAction); viewPanel->addSmallAction(probeAction);
+    auto *assistantPanel = toolCategory->addPanel(uiText(u"智能辅助")); assistantPanel->addSmallAction(deepSeekAction);
+    auto *exportPanel = toolCategory->addPanel(uiText(u"专项导出")); exportPanel->addSmallAction(geometryExportAction); exportPanel->addSmallAction(animationExportAction);
+    ribbonBar()->setCurrentIndex(1);
+    featureActions_ = {meshAction, contourAction, sliceAction, isoAction, streamAction, traceAction};
     const auto command = [this](const QString &key, const QString &message) { emit postProcessCommandRequested(key); appendMessage(message); };
-    connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"已打开导入结果流程；结果读取服务接入后将填充数据集树。")); }); connect(import, &QToolButton::clicked, importAction, &QAction::trigger);
-    connect(exportAction, &QAction::triggered, this, [command] { command(uiText(u"export"), uiText(u"已提交导出请求；请在图层页选择导出对象。")); }); connect(exportButton, &QToolButton::clicked, exportAction, &QAction::trigger);
+    connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"已打开导入结果流程；结果读取服务接入后将填充数据集树。")); });
+    connect(exportAction, &QAction::triggered, this, [command] { command(uiText(u"export"), uiText(u"已提交导出请求；请在图层页选择导出对象。")); });
     connect(convertAction, &QAction::triggered, this, [command] { command(uiText(u"convertStructuredMesh"), uiText(u"已打开结构网格转非结构网格流程。")); }); connect(excelAction, &QAction::triggered, this, [command] { command(uiText(u"aggregateExcelCases"), uiText(u"已打开 Excel 工况汇总流程。")); }); connect(geometryExportAction, &QAction::triggered, this, [command] { command(uiText(u"exportFeatureGeometry"), uiText(u"已打开特征几何导出流程。")); }); connect(animationExportAction, &QAction::triggered, this, [command] { command(uiText(u"exportAnimation"), uiText(u"已打开时间序列动画导出流程。")); });
-    connect(meshAction, &QAction::triggered, mesh, &QToolButton::click); connect(mesh, &QToolButton::clicked, this, [command] { command(uiText(u"toggleMesh"), uiText(u"已切换当前 Zone 的网格显示。")); });
-    const auto contourFn = [this] { addDerivedLayer(uiText(u"contour"), uiText(u"压力云图"), uiText(u"已将“压力”以云图添加到图层。")); }; connect(contourAction, &QAction::triggered, this, contourFn); connect(contour, &QToolButton::clicked, this, contourFn);
-    const auto sliceFn = [this] { addDerivedLayer(uiText(u"slice"), uiText(u"切面 1（X = 0.0）"), uiText(u"已创建切面；可在右侧修改位置与显示字段。")); }; connect(sliceAction, &QAction::triggered, this, sliceFn); connect(slice, &QToolButton::clicked, this, sliceFn);
-    const auto isoFn = [this] { addDerivedLayer(uiText(u"iso"), uiText(u"等值面 1（压力）"), uiText(u"已创建等值面；请设置等值以便后续服务执行。")); }; connect(isoAction, &QAction::triggered, this, isoFn); connect(iso, &QToolButton::clicked, this, isoFn);
-    const auto streamFn = [this] { addDerivedLayer(uiText(u"stream"), uiText(u"流线 1"), uiText(u"已创建流线对象；请在右侧设置种子和积分方向。")); }; connect(streamAction, &QAction::triggered, this, streamFn); connect(stream, &QToolButton::clicked, this, streamFn);
-    const auto traceFn = [this] { addDerivedLayer(uiText(u"trace"), uiText(u"粒子轨迹 1"), uiText(u"已创建轨迹对象；时序数据接入后可运行追踪。")); }; connect(traceAction, &QAction::triggered, this, traceFn); connect(trace, &QToolButton::clicked, this, traceFn);
-    connect(fitAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"reset")); appendMessage(uiText(u"视图已适配所有可见图层。")); }); connect(fit, &QToolButton::clicked, fitAction, &QAction::trigger); connect(probeAction, &QAction::triggered, this, [command] { command(uiText(u"probe"), uiText(u"已进入探针查询模式：请在视口点选单元或节点。")); }); connect(probe, &QToolButton::clicked, probeAction, &QAction::trigger);
-    connect(deepSeekAction, &QAction::triggered, this, &PostProcessWorkbenchWindow::openDeepSeekHarness); connect(harness, &QToolButton::clicked, this, &PostProcessWorkbenchWindow::openDeepSeekHarness);
+    connect(meshAction, &QAction::triggered, this, [command] { command(uiText(u"toggleMesh"), uiText(u"已切换当前 Zone 的网格显示。")); });
+    connect(colorAction, &QAction::triggered, this, [command] { command(uiText(u"configureColorMap"), uiText(u"请在右侧字段与色标页面配置色标和值域。")); });
+    const auto contourFn = [this] { addDerivedLayer(uiText(u"contour"), uiText(u"压力云图"), uiText(u"已将“压力”以云图添加到图层。")); }; connect(contourAction, &QAction::triggered, this, contourFn);
+    const auto sliceFn = [this] { addDerivedLayer(uiText(u"slice"), uiText(u"切面 1（X = 0.0）"), uiText(u"已创建切面；可在右侧修改位置与显示字段。")); }; connect(sliceAction, &QAction::triggered, this, sliceFn);
+    const auto isoFn = [this] { addDerivedLayer(uiText(u"iso"), uiText(u"等值面 1（压力）"), uiText(u"已创建等值面；请设置等值以便后续服务执行。")); }; connect(isoAction, &QAction::triggered, this, isoFn);
+    const auto streamFn = [this] { addDerivedLayer(uiText(u"stream"), uiText(u"流线 1"), uiText(u"已创建流线对象；请在右侧设置种子和积分方向。")); }; connect(streamAction, &QAction::triggered, this, streamFn);
+    const auto traceFn = [this] { addDerivedLayer(uiText(u"trace"), uiText(u"粒子轨迹 1"), uiText(u"已创建轨迹对象；时序数据接入后可运行追踪。")); }; connect(traceAction, &QAction::triggered, this, traceFn);
+    connect(fitAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"reset")); appendMessage(uiText(u"视图已适配所有可见图层。")); }); connect(probeAction, &QAction::triggered, this, [command] { command(uiText(u"probe"), uiText(u"已进入探针查询模式：请在视口点选单元或节点。")); });
+    connect(deepSeekAction, &QAction::triggered, this, &PostProcessWorkbenchWindow::openDeepSeekHarness);
     connect(probeAction, &QAction::triggered, this, &PostProcessWorkbenchWindow::showProbePanel);
-    connect(probe, &QToolButton::clicked, this, &PostProcessWorkbenchWindow::showProbePanel);
-    for (QAction *action : analysis->actions()) connect(action, &QAction::triggered, this, [command, action] { command(uiText(u"openAnalysis"), uiText(u"已打开“%1”工作流程入口。").arg(action->text())); });
+    for (QAction *action : analysisActions) connect(action, &QAction::triggered, this, [command, action] { command(uiText(u"openAnalysis"), uiText(u"已打开“%1”工作流程入口。").arg(action->text())); });
 }
 
 void PostProcessWorkbenchWindow::openDeepSeekHarness() {
@@ -273,7 +310,7 @@ QWidget *PostProcessWorkbenchWindow::createPropertiesPanel()
 
 QWidget *PostProcessWorkbenchWindow::createTimeline() { auto *frame = new QFrame(this); frame->setObjectName(uiText(u"postProcessTimeline")); auto *layout = new QHBoxLayout(frame); layout->setContentsMargins(8,5,8,5); layout->addWidget(new QLabel(uiText(u"时间步"),frame)); for(const QString &text:{uiText(u"|◀"),uiText(u"◀"),uiText(u"▶"),uiText(u"▶|")}){auto *button=new QPushButton(text,frame);button->setFixedWidth(34);layout->addWidget(button);connect(button,&QPushButton::clicked,this,[this]{appendMessage(uiText(u"已切换时间步。"));});} timeSlider_=new QSlider(Qt::Horizontal,frame);timeSlider_->setObjectName(uiText(u"postProcessTimeSlider"));timeSlider_->setRange(0,2);layout->addWidget(timeSlider_,1);timeLabel_=new QLabel(uiText(u"t = 0.0 s / 3 帧"),frame);layout->addWidget(timeLabel_);connect(timeSlider_,&QSlider::valueChanged,this,[this](int value){timeLabel_->setText(uiText(u"t = %1 s / 3 帧").arg(value*.5,0,'f',1));});return frame; }
 
-void PostProcessWorkbenchWindow::setFeatureButtonsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline) { const bool states[]={mesh,contour,slice,iso,streamline,streamline}; for(int i=0;i<featureButtons_.size();++i){featureButtons_.at(i)->setEnabled(states[i]);featureButtons_.at(i)->setToolTip(states[i]?featureButtons_.at(i)->property("availableToolTip").toString():uiText(u"当前选中数据不支持此功能。请选择体网格或相关字段。"));} }
+void PostProcessWorkbenchWindow::setFeatureActionsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline) { const bool states[]={mesh,contour,slice,iso,streamline,streamline}; for(int i=0;i<featureActions_.size();++i){featureActions_.at(i)->setEnabled(states[i]);featureActions_.at(i)->setToolTip(states[i]?featureActions_.at(i)->property("availableToolTip").toString():uiText(u"当前选中数据不支持此功能。请选择体网格或相关字段。"));} }
 void PostProcessWorkbenchWindow::updateDataSelection(QTreeWidgetItem *item, int) {
     if (!item) return;
     const QString type = item->data(0, Qt::UserRole).toString();
@@ -284,7 +321,7 @@ void PostProcessWorkbenchWindow::updateDataSelection(QTreeWidgetItem *item, int)
         timeSlider_->setValue(timeIndex);
         timeSummary_->setText(uiText(u"当前 Frame 已切换至 %1。\n\n切换此状态会更新视口中的所有 Zone 与派生对象。").arg(name));
         propertiesStack_->setCurrentIndex(InspectorTime);
-        setFeatureButtonsEnabled(true, true, true, true, true);
+        setFeatureActionsEnabled(true, true, true, true, true);
         return;
     }
     const bool spatial = type == "volume" || type == "surface" || type == "field";
@@ -301,7 +338,7 @@ void PostProcessWorkbenchWindow::updateDataSelection(QTreeWidgetItem *item, int)
     } else {
         propertiesStack_->setCurrentIndex(InspectorOverview);
     }
-    setFeatureButtonsEnabled(spatial, spatial, type == "volume" || field,
+    setFeatureActionsEnabled(spatial, spatial, type == "volume" || field,
                              type == "volume" || field,
                              type == "volume" || type == "surface" || field);
 }

@@ -1,10 +1,11 @@
 #pragma once
 
 #include "aerosim/ui/IntegrationPorts.h"
+#include <SARibbonMainWindow.h>
 
 #include <QList>
-#include <QMainWindow>
 
+class QAction;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -22,7 +23,7 @@ namespace aerosim {
 
 // The post-processing workspace owns Qt controls only. A visualization scene
 // service supplies the actual VTK widget through WidgetSlot::Viewport.
-class PostProcessWorkbenchWindow final : public QMainWindow, public IWidgetHost {
+class PostProcessWorkbenchWindow final : public SARibbonMainWindow, public IWidgetHost {
     Q_OBJECT
 public:
     explicit PostProcessWorkbenchWindow(QWidget *parent = nullptr);
@@ -46,7 +47,7 @@ private:
     void showProbePanel();
     void updateDataSelection(QTreeWidgetItem *item, int column);
     void addDerivedLayer(const QString &kind, const QString &name, const QString &message);
-    void setFeatureButtonsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline);
+    void setFeatureActionsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline);
     void appendMessage(const QString &message);
     void updateSelectionDetails();
 
@@ -72,7 +73,7 @@ private:
     QLabel *probeSummary_ = nullptr;
     QTextEdit *events_ = nullptr;
     QDockWidget *deepSeekHarnessDock_ = nullptr;
-    QList<QToolButton *> featureButtons_;
+    QList<QAction *> featureActions_;
     ServiceBindings services_;
     bool bound_ = false;
 };
