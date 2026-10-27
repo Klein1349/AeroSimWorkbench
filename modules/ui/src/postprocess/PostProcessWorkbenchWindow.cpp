@@ -105,7 +105,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent) : QMainW
     addDockWidget(Qt::BottomDockWidgetArea, messageDock);
     messageDock->hide();
 
-    statusBar()->showMessage(uiText(u"Mock \u5de5\u4f5c\u53f0\u5df2\u5c31\u7eea\uff1a\u53ef\u4ece\u5de6\u4fa7\u5207\u6362\u5165\u53e3\u573a\u666f\uff0c\u6240\u6709\u64cd\u4f5c\u4ec5\u6f14\u793a UI \u72b6\u6001\u3002"));
+    statusBar()->showMessage(uiText(u"\u540e\u5904\u7406\u5de5\u4f5c\u53f0\u5df2\u5c31\u7eea\uff1a\u4ece\u6570\u636e\u96c6\u6811\u9009\u62e9 Zone \u3001\u5b57\u6bb5\u6216\u6d3e\u751f\u5bf9\u8c61\u4ee5\u542f\u7528\u76f8\u5173\u64cd\u4f5c\u3002"));
     setStyleSheet(uiText(u""
         "QMainWindow { background: #edf1f5; color: #223247; }"
         "QMenuBar { background: #ffffff; border-bottom: 1px solid #d8e0e8; padding: 2px 6px; }"
@@ -155,7 +155,11 @@ void PostProcessWorkbenchWindow::createActions()
     auto *isoAction = featureMenu->addAction(uiText(u"\u521b\u5efa\u7b49\u503c\u9762"));
     auto *streamAction = featureMenu->addAction(uiText(u"\u521b\u5efa\u6d41\u7ebf"));
     auto *analysisMenu = menuBar()->addMenu(uiText(u"\u5206\u6790"));
-    auto *curveAction = analysisMenu->addAction(uiText(u"\u6253\u5f00\u66f2\u7ebf\u5206\u6790"));
+    auto *curveAction = analysisMenu->addAction(uiText(u"\u6536\u655b\u4e0e\u76d1\u63a7\u66f2\u7ebf"));
+    auto *sixDofAction = analysisMenu->addAction(uiText(u"\u591a\u5de5\u51b5\u516d\u5206\u91cf\u6c47\u603b\u2026"));
+    auto *formulaAction = analysisMenu->addAction(uiText(u"\u516c\u5f0f\u4e0e\u8235\u6548\u8ba1\u7b97\u2026"));
+    auto *seriesAction = analysisMenu->addAction(uiText(u"\u7cfb\u5217\u7ebf\u4e0e\u56fe\u8868\u2026"));
+    auto *aiAction = analysisMenu->addAction(uiText(u"AI \u6c14\u52a8\u529b\u5efa\u6a21\u4e0e\u9884\u6d4b\u2026"));
     auto *toolsMenu = menuBar()->addMenu(uiText(u"\u5de5\u5177"));
     auto *deepSeekAction = toolsMenu->addAction(uiText(u"DeepSeek Harness\u2026"));
 
@@ -200,6 +204,10 @@ void PostProcessWorkbenchWindow::createActions()
     connect(isoAction, &QAction::triggered, this, createIso);
     connect(streamAction, &QAction::triggered, this, createStream);
     connect(curveAction, &QAction::triggered, this, [command] { command(uiText(u"openCurveAnalysis"), uiText(u"\u66f2\u7ebf\u5206\u6790\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(sixDofAction, &QAction::triggered, this, [command] { command(uiText(u"openSixDofAnalysis"), uiText(u"\u591a\u5de5\u51b5\u516d\u5206\u91cf\u6c47\u603b\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(formulaAction, &QAction::triggered, this, [command] { command(uiText(u"openFormulaAnalysis"), uiText(u"\u516c\u5f0f\u4e0e\u8235\u6548\u8ba1\u7b97\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(seriesAction, &QAction::triggered, this, [command] { command(uiText(u"openSeriesAnalysis"), uiText(u"\u7cfb\u5217\u7ebf\u5de5\u4f5c\u533a\u8bf7\u6c42\u5df2\u63d0\u4ea4\u3002")); });
+    connect(aiAction, &QAction::triggered, this, [command] { command(uiText(u"openAiAnalysis"), uiText(u"AI \u6c14\u52a8\u529b\u5efa\u6a21\u4e0e\u9884\u6d4b\u5de5\u4f5c\u533a\u8bf7\u5df2\u63d0\u4ea4\u3002")); });
     auto openDeepSeekHarness = [this] {
         if (!deepSeekHarnessDock_) {
             deepSeekHarnessDock_ = new QDockWidget(uiText(u"DeepSeek Harness"), this);
@@ -272,21 +280,21 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel()
     sessionContext_->setObjectName(uiText(u"postProcessSessionContext"));
     sessionContext_->setStyleSheet(uiText(u"font-weight: 600; color: #25364c;"));
     sessionContext_->setWordWrap(true);
-    auto *datasetStatus = new QLabel(uiText(u"\u5f00\u53d1\u671f Mock \u5165\u53e3\uff1b\u771f\u5b9e\u5de5\u7a0b\u9009\u62e9\u5c06\u66ff\u6362\u6b64\u5904"), datasetCard);
+    auto *datasetStatus = new QLabel(uiText(u"\u5f53\u524d\u6570\u636e\u96c6\u4e2d\u7684 Zone\u3001\u5b57\u6bb5\u4e0e\u6d3e\u751f\u5bf9\u8c61\u51b3\u5b9a\u540e\u5904\u7406\u529f\u80fd\u72b6\u6001"), datasetCard);
     datasetStatus->setObjectName(uiText(u"mutedText"));
     datasetStatus->setWordWrap(true);
     cardLayout->addWidget(sessionContext_);
     cardLayout->addWidget(datasetStatus);
     layout->addWidget(datasetCard);
-    layout->addWidget(sectionLabel(uiText(u"Mock \u9009\u62e9\u5165\u53e3"), panel));
+    layout->addWidget(sectionLabel(uiText(u"\u5f53\u524d\u9009\u62e9"), panel));
     mockEntrySelector_ = new QComboBox(panel);
     mockEntrySelector_->setObjectName(uiText(u"postProcessMockEntry"));
     mockEntrySelector_->addItems({
-        uiText(u"\u65e0\u6709\u6548\u7ed3\u679c"), uiText(u"\u7ed3\u679c\u96c6 / \u4f53\u7f51\u683c"),
-        uiText(u"Zone / \u7ec4\u4ef6"), uiText(u"\u8fb9\u754c / \u8868\u9762"),
-        uiText(u"\u5b57\u6bb5 Pressure"), uiText(u"\u70b9 / \u5355\u5143"),
-        uiText(u"\u65f6\u5e8f\u7ed3\u679c\u96c6"), uiText(u"\u65f6\u95f4\u5e27 t = 1.0 s"),
-        uiText(u"\u6536\u655b / \u76d1\u63a7\u8bb0\u5f55")});
+        uiText(u"\u672a\u9009\u62e9"), uiText(u"\u6570\u636e\u96c6 / \u4f53\u7f51\u683c"),
+        uiText(u"Zone: Wing"), uiText(u"\u8fb9\u754c: Wall"),
+        uiText(u"\u5b57\u6bb5: Pressure"), uiText(u"\u63a2\u9488: Cell #128"),
+        uiText(u"\u65f6\u5e8f\u7ed3\u679c\u96c6"), uiText(u"\u5f53\u524d\u5e27: t = 1.0 s"),
+        uiText(u"\u76d1\u63a7\u8bb0\u5f55: Residual")});
     layout->addWidget(mockEntrySelector_);
     availabilityHint_ = new QLabel(panel);
     availabilityHint_->setObjectName(uiText(u"availabilityHint"));
