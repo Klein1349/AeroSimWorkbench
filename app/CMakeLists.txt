@@ -12,7 +12,10 @@ if(AEROSIM_BUILD_GUI)
     add_executable(aerosim_gui WIN32 gui_main.cpp)
     target_link_libraries(aerosim_gui PRIVATE
         aerosim_application aerosim_mock aerosim_ui Qt5::Widgets)
-    if(AEROSIM_BUILD_VISUALIZATION AND AEROSIM_BUILD_VISUALIZATION_SCENE)
+    # Keep the application-level injection point. The scene target is absent
+    # while visualization is only a skeleton, and is linked again as soon as
+    # the new scene module provides it.
+    if(TARGET aerosim_visualization_scene)
         target_link_libraries(aerosim_gui PRIVATE aerosim_visualization_scene)
         target_compile_definitions(aerosim_gui PRIVATE AEROSIM_HAS_VTK_VIEWER=1)
     endif()

@@ -70,4 +70,4 @@ VTK Viewer、统一场景入口和异步数据读取应分别由后续 `modules/
 
 默认启动 Ribbon 主窗口，选择“后处理 → 后处理工作台”打开同一进程中的独立工作台窗口（重复点击复用实例）；也可运行 `aerosim_gui --postprocess` 直接打开。工作台的平铺数据/场景面板、时间轴、属性面板及 DeepSeek Harness 入口保留。两个窗口由 GUI 入口绑定同一组服务，主窗口不持有 VTK 数据。
 
-VTK 接入保留在后处理工作台：编译设置 `AEROSIM_BUILD_VISUALIZATION=ON`，运行设置 `AEROSIM_ENABLE_VTK_VIEWER=1` 才创建 Viewer；`--smoke` 始终跳过原生 OpenGL。`--screenshot` 可与 `--postprocess` 组合检查工作台。
+真实 Viewer 将由后续 `modules/visualization/scene` 实现后经 `app/` 注入工作台；当前工作台始终使用明确标记的视口占位。`--screenshot` 可与 `--postprocess` 组合检查工作台。

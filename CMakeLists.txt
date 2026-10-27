@@ -13,8 +13,9 @@ option(AEROSIM_BUILD_GUI "Build the SARibbon main window" ON)
 option(AEROSIM_BUILD_TESTS "Build and register skeleton smoke tests" ON)
 
 option(AEROSIM_BUILD_STACK_PROBE "Build the optional Qt/VTK/SARibbon compatibility probe" OFF)
-# Owns optional VTK-backed post-processing targets under modules/visualization.
-option(AEROSIM_BUILD_VISUALIZATION "Build optional visualization/post-processing modules" OFF)
+# Enables the visualization module skeleton. Concrete targets are added only
+# when a delivered submodule owns an actual implementation.
+option(AEROSIM_BUILD_VISUALIZATION "Enable visualization/post-processing module targets" OFF)
 
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core)
 if(AEROSIM_BUILD_GUI)
@@ -33,10 +34,6 @@ if(AEROSIM_BUILD_GUI)
 endif()
 
 if(AEROSIM_BUILD_VISUALIZATION)
-    if(NOT DEFINED AEROSIM_BUILD_VISUALIZATION_SCENE)
-        set(AEROSIM_BUILD_VISUALIZATION_SCENE ${AEROSIM_BUILD_GUI} CACHE BOOL
-            "Build the Qt/VTK scene viewer")
-    endif()
     add_subdirectory(modules/visualization)
 endif()
 
