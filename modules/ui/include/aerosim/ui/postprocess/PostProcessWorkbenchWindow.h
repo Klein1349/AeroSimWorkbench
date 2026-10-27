@@ -42,6 +42,7 @@ private:
     QWidget *createPropertiesPanel();
     QWidget *createTimeline();
     void createActions();
+    void openDeepSeekHarness();
     void updateDataSelection(QTreeWidgetItem *item, int column);
     void addDerivedLayer(const QString &kind, const QString &name, const QString &message);
     void setFeatureButtonsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline);
