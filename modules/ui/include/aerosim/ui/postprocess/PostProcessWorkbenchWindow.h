@@ -43,6 +43,7 @@ private:
     QWidget *createTimeline();
     void createActions();
     void openDeepSeekHarness();
+    void showProbePanel();
     void updateDataSelection(QTreeWidgetItem *item, int column);
     void addDerivedLayer(const QString &kind, const QString &name, const QString &message);
     void setFeatureButtonsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline);
@@ -63,6 +64,12 @@ private:
     QLabel *propertyContextTitle_ = nullptr;
     QLabel *propertyContextHint_ = nullptr;
     QLabel *selectionSummary_ = nullptr;
+    QLabel *zoneSummary_ = nullptr;
+    QLabel *fieldSummary_ = nullptr;
+    QLabel *timeSummary_ = nullptr;
+    QLabel *curveSummary_ = nullptr;
+    QLabel *derivedSummary_ = nullptr;
+    QLabel *probeSummary_ = nullptr;
     QTextEdit *events_ = nullptr;
     QDockWidget *deepSeekHarnessDock_ = nullptr;
     QList<QToolButton *> featureButtons_;
