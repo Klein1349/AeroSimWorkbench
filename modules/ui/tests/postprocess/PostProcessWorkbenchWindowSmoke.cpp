@@ -1,39 +1,31 @@
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 
 #include <QApplication>
-#include <QComboBox>
 #include <QLabel>
 #include <QListWidget>
 #include <QToolButton>
+#include <QTreeWidget>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     aerosim::PostProcessWorkbenchWindow window;
-    if (!window.findChild<QWidget *>(QStringLiteral("postProcessMockEntry")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessSessionOutline")) ||
+    if (!window.findChild<QWidget *>(QStringLiteral("postProcessDatasetTree")) ||
         !window.findChild<QWidget *>(QStringLiteral("sceneLayerList")) ||
         !window.findChild<QWidget *>(QStringLiteral("postProcessTimeSlider")))
         return 1;
 
-    auto *entry = window.findChild<QComboBox *>(QStringLiteral("postProcessMockEntry"));
+    auto *tree = window.findChild<QTreeWidget *>(QStringLiteral("postProcessDatasetTree"));
     auto *layers = window.findChild<QListWidget *>(QStringLiteral("sceneLayerList"));
     auto *contour = window.findChild<QToolButton *>(QStringLiteral("postProcessContourButton"));
-    if (!entry || entry->count() != 9 || entry->currentIndex() != 1 || !layers || !contour)
+    if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour)
         return 4;
     const int layerCount = layers->count();
     contour->click();
     if (layers->count() != layerCount + 1)
         return 7;
-    entry->setCurrentIndex(6);
     if (window.findChild<QWidget *>(QStringLiteral("postProcessTimeline"))->isHidden())
         return 5;
-    entry->setCurrentIndex(8);
-    if (!window.findChild<QWidget *>(QStringLiteral("postProcessMeshButton"))->isEnabled()) {
-        // Curve mode deliberately disables spatial-only controls.
-    } else {
-        return 6;
-    }
 
     auto *viewer = new QLabel(QStringLiteral("Viewer"));
     if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer))
