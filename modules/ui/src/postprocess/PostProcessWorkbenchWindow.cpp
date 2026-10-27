@@ -12,6 +12,7 @@
 #include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QLinearGradient>
@@ -19,6 +20,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
+#include <QPixmap>
 #include <QResource>
 #include <QSlider>
 #include <QSplitter>
@@ -55,9 +57,47 @@ template <size_t N> QString uiText(const char16_t (&text)[N])
 QLabel *sectionLabel(const QString &text, QWidget *parent) {
     auto *label = new QLabel(text, parent); label->setObjectName(uiText(u"sectionTitle")); return label;
 }
-QAction *ribbonAction(QWidget *owner, QStyle::StandardPixmap icon, const QString &text,
+QIcon commandIcon(const QString &kind) {
+    QPixmap pixmap(32, 32); pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap); painter.setRenderHint(QPainter::Antialiasing);
+    const QColor ink("#1d6fae"), accent("#16a6b6"), warm("#ebad37");
+    QPen pen(ink, 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin); painter.setPen(pen); painter.setBrush(Qt::NoBrush);
+    if (kind == "import" || kind == "export") {
+        const bool down = kind == "import"; painter.drawRoundedRect(5, 22, 22, 5, 1, 1);
+        painter.drawLine(16, down ? 5 : 20, 16, down ? 18 : 7);
+        QPolygon arrow; arrow << QPoint(11, down ? 15 : 10) << QPoint(16, down ? 20 : 5) << QPoint(21, down ? 15 : 10);
+        painter.setBrush(ink); painter.drawPolygon(arrow);
+    } else if (kind == "mesh") {
+        painter.drawRoundedRect(4, 4, 24, 24, 2, 2); for (int p : {12, 20}) { painter.drawLine(p, 5, p, 27); painter.drawLine(5, p, 27, p); }
+    } else if (kind == "contour") {
+        painter.setPen(QPen(accent, 2.2)); painter.drawEllipse(4, 6, 24, 20); painter.setPen(QPen(ink, 2.2)); painter.drawEllipse(8, 9, 16, 14); painter.setPen(QPen(warm, 2.2)); painter.drawEllipse(12, 12, 8, 8);
+    } else if (kind == "palette") {
+        QLinearGradient gradient(5, 4, 27, 28); gradient.setColorAt(0, QColor("#1267a5")); gradient.setColorAt(.5, accent); gradient.setColorAt(1, warm); painter.setBrush(gradient); painter.setPen(QPen(ink, 1.5)); painter.drawRoundedRect(5, 5, 22, 22, 2, 2);
+    } else if (kind == "slice") {
+        QPolygon plane; plane << QPoint(6, 18) << QPoint(18, 8) << QPoint(28, 14) << QPoint(15, 25); painter.setBrush(QColor(22, 166, 182, 80)); painter.drawPolygon(plane); painter.setPen(QPen(ink, 1.5, Qt::DashLine)); painter.drawLine(4, 24, 28, 24);
+    } else if (kind == "iso") {
+        QPolygon top; top << QPoint(16, 4) << QPoint(27, 10) << QPoint(16, 16) << QPoint(5, 10); painter.setBrush(QColor(22, 166, 182, 80)); painter.drawPolygon(top); painter.setBrush(Qt::NoBrush); painter.drawLine(5, 10, 5, 22); painter.drawLine(27, 10, 27, 22); painter.drawLine(5, 22, 16, 28); painter.drawLine(27, 22, 16, 28); painter.drawLine(16, 16, 16, 28);
+    } else if (kind == "stream" || kind == "trace") {
+        painter.setPen(QPen(kind == "stream" ? accent : ink, 2.2, kind == "trace" ? Qt::DashLine : Qt::SolidLine, Qt::RoundCap));
+        for (int y : {8, 16, 24}) { QPainterPath path; path.moveTo(4, y); path.cubicTo(11, y - 7, 20, y + 7, 28, y); painter.drawPath(path); }
+        painter.setBrush(kind == "trace" ? warm : accent); painter.setPen(Qt::NoPen); painter.drawEllipse(24, 13, 6, 6);
+    } else if (kind == "fit") {
+        for (const QPoint &point : {QPoint(5, 12), QPoint(27, 12), QPoint(5, 20), QPoint(27, 20)}) { const int sx = point.x() < 16 ? 1 : -1, sy = point.y() < 16 ? 1 : -1; painter.drawLine(point, point + QPoint(5 * sx, 0)); painter.drawLine(point, point + QPoint(0, 5 * sy)); }
+    } else if (kind == "probe") {
+        painter.drawEllipse(9, 9, 14, 14); painter.drawLine(16, 3, 16, 29); painter.drawLine(3, 16, 29, 16); painter.setBrush(warm); painter.drawEllipse(14, 14, 4, 4);
+    } else if (kind == "analysis") {
+        painter.drawLine(5, 27, 5, 5); painter.drawLine(5, 27, 28, 27); QPainterPath path; path.moveTo(7, 22); path.lineTo(13, 17); path.lineTo(18, 20); path.lineTo(26, 8); painter.setPen(QPen(accent, 2.5)); painter.drawPath(path);
+    } else if (kind == "harness") {
+        painter.setBrush(QColor(22, 166, 182, 70)); painter.setPen(pen); painter.drawEllipse(7, 7, 18, 18); painter.drawLine(16, 3, 16, 29); painter.drawLine(3, 16, 29, 16); painter.setBrush(warm); painter.setPen(Qt::NoPen); painter.drawEllipse(13, 13, 6, 6);
+    } else {
+        painter.drawRoundedRect(6, 5, 20, 22, 2, 2); painter.drawLine(10, 12, 22, 12); painter.drawLine(10, 18, 22, 18);
+    }
+    return QIcon(pixmap);
+}
+
+QAction *ribbonAction(QWidget *owner, const QIcon &icon, const QString &text,
                       const QString &tip, const QString &objectName) {
-    auto *action = new QAction(owner->style()->standardIcon(icon), text, owner);
+    auto *action = new QAction(icon, text, owner);
     action->setObjectName(objectName); action->setToolTip(tip); action->setProperty("availableToolTip", tip);
     return action;
 }
@@ -92,35 +132,37 @@ protected:
 PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     : SARibbonMainWindow(initializeRibbonResources(parent)) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
-    QFont font(uiText(u"Microsoft YaHei UI")); font.setPointSize(10); setFont(font); createActions();
+    QFont font(uiText(u"Microsoft YaHei UI")); font.setPointSize(10); setFont(font);
+    ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleCompactTwoRow);
+    createActions();
     auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
     auto *content = new QSplitter(Qt::Horizontal, workbench); content->setObjectName(uiText(u"postProcessContent"));
     auto *tabs = new QTabWidget(content); tabs->setObjectName(uiText(u"postProcessNavigator")); tabs->setMinimumWidth(280); tabs->setMaximumWidth(360); tabs->addTab(createScenePanel(), uiText(u"绘图")); tabs->addTab(createDataPanel(), uiText(u"数据集"));
     content->addWidget(tabs); content->addWidget(createViewportPanel()); content->addWidget(createPropertiesPanel()); content->setStretchFactor(1, 1); content->setSizes({300, 830, 320}); content->setChildrenCollapsible(false);
     root->addWidget(content, 1); root->addWidget(createTimeline()); setCentralWidget(workbench);
     auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
-    statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用工具栏创建显示或分析对象。"));
-    setStyleSheet(uiText(u"QMainWindow{background:#edf2f6;color:#24364a;}QMenuBar,QToolBar{background:#fff;border-bottom:1px solid #ccd7e2;}QMenuBar::item{padding:6px 12px;}QMenuBar::item:selected,QMenu::item:selected{background:#e2effa;color:#0a5d9f;}QMenu::item{padding:7px 30px 7px 12px;}QToolBar{spacing:5px;padding:6px 8px;}QToolButton{min-width:64px;min-height:30px;border:1px solid transparent;border-radius:4px;padding:2px 7px;font-weight:600;}QToolButton:hover{background:#e3eff9;border-color:#bfd5e9;}QToolButton:disabled{color:#9ba9b5;background:#f3f5f7;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #ccd7e2;}QTabBar::tab{padding:8px 18px;background:#e7edf3;}QTabBar::tab:selected{background:#fff;color:#0a5d9f;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#e3eff9;color:#075b9e;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f5f8fc;border:1px solid #d7e2ec;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #c5d1dd;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #c5d1dd;border-radius:4px;background:#fff;padding:3px 9px;}QPushButton:hover{background:#e3eff9;border-color:#76a8d1;}QPushButton#primaryAction{background:#0a69b7;color:#fff;border:0;font-weight:bold;}QLabel#mutedText{color:#65798d;font-size:12px;}QLabel#sectionTitle{color:#31475f;font-weight:bold;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:bold;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QTextEdit{background:#162536;color:#dceafb;border:0;}"));
+    statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用 Ribbon 创建显示或分析对象。"));
+    setStyleSheet(uiText(u"QMainWindow{background:#edf2f6;color:#24364a;}SARibbonBar{background:#fff;border-bottom:1px solid #ccd7e2;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #ccd7e2;}QTabBar::tab{padding:8px 18px;background:#e7edf3;}QTabBar::tab:selected{background:#fff;color:#0a5d9f;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#e3eff9;color:#075b9e;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f5f8fc;border:1px solid #d7e2ec;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #c5d1dd;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #c5d1dd;border-radius:4px;background:#fff;padding:3px 9px;}QPushButton:hover{background:#e3eff9;border-color:#76a8d1;}QPushButton#primaryAction{background:#0a69b7;color:#fff;border:0;font-weight:bold;}QLabel#mutedText{color:#65798d;font-size:12px;}QLabel#sectionTitle{color:#31475f;font-weight:bold;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:bold;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QTextEdit{background:#162536;color:#dceafb;border:0;}"));
     updateDataSelection(datasetTree_->currentItem(), 0);
 }
 
 void PostProcessWorkbenchWindow::createActions() {
-    auto *importAction = ribbonAction(this, QStyle::SP_DialogOpenButton, uiText(u"导入结果"), uiText(u"导入网格、结果或多时间步数据"), uiText(u"postProcessImportAction"));
-    auto *exportAction = ribbonAction(this, QStyle::SP_DialogSaveButton, uiText(u"导出"), uiText(u"导出图层、几何、图像或动画"), uiText(u"postProcessExportAction"));
-    auto *convertAction = ribbonAction(this, QStyle::SP_BrowserReload, uiText(u"网格转换"), uiText(u"结构网格转非结构网格"), uiText(u"postProcessConvertAction"));
-    auto *excelAction = ribbonAction(this, QStyle::SP_FileDialogContentsView, uiText(u"工况汇总"), uiText(u"汇总多工况数据并导出 Excel"), uiText(u"postProcessExcelAction"));
-    auto *meshAction = ribbonAction(this, QStyle::SP_FileDialogDetailedView, uiText(u"网格 / 边线"), uiText(u"切换当前 Zone 的网格和边线"), uiText(u"postProcessMeshAction"));
-    auto *contourAction = ribbonAction(this, QStyle::SP_DriveHDIcon, uiText(u"新建云图"), uiText(u"将选中字段以云图方式添加到图层"), uiText(u"postProcessContourAction"));
-    auto *colorAction = ribbonAction(this, QStyle::SP_FileDialogListView, uiText(u"色标范围"), uiText(u"配置字段的色标和值域"), uiText(u"postProcessColorAction"));
-    auto *sliceAction = ribbonAction(this, QStyle::SP_ArrowDown, uiText(u"添加切面"), uiText(u"在体网格中创建可编辑的切面"), uiText(u"postProcessSliceAction"));
-    auto *isoAction = ribbonAction(this, QStyle::SP_DirIcon, uiText(u"等值面"), uiText(u"根据选中字段提取三维等值面"), uiText(u"postProcessIsoAction"));
-    auto *streamAction = ribbonAction(this, QStyle::SP_ArrowForward, uiText(u"流线"), uiText(u"从种子点生成流线或表面流线"), uiText(u"postProcessStreamAction"));
-    auto *traceAction = ribbonAction(this, QStyle::SP_MediaPlay, uiText(u"轨迹"), uiText(u"针对时间序结果生成粒子轨迹"), uiText(u"postProcessTraceAction"));
-    auto *fitAction = ribbonAction(this, QStyle::SP_TitleBarMaxButton, uiText(u"适配视图"), uiText(u"让可见图层适配当前视口"), uiText(u"postProcessFitAction"));
-    auto *probeAction = ribbonAction(this, QStyle::SP_DialogHelpButton, uiText(u"探针"), uiText(u"查询单元、节点的坐标和字段值"), uiText(u"postProcessProbeAction"));
-    auto *deepSeekAction = ribbonAction(this, QStyle::SP_ComputerIcon, uiText(u"DeepSeek Harness"), uiText(u"基于当前选择组织后处理任务"), uiText(u"postProcessHarnessAction"));
-    auto *geometryExportAction = ribbonAction(this, QStyle::SP_DialogSaveButton, uiText(u"特征几何"), uiText(u"导出切面、等值面等派生几何"), uiText(u"postProcessGeometryExportAction"));
-    auto *animationExportAction = ribbonAction(this, QStyle::SP_MediaPlay, uiText(u"时序动画"), uiText(u"导出当前时间序列动画"), uiText(u"postProcessAnimationExportAction"));
+    auto *importAction = ribbonAction(this, commandIcon("import"), uiText(u"导入结果"), uiText(u"导入网格、结果或多时间步数据"), uiText(u"postProcessImportAction"));
+    auto *exportAction = ribbonAction(this, commandIcon("export"), uiText(u"导出"), uiText(u"导出图层、几何、图像或动画"), uiText(u"postProcessExportAction"));
+    auto *convertAction = ribbonAction(this, commandIcon("mesh"), uiText(u"网格转换"), uiText(u"结构网格转非结构网格"), uiText(u"postProcessConvertAction"));
+    auto *excelAction = ribbonAction(this, commandIcon("analysis"), uiText(u"工况汇总"), uiText(u"汇总多工况数据并导出 Excel"), uiText(u"postProcessExcelAction"));
+    auto *meshAction = ribbonAction(this, commandIcon("mesh"), uiText(u"网格 / 边线"), uiText(u"切换当前 Zone 的网格和边线"), uiText(u"postProcessMeshAction"));
+    auto *contourAction = ribbonAction(this, commandIcon("contour"), uiText(u"新建云图"), uiText(u"将选中字段以云图方式添加到图层"), uiText(u"postProcessContourAction"));
+    auto *colorAction = ribbonAction(this, commandIcon("palette"), uiText(u"色标范围"), uiText(u"配置字段的色标和值域"), uiText(u"postProcessColorAction"));
+    auto *sliceAction = ribbonAction(this, commandIcon("slice"), uiText(u"添加切面"), uiText(u"在体网格中创建可编辑的切面"), uiText(u"postProcessSliceAction"));
+    auto *isoAction = ribbonAction(this, commandIcon("iso"), uiText(u"等值面"), uiText(u"根据选中字段提取三维等值面"), uiText(u"postProcessIsoAction"));
+    auto *streamAction = ribbonAction(this, commandIcon("stream"), uiText(u"流线"), uiText(u"从种子点生成流线或表面流线"), uiText(u"postProcessStreamAction"));
+    auto *traceAction = ribbonAction(this, commandIcon("trace"), uiText(u"轨迹"), uiText(u"针对时间序结果生成粒子轨迹"), uiText(u"postProcessTraceAction"));
+    auto *fitAction = ribbonAction(this, commandIcon("fit"), uiText(u"适配视图"), uiText(u"让可见图层适配当前视口"), uiText(u"postProcessFitAction"));
+    auto *probeAction = ribbonAction(this, commandIcon("probe"), uiText(u"探针"), uiText(u"查询单元、节点的坐标和字段值"), uiText(u"postProcessProbeAction"));
+    auto *deepSeekAction = ribbonAction(this, commandIcon("harness"), uiText(u"DeepSeek Harness"), uiText(u"基于当前选择组织后处理任务"), uiText(u"postProcessHarnessAction"));
+    auto *geometryExportAction = ribbonAction(this, commandIcon("export"), uiText(u"特征几何"), uiText(u"导出切面、等值面等派生几何"), uiText(u"postProcessGeometryExportAction"));
+    auto *animationExportAction = ribbonAction(this, commandIcon("trace"), uiText(u"时序动画"), uiText(u"导出当前时间序列动画"), uiText(u"postProcessAnimationExportAction"));
 
     auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
     auto *dataIO = dataCategory->addPanel(uiText(u"结果数据")); dataIO->addSmallAction(importAction); dataIO->addSmallAction(exportAction);
@@ -133,12 +175,18 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *analysisPanel = analysisCategory->addPanel(uiText(u"结果分析"));
     const QList<QString> analysisNames = {uiText(u"收敛曲线"), uiText(u"六分量汇总"), uiText(u"公式与舵效"), uiText(u"系列线与图表"), uiText(u"AI 气动预测")};
     QList<QAction *> analysisActions;
-    for (const QString &name : analysisNames) { auto *action = ribbonAction(this, QStyle::SP_ComputerIcon, name, uiText(u"打开") + name + uiText(u"工作流程"), uiText(u"postProcessAnalysisAction")); analysisPanel->addSmallAction(action); analysisActions.append(action); }
+    for (const QString &name : analysisNames) { auto *action = ribbonAction(this, commandIcon("analysis"), name, uiText(u"打开") + name + uiText(u"工作流程"), uiText(u"postProcessAnalysisAction")); analysisPanel->addSmallAction(action); analysisActions.append(action); }
     auto *toolCategory = ribbonBar()->addCategoryPage(uiText(u"工具"));
     auto *viewPanel = toolCategory->addPanel(uiText(u"视图与查询")); viewPanel->addSmallAction(fitAction); viewPanel->addSmallAction(probeAction);
     auto *assistantPanel = toolCategory->addPanel(uiText(u"智能辅助")); assistantPanel->addSmallAction(deepSeekAction);
     auto *exportPanel = toolCategory->addPanel(uiText(u"专项导出")); exportPanel->addSmallAction(geometryExportAction); exportPanel->addSmallAction(animationExportAction);
-    ribbonBar()->setCurrentIndex(1);
+    auto *workbenchCategory = ribbonBar()->insertCategoryPage(uiText(u"工作台"), 0);
+    auto *workbenchData = workbenchCategory->addPanel(uiText(u"结果数据")); workbenchData->addLargeAction(importAction); workbenchData->addLargeAction(exportAction); workbenchData->addSmallAction(convertAction); workbenchData->addSmallAction(excelAction);
+    auto *workbenchDisplay = workbenchCategory->addPanel(uiText(u"显示")); workbenchDisplay->addLargeAction(meshAction); workbenchDisplay->addLargeAction(contourAction); workbenchDisplay->addLargeAction(colorAction);
+    auto *workbenchFeature = workbenchCategory->addPanel(uiText(u"空间特征")); workbenchFeature->addLargeAction(sliceAction); workbenchFeature->addLargeAction(isoAction); workbenchFeature->addSmallAction(streamAction); workbenchFeature->addSmallAction(traceAction);
+    auto *workbenchAnalysis = workbenchCategory->addPanel(uiText(u"分析")); for (QAction *action : analysisActions) workbenchAnalysis->addSmallAction(action);
+    auto *workbenchTools = workbenchCategory->addPanel(uiText(u"视图与查询")); workbenchTools->addLargeAction(fitAction); workbenchTools->addLargeAction(probeAction); workbenchTools->addSmallAction(deepSeekAction);
+    ribbonBar()->setCurrentIndex(0);
     featureActions_ = {meshAction, contourAction, sliceAction, isoAction, streamAction, traceAction};
     const auto command = [this](const QString &key, const QString &message) { emit postProcessCommandRequested(key); appendMessage(message); };
     connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"已打开导入结果流程；结果读取服务接入后将填充数据集树。")); });
