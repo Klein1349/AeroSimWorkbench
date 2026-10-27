@@ -1,26 +1,25 @@
 # 可视化与后处理模块约定
 
-本文件适用于 `modules/visualization/` 及其子目录；同时遵守仓库根目录的 `AGENTS.md`。开始修改前阅读本目录的 `README.md`，涉及跨模块数据、场景或工作区时再阅读 `docs/PostProcessIntegrationGuide.md` 和 `docs/PostProcessContracts.md`。
+本目录当前仅保留后处理逻辑的模块骨架。遵守仓库根目录的 `AGENTS.md`。
 
-## 分层与目录
+- `data/`：结果文件读取、结果集、Zone/边界、字段与时间帧；不依赖 QWidget 或场景。
+- `scene/`：唯一允许使用 VTK renderer、mapper、actor 和 GUI 线程渲染的子模块。
+- `features/`：从只读数据生成切面、等值特征、流线、迹线或导出几何；不持有场景状态。
+- `analysis/`：曲线、多状态、公式、表格和模型；不依赖 `scene` 或 QWidget。
+- `tests/`：每个实际目标的独立测试；Mock 装配测试不等于算法或格式验收。
 
-- `data/` 负责格式读取、网格/字段规范化和帧索引；不得创建 QWidget、renderer 或 actor。
-- `features/` 负责从只读数据快照计算切面、等值线/面、流线、迹线和可导出的特征几何；不得持有场景状态或操作渲染器。
-- `scene/` 是唯一可以创建 Viewer、VTK renderer、mapper 和 actor 的位置；所有场景变更和 `Render()` 留在 GUI 线程。
-- `analysis/` 负责多工况表、公式、曲线和模型，读取数据/工况元信息但不依赖 `scene/`、QWidget 或主窗口。
-- 后处理工作区和参数控件属于 `modules/ui/`，它也是前处理、工程管理和运行监控等系统界面的统一位置；`app/` 只装配对象。不要把 UI 代码放入本模块的 data/features/analysis。
+创建实现时先在所属子目录完成最小可构建目标和测试，再将它接入根工程。跨模块仅传轻量 ID、元信息或不可变结果，不在 `contracts/` 中放 VTK 对象和大型网格数组。
 
-依赖方向为 `data -> features -> scene`；`analysis` 可依赖数据元信息但不依赖 scene。不能从低层反向包含 UI 或 scene 头文件。当前只有 `features/` 已实现；创建其他层前先完成其最小 API、测试数据和独立 CMake 目标。
+## 后处理协作与验收
 
-## 数据、线程与公共契约
+- 每个独立的后处理功能修改从最新 `origin/main` 拉出新分支；不直接在 `main` 上开发。分支名使用 `postprocess/<模块>-<功能>`，例如 `postprocess/data-import`、`postprocess/analysis-curves`。保留并避开工作区中与当前功能无关的修改。
+- 后处理工作台 UI 位于 `modules/ui/` 的 `postprocess/` 子域；功能接入可修改该子域中的相关按钮、参数控件、显示状态和测试，但不得重做整体布局、创建第二套工作台或修改无关 UI。
+- 一个功能只有在从现有后处理工作台的 UI 实际触发，并在 UI 中得到对应可见结果后才算完成。仅新增按钮、发出信号、写日志、改标签或单独运行算法均不算端到端完成。
+- 实现过程中发现与当前功能直接相关的 UI 显示、状态、参数控件或按钮可用性问题，可以顺手修复并一同验证；提交说明中列出附带的 UI 修复即可。
+- 每个交付至少验证：目标可编译；当前功能从 UI 可用；已有后处理工作台的基本打开、视口、数据/场景页和时间轴不被破坏。缺少目标 Windows/VTK 环境时，报告未验证项，不把 Mock 或静态截图称为真实功能验收。
 
-- `contracts/` 只使用或补充按值传递的引用与元信息。不得写入 `vtkDataObject`、`vtkRenderer`、数组缓存、裸 VTK 指针或模块私有几何类型。
-- 特征算法应接收调用方提供的只读输入快照，返回独立、不可共享写入的几何结果；输入、字段关联、单位和坐标系必须显式。
-- 文件 IO、网格规范化和特征计算可在工作线程执行。QWidget、render window、renderer、actor 和 `Render()` 只能在 GUI 线程执行。跨线程 Qt 消息仅传轻量、已注册的值类型；不传裸 VTK 指针。
-- 每项耗时操作都要说明取消、数据版本失效和结果所有权。读取/计算失败不得创建半成品场景对象。
+## 目标机 UI 启动
 
-## 构建与测试
-
-- 固定 C++14、Qt 5.12.12、VTK 8.2.0；目标 Windows 环境仅有 VTK Debug，不得让 VTK 目标链接 Release。
-- 模块目标自行声明所需 Qt/VTK/格式库依赖。纯数据索引或分析代码不应强制链接 VTK、Widgets 或 SARibbon。
-- 每个新目标都要有独立构建与有意义的输入/输出测试。现有空间特征测试按 `tests/README.md` 运行；不要把 Mock 测试说成真实算法验证。
+- 后处理 UI 的目标机验收使用黄的 Windows 主机，项目目录为 `F:\AeroSimWorkbench`。
+- 在该目录中运行 `scripts\run-postprocess-windows.cmd` 启动后处理工作台；脚本会构建 `aerosim_gui` 并以 `--postprocess` 打开工作台。
+- 该路径仅是目标机启动说明，不得写入 CMake、源码或可提交的环境配置。

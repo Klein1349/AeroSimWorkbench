@@ -16,10 +16,6 @@ if "%TARGET%"=="" set "TARGET=all"
 set "CONFIG=%~2"
 if "%CONFIG%"=="" set "CONFIG=Debug"
 
-if /I "%AEROSIM_BUILD_VISUALIZATION%"=="ON" if not defined AEROSIM_VTK_DIR (
-    echo Set AEROSIM_VTK_DIR to the VTK 8.2.0 CMake package directory.
-    exit /b 2
-)
 if /I "%AEROSIM_BUILD_STACK_PROBE%"=="ON" if not defined AEROSIM_VTK_DIR (
     echo Set AEROSIM_VTK_DIR to the VTK 8.2.0 CMake package directory.
     exit /b 2

@@ -1,6 +1,6 @@
 # AeroSimWorkbench 开发约定
 
-本文件适用于仓库内的 Codex 开发任务。按任务选择文档，不必每次通读 `docs/`；文档导航见 `docs/README.md`。当前仓库包含 Qt 主工程、公共契约、Mock、SARibbon 主窗口及后处理工作台；`modules/visualization/` 另有一个可独立构建的空间特征目标。
+本文件适用于仓库内的 Codex 开发任务。按任务选择文档，不必每次通读 `docs/`；文档导航见 `docs/README.md`。当前仓库包含 Qt 主工程、公共契约、Mock、SARibbon 主窗口及后处理工作台；`modules/visualization/` 是待逐步实现的后处理逻辑模块骨架。
 
 ## 架构与模块边界
 
