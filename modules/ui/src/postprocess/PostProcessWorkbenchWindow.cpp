@@ -1,9 +1,7 @@
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 
-#include <SARibbonBar.h>
-#include <SARibbonCategory.h>
-#include <SARibbonPanel.h>
 #include <QAction>
+#include <QActionGroup>
 #include <QAbstractButton>
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -18,6 +16,8 @@
 #include <QLineEdit>
 #include <QLinearGradient>
 #include <QListWidget>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
@@ -30,6 +30,7 @@
 #include <QStyle>
 #include <QTabWidget>
 #include <QTextEdit>
+#include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -82,6 +83,25 @@ QIcon commandIcon(const QString &kind) {
         painter.setPen(QPen(kind == "stream" ? accent : ink, 2.2, kind == "trace" ? Qt::DashLine : Qt::SolidLine, Qt::RoundCap));
         for (int y : {8, 16, 24}) { QPainterPath path; path.moveTo(4, y); path.cubicTo(11, y - 7, 20, y + 7, 28, y); painter.drawPath(path); }
         painter.setBrush(kind == "trace" ? warm : accent); painter.setPen(Qt::NoPen); painter.drawEllipse(24, 13, 6, 6);
+    } else if (kind == "select" || kind == "boxSelect") {
+        painter.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        QPolygon cursor; cursor << QPoint(7, 4) << QPoint(8, 25) << QPoint(13, 19) << QPoint(18, 28) << QPoint(22, 25) << QPoint(17, 16) << QPoint(27, 16);
+        painter.setBrush(QColor(22, 166, 182, 90)); painter.drawPolygon(cursor);
+        if (kind == "boxSelect") { painter.setBrush(Qt::NoBrush); painter.setPen(QPen(warm, 1.5, Qt::DashLine)); painter.drawRect(4, 5, 22, 19); }
+    } else if (kind == "pan") {
+        painter.setPen(QPen(ink, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.drawLine(16, 4, 16, 28); painter.drawLine(4, 16, 28, 16);
+        painter.setBrush(ink); for (const QPoint &p : {QPoint(16, 4), QPoint(16, 28), QPoint(4, 16), QPoint(28, 16)}) painter.drawEllipse(p, 2, 2);
+    } else if (kind == "zoom") {
+        painter.setPen(QPen(ink, 2.2)); painter.drawEllipse(5, 5, 15, 15); painter.drawLine(17, 17, 28, 28);
+        painter.drawLine(9, 12, 16, 12); painter.drawLine(12, 9, 12, 16);
+    } else if (kind == "rotate") {
+        painter.setPen(QPen(accent, 2.2)); painter.drawArc(5, 5, 22, 22, 35 * 16, 270 * 16);
+        painter.setBrush(accent); QPolygon arrow; arrow << QPoint(23, 5) << QPoint(29, 8) << QPoint(24, 12); painter.drawPolygon(arrow);
+    } else if (kind == "top" || kind == "front" || kind == "right") {
+        painter.setPen(QPen(ink, 2.0)); painter.setBrush(QColor(22, 166, 182, 70)); painter.drawRoundedRect(5, 6, 22, 20, 2, 2);
+        painter.setPen(QPen(ink, 1.2)); painter.drawLine(5, 12, 27, 12); painter.drawLine(12, 6, 12, 26);
+        painter.setPen(QPen(warm, 2.0)); painter.drawText(QRect(5, 6, 22, 20), Qt::AlignCenter, kind == "top" ? "T" : (kind == "front" ? "F" : "R"));
     } else if (kind == "fit") {
         for (const QPoint &point : {QPoint(5, 12), QPoint(27, 12), QPoint(5, 20), QPoint(27, 20)}) { const int sx = point.x() < 16 ? 1 : -1, sy = point.y() < 16 ? 1 : -1; painter.drawLine(point, point + QPoint(5 * sx, 0)); painter.drawLine(point, point + QPoint(0, 5 * sy)); }
     } else if (kind == "probe") {
@@ -131,10 +151,11 @@ protected:
 }
 
 PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
-    : SARibbonMainWindow(initializeRibbonResources(parent)) {
+    : SARibbonMainWindow(initializeRibbonResources(parent),
+                         SARibbonMainWindowStyleFlag::UseNativeMenuBar
+                             | SARibbonMainWindowStyleFlag::UseNativeFrame) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
     QFont font(uiText(u"Microsoft YaHei UI")); font.setPointSize(10); setFont(font);
-    ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleCompactTwoRow);
     createActions();
     auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
     auto *content = new QSplitter(Qt::Horizontal, workbench); content->setObjectName(uiText(u"postProcessContent"));
@@ -142,8 +163,8 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     content->addWidget(tabs); content->addWidget(createViewportPanel()); content->addWidget(createPropertiesPanel()); content->setStretchFactor(1, 1); content->setSizes({300, 830, 320}); content->setChildrenCollapsible(false);
     root->addWidget(content, 1); root->addWidget(createTimeline()); setCentralWidget(workbench);
     auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
-    statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用 Ribbon 创建显示或分析对象。"));
-    setStyleSheet(uiText(u"QMainWindow{background:#edf2f6;color:#24364a;}SARibbonBar{background:#fff;border-bottom:1px solid #ccd7e2;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #ccd7e2;}QTabBar::tab{padding:8px 18px;background:#e7edf3;}QTabBar::tab:selected{background:#fff;color:#0a5d9f;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#e3eff9;color:#075b9e;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f5f8fc;border:1px solid #d7e2ec;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #c5d1dd;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #c5d1dd;border-radius:4px;background:#fff;padding:3px 9px;}QPushButton:hover{background:#e3eff9;border-color:#76a8d1;}QPushButton#primaryAction{background:#0a69b7;color:#fff;border:0;font-weight:bold;}QLabel#mutedText{color:#65798d;font-size:12px;}QLabel#sectionTitle{color:#31475f;font-weight:bold;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:bold;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QTextEdit{background:#162536;color:#dceafb;border:0;}"));
+    statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用上方工具栏创建显示或分析对象。"));
+    setStyleSheet(uiText(u"QMainWindow{background:#edf2f6;color:#24364a;}QMenuBar,QToolBar{background:#fff;border-bottom:1px solid #ccd7e2;}QMenuBar{padding-left:4px;}QMenuBar::item{padding:5px 11px;background:transparent;}QMenuBar::item:selected{background:#e4f0f8;color:#075b9e;}QMenu{border:1px solid #b9c8d5;padding:3px;background:#fff;}QMenu::item{padding:5px 26px 5px 18px;}QMenu::item:selected{background:#e3eff9;color:#075b9e;}QToolBar{spacing:2px;padding:3px 6px;}QToolButton{border:1px solid transparent;border-radius:3px;padding:3px;}QToolButton:hover,QToolButton:checked{background:#e3eff9;border-color:#76a8d1;}QLabel#postProcessInteractionHint{color:#5d7185;border-left:1px solid #ccd7e2;padding-left:9px;margin-left:5px;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #ccd7e2;}QTabBar::tab{padding:8px 18px;background:#e7edf3;}QTabBar::tab:selected{background:#fff;color:#0a5d9f;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#e3eff9;color:#075b9e;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f5f8fc;border:1px solid #d7e2ec;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #c5d1dd;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #c5d1dd;border-radius:4px;background:#fff;padding:3px 9px;}QPushButton:hover{background:#e3eff9;border-color:#76a8d1;}QPushButton#primaryAction{background:#0a69b7;color:#fff;border:0;font-weight:bold;}QLabel#mutedText{color:#65798d;font-size:12px;}QLabel#sectionTitle{color:#31475f;font-weight:bold;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:bold;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QTextEdit{background:#162536;color:#dceafb;border:0;}"));
     updateDataSelection(datasetTree_->currentItem(), 0);
 }
 
@@ -164,40 +185,75 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *deepSeekAction = ribbonAction(this, commandIcon("harness"), uiText(u"DeepSeek"), uiText(u"打开 DeepSeek Harness，基于当前选择组织后处理任务"), uiText(u"postProcessHarnessAction"));
     auto *geometryExportAction = ribbonAction(this, commandIcon("export"), uiText(u"特征几何"), uiText(u"导出切面、等值面等派生几何"), uiText(u"postProcessGeometryExportAction"));
     auto *animationExportAction = ribbonAction(this, commandIcon("trace"), uiText(u"时序动画"), uiText(u"导出当前时间序列动画"), uiText(u"postProcessAnimationExportAction"));
-    auto *applicationButton = ribbonBar()->applicationButton();
-    applicationButton->setVisible(true);
-    applicationButton->setIcon(commandIcon("iso"));
-    applicationButton->setText(uiText(u"后处理"));
-    applicationButton->setToolTip(uiText(u"AeroSim 后处理工作台"));
-    applicationButton->setFixedSize(82, 32);
-
-    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
-    auto *dataIO = dataCategory->addPanel(uiText(u"结果数据")); dataIO->addSmallAction(importAction); dataIO->addSmallAction(exportAction);
-    auto *dataProcess = dataCategory->addPanel(uiText(u"整理与汇总")); dataProcess->addSmallAction(convertAction); dataProcess->addSmallAction(excelAction);
-    auto *displayCategory = ribbonBar()->addCategoryPage(uiText(u"显示"));
-    auto *displayLayer = displayCategory->addPanel(uiText(u"显示图层")); displayLayer->addSmallAction(meshAction); displayLayer->addSmallAction(contourAction); displayLayer->addSmallAction(colorAction);
-    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"特征"));
-    auto *featurePanel = featureCategory->addPanel(uiText(u"派生对象")); featurePanel->addSmallAction(sliceAction); featurePanel->addSmallAction(isoAction); featurePanel->addSmallAction(streamAction); featurePanel->addSmallAction(traceAction);
-    auto *analysisCategory = ribbonBar()->addCategoryPage(uiText(u"分析"));
-    auto *analysisPanel = analysisCategory->addPanel(uiText(u"结果分析"));
+    auto *selectAction = ribbonAction(this, commandIcon("select"), uiText(u"选择"), uiText(u"选择 Zone、图层或派生对象"), uiText(u"postProcessSelectAction"));
+    auto *boxSelectAction = ribbonAction(this, commandIcon("boxSelect"), uiText(u"框选"), uiText(u"框选多个可见对象"), uiText(u"postProcessBoxSelectAction"));
+    auto *panAction = ribbonAction(this, commandIcon("pan"), uiText(u"平移"), uiText(u"平移当前视图"), uiText(u"postProcessPanAction"));
+    auto *zoomAction = ribbonAction(this, commandIcon("zoom"), uiText(u"缩放"), uiText(u"缩放当前视图"), uiText(u"postProcessZoomAction"));
+    auto *rotateAction = ribbonAction(this, commandIcon("rotate"), uiText(u"旋转"), uiText(u"旋转三维视图"), uiText(u"postProcessRotateAction"));
+    auto *frontAction = ribbonAction(this, commandIcon("front"), uiText(u"前视"), uiText(u"切换至前视图"), uiText(u"postProcessFrontViewAction"));
+    auto *rightAction = ribbonAction(this, commandIcon("right"), uiText(u"右视"), uiText(u"切换至右视图"), uiText(u"postProcessRightViewAction"));
+    auto *topAction = ribbonAction(this, commandIcon("top"), uiText(u"俯视"), uiText(u"切换至俯视图"), uiText(u"postProcessTopViewAction"));
+    auto *interactionModes = new QActionGroup(this);
+    interactionModes->setExclusive(true);
+    for (QAction *action : {selectAction, boxSelectAction, panAction, zoomAction, rotateAction}) {
+        action->setCheckable(true);
+        interactionModes->addAction(action);
+    }
+    selectAction->setChecked(true);
     const QList<QString> analysisNames = {uiText(u"收敛曲线"), uiText(u"六分量汇总"), uiText(u"公式与舵效"), uiText(u"系列线与图表"), uiText(u"AI 气动预测")};
     QList<QAction *> analysisActions;
-    for (const QString &name : analysisNames) { auto *action = ribbonAction(this, commandIcon("analysis"), name, uiText(u"打开") + name + uiText(u"工作流程"), uiText(u"postProcessAnalysisAction")); analysisPanel->addSmallAction(action); analysisActions.append(action); }
-    auto *toolCategory = ribbonBar()->addCategoryPage(uiText(u"工具"));
-    auto *viewPanel = toolCategory->addPanel(uiText(u"视图与查询")); viewPanel->addSmallAction(fitAction); viewPanel->addSmallAction(probeAction);
-    auto *assistantPanel = toolCategory->addPanel(uiText(u"智能辅助")); assistantPanel->addSmallAction(deepSeekAction);
-    auto *exportPanel = toolCategory->addPanel(uiText(u"专项导出")); exportPanel->addSmallAction(geometryExportAction); exportPanel->addSmallAction(animationExportAction);
-    auto *workbenchCategory = ribbonBar()->insertCategoryPage(uiText(u"工作台"), 0);
-    auto *workbenchData = workbenchCategory->addPanel(uiText(u"结果数据")); workbenchData->addLargeAction(importAction); workbenchData->addLargeAction(exportAction); workbenchData->addSmallAction(convertAction); workbenchData->addSmallAction(excelAction);
-    auto *workbenchDisplay = workbenchCategory->addPanel(uiText(u"显示")); workbenchDisplay->addLargeAction(meshAction); workbenchDisplay->addLargeAction(contourAction); workbenchDisplay->addLargeAction(colorAction);
-    auto *workbenchFeature = workbenchCategory->addPanel(uiText(u"空间特征")); workbenchFeature->addLargeAction(sliceAction); workbenchFeature->addLargeAction(isoAction); workbenchFeature->addSmallAction(streamAction); workbenchFeature->addSmallAction(traceAction);
-    auto *workbenchAnalysis = workbenchCategory->addPanel(uiText(u"分析")); for (QAction *action : analysisActions) workbenchAnalysis->addSmallAction(action);
-    auto *workbenchTools = workbenchCategory->addPanel(uiText(u"视图与查询")); workbenchTools->addLargeAction(fitAction); workbenchTools->addLargeAction(probeAction); workbenchTools->addSmallAction(deepSeekAction);
-    ribbonBar()->setCurrentIndex(0);
+    for (const QString &name : analysisNames) {
+        analysisActions.append(ribbonAction(this, commandIcon("analysis"), name,
+                                            uiText(u"打开") + name + uiText(u"工作流程"),
+                                            uiText(u"postProcessAnalysisAction")));
+    }
+
+    // Tecplot-inspired arrangement: categories live in the menu bar, while
+    // high-frequency operations are available in one compact icon toolbar.
+    auto *menus = menuBar();
+    menus->setObjectName(uiText(u"postProcessMenuBar"));
+    auto *dataMenu = menus->addMenu(uiText(u"数据"));
+    dataMenu->addActions({importAction, exportAction}); dataMenu->addSeparator(); dataMenu->addActions({convertAction, excelAction});
+    auto *displayMenu = menus->addMenu(uiText(u"显示"));
+    displayMenu->addActions({meshAction, contourAction, colorAction}); displayMenu->addSeparator();
+    displayMenu->addActions({selectAction, boxSelectAction, panAction, zoomAction, rotateAction}); displayMenu->addSeparator();
+    displayMenu->addActions({fitAction, frontAction, rightAction, topAction});
+    auto *featureMenu = menus->addMenu(uiText(u"特征"));
+    featureMenu->addActions({sliceAction, isoAction, streamAction, traceAction});
+    auto *analysisMenu = menus->addMenu(uiText(u"分析"));
+    analysisMenu->addActions(analysisActions);
+    auto *toolsMenu = menus->addMenu(uiText(u"工具"));
+    toolsMenu->addActions({fitAction, probeAction}); toolsMenu->addSeparator();
+    toolsMenu->addActions({geometryExportAction, animationExportAction}); toolsMenu->addSeparator(); toolsMenu->addAction(deepSeekAction);
+
+    auto *quickTools = addToolBar(uiText(u"后处理工具"));
+    quickTools->setObjectName(uiText(u"postProcessQuickTools"));
+    quickTools->setMovable(false); quickTools->setFloatable(false); quickTools->setIconSize(QSize(25, 25));
+    quickTools->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    quickTools->addActions({importAction, exportAction}); quickTools->addSeparator();
+    quickTools->addActions({selectAction, boxSelectAction, panAction, zoomAction, rotateAction}); quickTools->addSeparator();
+    quickTools->addActions({meshAction, contourAction, colorAction}); quickTools->addSeparator();
+    quickTools->addActions({sliceAction, isoAction, streamAction, traceAction}); quickTools->addSeparator();
+    quickTools->addActions({fitAction, frontAction, rightAction, topAction, probeAction}); quickTools->addSeparator(); quickTools->addAction(deepSeekAction);
+    auto *interactionHint = new QLabel(uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放"), quickTools);
+    interactionHint->setObjectName(uiText(u"postProcessInteractionHint"));
+    interactionHint->setMinimumWidth(240); quickTools->addWidget(interactionHint);
     featureActions_ = {meshAction, contourAction, sliceAction, isoAction, streamAction, traceAction};
     const auto command = [this](const QString &key, const QString &message) { emit postProcessCommandRequested(key); appendMessage(message); };
     connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"已打开导入结果流程；结果读取服务接入后将填充数据集树。")); });
     connect(exportAction, &QAction::triggered, this, [command] { command(uiText(u"export"), uiText(u"已提交导出请求；请在图层页选择导出对象。")); });
+    const auto setInteractionMode = [this, interactionHint](const QString &mode, const QString &hint) {
+        interactionHint->setText(hint);
+        appendMessage(uiText(u"已切换至") + mode + uiText(u"模式。"));
+    };
+    connect(selectAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"选择"), uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放")); });
+    connect(boxSelectAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"框选"), uiText(u"框选模式 · 在视口拖曳以选择对象")); });
+    connect(panAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"平移"), uiText(u"平移模式 · 在视口拖曳以移动视图")); });
+    connect(zoomAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"缩放"), uiText(u"缩放模式 · 拖曳或滚轮缩放视图")); });
+    connect(rotateAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"旋转"), uiText(u"旋转模式 · 拖曳以旋转三维视图")); });
+    connect(frontAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"front")); appendMessage(uiText(u"已切换至前视图。")); });
+    connect(rightAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"right")); appendMessage(uiText(u"已切换至右视图。")); });
+    connect(topAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"top")); appendMessage(uiText(u"已切换至俯视图。")); });
     connect(convertAction, &QAction::triggered, this, [command] { command(uiText(u"convertStructuredMesh"), uiText(u"已打开结构网格转非结构网格流程。")); }); connect(excelAction, &QAction::triggered, this, [command] { command(uiText(u"aggregateExcelCases"), uiText(u"已打开 Excel 工况汇总流程。")); }); connect(geometryExportAction, &QAction::triggered, this, [command] { command(uiText(u"exportFeatureGeometry"), uiText(u"已打开特征几何导出流程。")); }); connect(animationExportAction, &QAction::triggered, this, [command] { command(uiText(u"exportAnimation"), uiText(u"已打开时间序列动画导出流程。")); });
     connect(meshAction, &QAction::triggered, this, [command] { command(uiText(u"toggleMesh"), uiText(u"已切换当前 Zone 的网格显示。")); });
     connect(colorAction, &QAction::triggered, this, [command] { command(uiText(u"configureColorMap"), uiText(u"请在右侧字段与色标页面配置色标和值域。")); });

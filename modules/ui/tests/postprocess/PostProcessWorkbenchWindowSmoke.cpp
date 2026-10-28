@@ -4,14 +4,20 @@
 #include <QApplication>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenuBar>
 #include <QSlider>
 #include <QStackedWidget>
+#include <QToolBar>
 #include <QTreeWidget>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     aerosim::PostProcessWorkbenchWindow window;
+    auto *menuBar = window.findChild<QMenuBar *>(QStringLiteral("postProcessMenuBar"));
+    auto *quickTools = window.findChild<QToolBar *>(QStringLiteral("postProcessQuickTools"));
+    if (!menuBar || menuBar->actions().size() != 5 || !quickTools || quickTools->actions().size() < 10)
+        return 12;
     if (!window.findChild<QWidget *>(QStringLiteral("postProcessDatasetTree")) ||
         !window.findChild<QWidget *>(QStringLiteral("sceneLayerList")) ||
         !window.findChild<QWidget *>(QStringLiteral("postProcessTimeSlider")))
@@ -21,10 +27,16 @@ int main(int argc, char *argv[])
     auto *layers = window.findChild<QListWidget *>(QStringLiteral("sceneLayerList"));
     auto *contour = window.findChild<QAction *>(QStringLiteral("postProcessContourAction"));
     auto *probe = window.findChild<QAction *>(QStringLiteral("postProcessProbeAction"));
+    auto *pan = window.findChild<QAction *>(QStringLiteral("postProcessPanAction"));
+    auto *topView = window.findChild<QAction *>(QStringLiteral("postProcessTopViewAction"));
     auto *inspector = window.findChild<QStackedWidget *>(QStringLiteral("postProcessProperties"));
     auto *timeSlider = window.findChild<QSlider *>(QStringLiteral("postProcessTimeSlider"));
-    if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !inspector || !timeSlider)
+    auto *interactionHint = window.findChild<QLabel *>(QStringLiteral("postProcessInteractionHint"));
+    if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !pan || !topView || !interactionHint || !inspector || !timeSlider)
         return 4;
+    pan->trigger();
+    if (!pan->isChecked() || !interactionHint->text().contains(QStringLiteral("平移")))
+        return 13;
     const int layerCount = layers->count();
     contour->trigger();
     if (layers->count() != layerCount + 1)
