@@ -12,6 +12,7 @@ class QListWidget;
 class QDockWidget;
 class QSlider;
 class QStackedWidget;
+class QTabWidget;
 class QTextEdit;
 class QToolButton;
 class QTreeWidget;
@@ -38,7 +39,8 @@ signals:
 
 private:
     QWidget *createDataPanel();
-    QWidget *createScenePanel();
+    QWidget *createViewPanel();
+    QWidget *createObjectPanel();
     QWidget *createViewportPanel();
     QWidget *createPropertiesPanel();
     QWidget *createTimeline();
@@ -56,6 +58,7 @@ private:
     QTreeWidget *datasetTree_ = nullptr;
     QListWidget *sceneList_ = nullptr;
     QStackedWidget *propertiesStack_ = nullptr;
+    QTabWidget *inspectorTabs_ = nullptr;
     QLineEdit *selectionName_ = nullptr;
     QSlider *timeSlider_ = nullptr;
     QLabel *timeLabel_ = nullptr;

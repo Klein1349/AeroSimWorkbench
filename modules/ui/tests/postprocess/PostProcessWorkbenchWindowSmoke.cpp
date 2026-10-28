@@ -9,6 +9,7 @@
 #include <QStackedWidget>
 #include <QToolBar>
 #include <QTreeWidget>
+#include <QTabWidget>
 
 int main(int argc, char *argv[])
 {
@@ -30,9 +31,10 @@ int main(int argc, char *argv[])
     auto *pan = window.findChild<QAction *>(QStringLiteral("postProcessPanAction"));
     auto *topView = window.findChild<QAction *>(QStringLiteral("postProcessTopViewAction"));
     auto *inspector = window.findChild<QStackedWidget *>(QStringLiteral("postProcessProperties"));
+    auto *inspectorTabs = window.findChild<QTabWidget *>(QStringLiteral("postProcessInspectorTabs"));
     auto *timeSlider = window.findChild<QSlider *>(QStringLiteral("postProcessTimeSlider"));
     auto *interactionHint = window.findChild<QLabel *>(QStringLiteral("postProcessInteractionHint"));
-    if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !pan || !topView || !interactionHint || !inspector || !timeSlider)
+    if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !pan || !topView || !interactionHint || !inspector || !inspectorTabs || inspectorTabs->count() != 3 || !timeSlider)
         return 4;
     pan->trigger();
     if (!pan->isChecked() || !interactionHint->text().contains(QStringLiteral("平移")))
@@ -59,7 +61,7 @@ int main(int argc, char *argv[])
     if (inspector->currentIndex() != 5)
         return 11;
     probe->trigger();
-    if (inspector->currentIndex() != 6)
+    if (inspectorTabs->currentIndex() != 1)
         return 12;
 
     auto *viewer = new QLabel(QStringLiteral("Viewer"));
