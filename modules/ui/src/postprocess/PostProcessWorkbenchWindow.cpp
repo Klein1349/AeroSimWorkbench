@@ -3,6 +3,7 @@
 #include <SARibbonBar.h>
 #include <SARibbonCategory.h>
 #include <SARibbonPanel.h>
+#include <SARibbonQuickAccessBar.h>
 #include <QAction>
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -163,6 +164,10 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *deepSeekAction = ribbonAction(this, commandIcon("harness"), uiText(u"DeepSeek"), uiText(u"打开 DeepSeek Harness，基于当前选择组织后处理任务"), uiText(u"postProcessHarnessAction"));
     auto *geometryExportAction = ribbonAction(this, commandIcon("export"), uiText(u"特征几何"), uiText(u"导出切面、等值面等派生几何"), uiText(u"postProcessGeometryExportAction"));
     auto *animationExportAction = ribbonAction(this, commandIcon("trace"), uiText(u"时序动画"), uiText(u"导出当前时间序列动画"), uiText(u"postProcessAnimationExportAction"));
+    auto *quickAccess = ribbonBar()->quickAccessBar();
+    quickAccess->addAction(importAction);
+    quickAccess->addAction(exportAction);
+    quickAccess->addAction(fitAction);
 
     auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
     auto *dataIO = dataCategory->addPanel(uiText(u"结果数据")); dataIO->addSmallAction(importAction); dataIO->addSmallAction(exportAction);
