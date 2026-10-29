@@ -22,7 +22,6 @@
 #include <QPainterPath>
 #include <QPushButton>
 #include <QPixmap>
-#include <QResource>
 #include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -36,12 +35,6 @@
 #include <QVBoxLayout>
 
 #include <functional>
-
-static QWidget *initializeRibbonResources(QWidget *parent)
-{
-    Q_INIT_RESOURCE(SARibbonResource);
-    return parent;
-}
 
 namespace aerosim {
 namespace {
@@ -152,7 +145,7 @@ protected:
 }
 
 PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
-    : SARibbonMainWindow(initializeRibbonResources(parent),
+    : SARibbonMainWindow(parent,
                          SARibbonMainWindowStyleFlag::UseNativeMenuBar
                              | SARibbonMainWindowStyleFlag::UseNativeFrame) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);

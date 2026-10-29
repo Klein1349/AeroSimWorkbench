@@ -20,17 +20,9 @@
 #include <QTabWidget>
 #include <QThread>
 #include <QTimer>
-#include <QResource>
 #include <QToolBar>
 #include <QTreeWidget>
 #include <QVBoxLayout>
-
-// Static SARibbon builds need a resource reference so the linker retains the qrc object.
-static QWidget *initializeRibbonResources(QWidget *parent)
-{
-    Q_INIT_RESOURCE(SARibbonResource);
-    return parent;
-}
 
 namespace aerosim {
 namespace {
@@ -66,7 +58,7 @@ QLabel *emptyState(const QString &text, QWidget *parent)
 }
 }
 
-MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(initializeRibbonResources(parent))
+MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
 {
     setObjectName(QStringLiteral("AeroSimMainWindow"));
     setWindowTitle(QStringLiteral("AeroSimWorkbench · 仿真工作台（Mock 服务）"));
