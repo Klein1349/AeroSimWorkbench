@@ -17,9 +17,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/SARibbonDependency.cmake")
 add_library(aerosim_ui STATIC
-    src/MainWindow.cpp include/aerosim/ui/MainWindow.h
+    src/MainWindow.cpp include/aerosim/ui/MainWindow.h resources/RibbonIcons.qrc
     src/postprocess/PostProcessWorkbenchWindow.cpp
     include/aerosim/ui/postprocess/PostProcessWorkbenchWindow.h)
+set_target_properties(aerosim_ui PROPERTIES AUTORCC ON)
 add_library(aerosim::ui ALIAS aerosim_ui)
 target_include_directories(aerosim_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets SARibbonBar::SARibbonBar)

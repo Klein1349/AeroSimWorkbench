@@ -1,6 +1,9 @@
 #include "aerosim/ui/MainWindow.h"
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include <QAction>
+#include <SARibbonBar.h>
+#include <SARibbonCategory.h>
+#include <SARibbonPanel.h>
 #include <QApplication>
 #include <QLabel>
 #include <QDockWidget>
@@ -46,6 +49,22 @@ int main(int argc, char **argv)
     if (!check(window.findChild<QLabel *>("propertyTitle")->text() == text(u"\u7f51\u683c\u4e0e\u53d8\u6362"),
                "Property title has incorrect Unicode characters")) return 16;
     if (!check(window.findChild<QTreeWidget *>("projectTree")->topLevelItemCount() == 1, "Missing project navigation")) return 1;
+    const auto categories = window.ribbonBar()->categoryPages();
+    if (!check(categories.size() == 5 && categories[0]->objectName() == "startCategory",
+               "Expected Start, Monitor, Postprocess, Data and Help tabs")) return 17;
+    auto *start = categories[0];
+    if (!check(start->panelCount() == 4 && start->panelByObjectName("projectGroup")
+               && start->panelByObjectName("batchGroup") && start->panelByObjectName("preprocessGroup")
+               && start->panelByObjectName("parametersGroup"), "Missing grouped Start commands")) return 18;
+    auto *help = window.findChild<SARibbonCategory *>("helpCategory");
+    if (!check(help && help->panelByObjectName("toolsGroup"), "Tools must be under Help")) return 19;
+    for (auto *action : window.findChildren<QAction *>()) {
+        if (action->property("ribbonGroup").isValid()
+            && !check(!action->icon().pixmap(32, 32).isNull(), "Missing embedded Ribbon icon")) return 20;
+    }
+    window.findChild<QAction *>("stateAction")->trigger();
+    if (!check(window.findChild<QLabel *>("propertyTitle")->text().contains(text(u"\u4e00\u6b21\u8ba1\u7b97")),
+               "State must represent one calculation")) return 21;
     for (auto slot : {aerosim::WidgetSlot::Viewport, aerosim::WidgetSlot::Log, aerosim::WidgetSlot::Error, aerosim::WidgetSlot::Monitor}) {
         auto *widget = new QLabel("Injected component");
         if (!check(window.insertWidget(slot, widget) && window.isAncestorOf(widget), "Widget ownership not transferred")) return 2;

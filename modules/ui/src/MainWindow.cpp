@@ -25,6 +25,14 @@
 #include <QVBoxLayout>
 #include <cstddef>
 
+// Keep only this module's generated resource object in the static UI library.
+// SARibbon's own resources are initialized by SARibbon itself.
+static QWidget *initializeRibbonResources(QWidget *parent)
+{
+    Q_INIT_RESOURCE(RibbonIcons);
+    return parent;
+}
+
 namespace aerosim {
 namespace {
 // Match the postprocess UI: explicit UTF-16 literals avoid source/execution
@@ -67,7 +75,7 @@ QLabel *emptyState(const QString &text, QWidget *parent)
 }
 }
 
-MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
+MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(initializeRibbonResources(parent))
 {
     setObjectName(QStringLiteral("AeroSimMainWindow"));
     setWindowTitle(uiText(u"AeroSimWorkbench \u00b7 \u4eff\u771f\u5de5\u4f5c\u53f0\uff08Mock \u670d\u52a1\uff09"));
@@ -97,77 +105,114 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
 
 void MainWindow::createRibbon()
 {
-    struct Group { QString title; QString items; };
-    const Group groups[] = {
-        {uiText(u"\u5de5\u7a0b"), uiText(u"\u65b0\u5efa\u5de5\u7a0b|\u6253\u5f00\u5de5\u7a0b|\u4fdd\u5b58\u5de5\u7a0b|\u5bfc\u5165\u914d\u7f6e|\u5bfc\u51fa\u914d\u7f6e")},
-        {uiText(u"\u524d\u5904\u7406"), uiText(u"\u5bfc\u5165\u7f51\u683c|\u7f51\u683c\u53d8\u6362|\u5927\u6c14\u53c2\u6570|\u8fb9\u754c\u6761\u4ef6|\u521d\u59cb\u5316")},
-        {uiText(u"\u72b6\u6001\u7ba1\u7406"), uiText(u"\u65b0\u5efa\u72b6\u6001|\u72b6\u6001\u6a21\u677f|\u591a\u72b6\u6001\u914d\u7f6e")},
-        {uiText(u"\u6c42\u89e3"), uiText(u"\u6c42\u89e3\u5668\u8bbe\u7f6e|\u5e76\u884c\u8bbe\u7f6e|\u591a\u72b6\u6001\u8ba1\u7b97 / \u4f20\u70ed|\u8026\u5408\u63a7\u5236|\u542f\u52a8|\u6682\u505c|\u7eed\u7b97|\u505c\u6b62")},
-        {uiText(u"\u76d1\u63a7"), uiText(u"\u8ba1\u7b97\u72b6\u6001|\u65e5\u5fd7|\u6536\u655b\u66f2\u7ebf|\u4efb\u52a1\u7ba1\u7406")},
-        {uiText(u"\u540e\u5904\u7406"), uiText(u"\u540e\u5904\u7406\u5de5\u4f5c\u53f0|\u4e91\u56fe|\u5207\u9762|\u7b49\u503c\u9762|\u6d41\u7ebf|\u66f2\u7ebf|\u52a8\u753b")},
-        {uiText(u"\u6570\u636e\u5904\u7406"), uiText(u"\u591a\u72b6\u6001\u6570\u636e\u5904\u7406")},
-        {uiText(u"\u5de5\u5177"), uiText(u"\u6062\u590d\u9ed8\u8ba4\u5e03\u5c40|\u5de5\u7a0b\u5bfc\u822a|\u5c5e\u6027\u9762\u677f|\u8f93\u51fa\u9762\u677f")},
-        {uiText(u"\u5e2e\u52a9"), uiText(u"\u4f7f\u7528\u8bf4\u660e|\u5173\u4e8e")}
-    };
-    for (const auto &group : groups) {
-        const QString title = group.title;
-        auto *category = ribbonBar()->addCategoryPage(title);
-        auto *panel = category->addPanel(title + uiText(u"\u64cd\u4f5c"));
-        for (const QString &name : group.items.split('|')) {
-            QStyle::StandardPixmap icon = QStyle::SP_FileDialogDetailedView;
-            if (name.contains(uiText(u"\u65b0\u5efa"))) icon = QStyle::SP_FileIcon;
-            else if (name.contains(uiText(u"\u6253\u5f00")) || name.contains(uiText(u"\u5bfc\u5165"))) icon = QStyle::SP_DialogOpenButton;
-            else if (name.contains(uiText(u"\u4fdd\u5b58")) || name.contains(uiText(u"\u5bfc\u51fa"))) icon = QStyle::SP_DialogSaveButton;
-            else if (name == uiText(u"\u542f\u52a8") || name == uiText(u"\u7eed\u7b97")) icon = QStyle::SP_MediaPlay;
-            else if (name == uiText(u"\u6682\u505c")) icon = QStyle::SP_MediaPause;
-            else if (name == uiText(u"\u505c\u6b62")) icon = QStyle::SP_MediaStop;
-            auto *action = new QAction(style()->standardIcon(icon), name, this);
-            panel->addLargeAction(action);
-            action->setEnabled(false);
-            action->setToolTip(name + uiText(u"\uff1a\u7b49\u5f85\u5bf9\u5e94\u4e1a\u52a1\u6a21\u5757\u63a5\u5165"));
-            if (name == uiText(u"\u540e\u5904\u7406\u5de5\u4f5c\u53f0")) {
+    ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleLooseThreeRow);
+    struct Item { const char *id; QString label; bool large; const char *route; };
+    auto addGroup = [this](SARibbonCategory *page, const char *id, const QString &title,
+                          std::initializer_list<Item> items) {
+        auto *panel = page->addPanel(title);
+        panel->setObjectName(QString::fromLatin1(id));
+        for (const auto &item : items) {
+            const QString key = QString::fromLatin1(item.id);
+            const QString path = QStringLiteral(":/aerosim/ribbon/") + key + QStringLiteral(".svg");
+            QIcon icon(path);
+            auto *action = new QAction(icon, item.label, this);
+            action->setObjectName(key + QStringLiteral("Action"));
+            action->setProperty("ribbonGroup", QString::fromLatin1(id));
+            if (item.large) panel->addLargeAction(action);
+            else panel->addSmallAction(action);
+            const QString route = QString::fromLatin1(item.route);
+            action->setEnabled(!route.isEmpty());
+            action->setToolTip(item.label + (route.isEmpty()
+                ? uiText(u"\uff1a\u7b49\u5f85\u4e1a\u52a1\u6a21\u5757\u63a5\u5165") : uiText(u"\uff1a\u6253\u5f00\u5bf9\u5e94\u9762\u677f")));
+            if (route.startsWith("page:")) {
+                const QString pageId = route.mid(5);
+                action->setToolTip(uiText(u"\u6253\u5f00\u53c2\u6570\u8349\u7a3f\uff1b\u5c1a\u672a\u6301\u4e45\u5316"));
+                connect(action, &QAction::triggered, this, [this, pageId] { selectPage(pageId); });
+            } else if (route.startsWith("output:")) {
+                const int index = route.mid(7).toInt();
+                connect(action, &QAction::triggered, this, [this, index] { showOutput(index); });
+            } else if (route == "postprocess") {
                 action->setObjectName(QStringLiteral("openPostProcessAction"));
-                action->setEnabled(true);
-                action->setToolTip(uiText(u"\u6253\u5f00\u6570\u636e\u3001\u573a\u666f\u3001\u65f6\u95f4\u8f74\u4e0e\u53ef\u9009 VTK \u89c6\u53e3"));
                 connect(action, &QAction::triggered, this, &MainWindow::openPostProcessRequested);
-            } else if (name == uiText(u"\u542f\u52a8")) {
+            } else if (route == "run") {
                 runAction_ = action;
                 action->setObjectName(QStringLiteral("runAction"));
+                action->setEnabled(false);
+                action->setToolTip(uiText(u"\u4e00\u6b21\u8ba1\u7b97\u5bf9\u5e94\u4e00\u4e2a\u72b6\u6001\uff1b\u7b49\u5f85\u5de5\u4f5c\u6d41\u63d0\u4f9b\u6709\u6548\u8f93\u5165\u4e0e\u8fd0\u884c\u6743\u9650"));
                 connect(action, &QAction::triggered, this, &MainWindow::submitRun);
-            } else if (title == uiText(u"\u76d1\u63a7")) {
-                const int index = name == uiText(u"\u65e5\u5fd7") ? 0 : name == uiText(u"\u8ba1\u7b97\u72b6\u6001") ? 1 : name == uiText(u"\u6536\u655b\u66f2\u7ebf") ? 2 : 4;
-                action->setEnabled(true);
-                action->setToolTip(uiText(u"\u6253\u5f00") + name);
-                connect(action, &QAction::triggered, this, [this, index] { showOutput(index); });
-            } else if (title == uiText(u"\u5de5\u5177")) {
-                action->setEnabled(true);
-                action->setToolTip(name);
-                connect(action, &QAction::triggered, this, [this, name] {
-                    if (name == uiText(u"\u6062\u590d\u9ed8\u8ba4\u5e03\u5c40")) restoreLayout();
-                    else if (name == uiText(u"\u5de5\u7a0b\u5bfc\u822a")) projectDock_->show();
-                    else if (name == uiText(u"\u5c5e\u6027\u9762\u677f")) propertyDock_->show();
-                    else outputDock_->show();
-                });
-            } else if (title == uiText(u"\u5e2e\u52a9")) {
-                action->setEnabled(true);
-                action->setToolTip(name);
+            } else if (route == "layout") {
+                connect(action, &QAction::triggered, this, &MainWindow::restoreLayout);
+            } else if (route.startsWith("dock:")) {
+                auto *dock = route == "dock:project" ? projectDock_
+                    : route == "dock:property" ? propertyDock_ : outputDock_;
+                connect(action, &QAction::triggered, dock, &QWidget::show);
+            } else if (route == "help") {
                 connect(action, &QAction::triggered, this, [this] {
-                    appendMessage(uiText(u"\u4f7f\u7528\u8bf4\u660e\uff1a\u5de6\u4fa7\u9009\u62e9\u793a\u4f8b\u5bf9\u8c61\uff0c\u53f3\u4fa7\u7f16\u8f91\u672c\u5730\u8349\u7a3f\uff1b\u62d6\u52a8\u9762\u677f\u53ef\u8c03\u6574\u5e03\u5c40\u3002\u5de5\u4f5c\u6d41\u72b6\u6001\u7531\u670d\u52a1\u63d0\u4f9b\u3002\u7070\u8272\u529f\u80fd\u7b49\u5f85\u4e1a\u52a1\u6a21\u5757\u63a5\u5165\uff0cMock \u4efb\u52a1\u4e0d\u6267\u884c\u771f\u5b9e\u6c42\u89e3\u3002"));
+                    appendMessage(uiText(u"\u5f00\u59cb\uff1a\u5de5\u7a0b\u3001\u6279\u91cf\u7ba1\u7406\u3001\u524d\u5904\u7406\u3001\u4e1a\u52a1\u53c2\u6570\u3002\u4e00\u6b21\u8ba1\u7b97\u5bf9\u5e94\u4e00\u4e2a\u72b6\u6001\uff0c\u72b6\u6001\u5f52\u5c5e\u5de5\u7a0b\uff1b\u6279\u91cf\u7ba1\u7406\u7ec4\u7ec7\u591a\u4e2a\u8ba1\u7b97\u72b6\u6001\u3002\u7070\u8272\u64cd\u4f5c\u7b49\u5f85\u670d\u52a1\u63a5\u5165\uff0c\u53c2\u6570\u8349\u7a3f\u4e0d\u4ee3\u8868\u5df2\u4fdd\u5b58\u7684\u8ba1\u7b97\u914d\u7f6e\u3002"));
                     showOutput(0);
                 });
-            } else {
-                const QHash<QString, QString> pages = {
-                    {uiText(u"\u8fb9\u754c\u6761\u4ef6"), "boundary"}, {uiText(u"\u5927\u6c14\u53c2\u6570"), "physics"},
-                    {uiText(u"\u6c42\u89e3\u5668\u8bbe\u7f6e"), "solver"}, {uiText(u"\u5e76\u884c\u8bbe\u7f6e"), "parallel"},
-                    {uiText(u"\u591a\u72b6\u6001\u914d\u7f6e"), "states"}, {uiText(u"\u7f51\u683c\u53d8\u6362"), "mesh"}};
-                if (pages.contains(name)) {
-                    action->setEnabled(true);
-                    action->setToolTip(uiText(u"\u6253\u5f00\u53c2\u6570\u8349\u7a3f\uff08\u5c1a\u672a\u6301\u4e45\u5316\uff09"));
-                    connect(action, &QAction::triggered, this, [this, pages, name] { selectPage(pages.value(name)); });
-                }
             }
         }
-    }
+    };
+    auto *start = ribbonBar()->addCategoryPage(uiText(u"\u5f00\u59cb"));
+    start->setObjectName(QStringLiteral("startCategory"));
+    addGroup(start, "projectGroup", uiText(u"\u5de5\u7a0b"), {
+        {"new-project", uiText(u"\u65b0\u5efa\u5de5\u7a0b"), true, ""},
+        {"open-project", uiText(u"\u6253\u5f00\u5de5\u7a0b"), false, ""},
+        {"save-project", uiText(u"\u4fdd\u5b58\u5de5\u7a0b"), false, ""},
+        {"state", uiText(u"\u8ba1\u7b97\u72b6\u6001"), false, "page:states"}});
+    addGroup(start, "batchGroup", uiText(u"\u6279\u91cf\u7ba1\u7406"), {
+        {"batch", uiText(u"\u6279\u91cf\u914d\u7f6e"), true, "page:states"},
+        {"new-state", uiText(u"\u65b0\u5efa\u72b6\u6001"), false, ""},
+        {"template", uiText(u"\u72b6\u6001\u6a21\u677f"), false, ""},
+        {"queue", uiText(u"\u4efb\u52a1\u5217\u8868"), false, "output:4"}});
+    addGroup(start, "preprocessGroup", uiText(u"\u524d\u5904\u7406"), {
+        {"mesh", uiText(u"\u5bfc\u5165\u7f51\u683c"), true, ""},
+        {"transform", uiText(u"\u7f51\u683c\u53d8\u6362"), false, "page:mesh"},
+        {"boundary", uiText(u"\u8fb9\u754c\u6761\u4ef6"), false, "page:boundary"},
+        {"initialize", uiText(u"\u521d\u59cb\u5316"), false, ""}});
+    addGroup(start, "parametersGroup", uiText(u"\u4e1a\u52a1\u53c2\u6570"), {
+        {"physics", uiText(u"\u7269\u7406\u6a21\u578b"), true, "page:physics"},
+        {"atmosphere", uiText(u"\u5927\u6c14\u53c2\u6570"), false, "page:physics"},
+        {"settings", uiText(u"\u8ba1\u7b97\u53c2\u6570"), false, "page:solver"},
+        {"parallel", uiText(u"\u5e76\u884c\u8bbe\u7f6e"), false, "page:parallel"},
+        {"import-config", uiText(u"\u5bfc\u5165\u914d\u7f6e"), false, ""},
+        {"export-config", uiText(u"\u5bfc\u51fa\u914d\u7f6e"), false, ""}});
+    auto *monitor = ribbonBar()->addCategoryPage(uiText(u"\u76d1\u63a7"));
+    addGroup(monitor, "calculationGroup", uiText(u"\u5f53\u524d\u8ba1\u7b97\u72b6\u6001"), {
+        {"run", uiText(u"\u5f00\u59cb\u8ba1\u7b97"), true, "run"},
+        {"pause", uiText(u"\u6682\u505c"), false, ""},
+        {"resume", uiText(u"\u7ee7\u7eed\u8ba1\u7b97"), false, ""},
+        {"stop", uiText(u"\u505c\u6b62"), false, ""}});
+    addGroup(monitor, "monitorGroup", uiText(u"\u8fd0\u884c\u76d1\u63a7"), {
+        {"monitor", uiText(u"\u8ba1\u7b97\u76d1\u63a7"), true, "output:1"},
+        {"log", uiText(u"\u65e5\u5fd7"), false, "output:0"},
+        {"residual", uiText(u"\u6536\u655b\u66f2\u7ebf"), false, "output:2"},
+        {"errors", uiText(u"\u9519\u8bef\u4fe1\u606f"), false, "output:3"}});
+    auto *post = ribbonBar()->addCategoryPage(uiText(u"\u540e\u5904\u7406"));
+    addGroup(post, "workspaceGroup", uiText(u"\u5de5\u4f5c\u533a"), {
+        {"workbench", uiText(u"\u540e\u5904\u7406\u5de5\u4f5c\u53f0"), true, "postprocess"}});
+    addGroup(post, "fieldGroup", uiText(u"\u573a\u663e\u793a"), {
+        {"contour", uiText(u"\u4e91\u56fe"), true, ""},
+        {"slice", uiText(u"\u5207\u9762"), false, ""},
+        {"iso", uiText(u"\u7b49\u503c\u9762"), false, ""},
+        {"stream", uiText(u"\u6d41\u7ebf"), false, ""}});
+    addGroup(post, "resultsGroup", uiText(u"\u7ed3\u679c\u5c55\u793a"), {
+        {"curve", uiText(u"\u66f2\u7ebf"), true, ""},
+        {"animation", uiText(u"\u52a8\u753b"), true, ""}});
+    auto *data = ribbonBar()->addCategoryPage(uiText(u"\u6570\u636e\u5904\u7406"));
+    addGroup(data, "stateResultsGroup", uiText(u"\u72b6\u6001\u6570\u636e"), {
+        {"compare", uiText(u"\u591a\u72b6\u6001\u6570\u636e\u5904\u7406"), true, ""}});
+    auto *help = ribbonBar()->addCategoryPage(uiText(u"\u5e2e\u52a9"));
+    help->setObjectName(QStringLiteral("helpCategory"));
+    addGroup(help, "guideGroup", uiText(u"\u4f7f\u7528\u5e2e\u52a9"), {
+        {"help", uiText(u"\u4f7f\u7528\u8bf4\u660e"), true, "help"},
+        {"about", uiText(u"\u5173\u4e8e"), false, "help"}});
+    addGroup(help, "toolsGroup", uiText(u"\u5de5\u5177"), {
+        {"layout", uiText(u"\u6062\u590d\u9ed8\u8ba4\u5e03\u5c40"), true, "layout"},
+        {"navigation", uiText(u"\u5de5\u7a0b\u5bfc\u822a"), false, "dock:project"},
+        {"property", uiText(u"\u5c5e\u6027\u9762\u677f"), false, "dock:property"},
+        {"output", uiText(u"\u8f93\u51fa\u9762\u677f"), false, "dock:output"}});
 }
 
 QWidget *MainWindow::createSlot(WidgetSlot slot, const QString &text)
@@ -209,8 +254,8 @@ void MainWindow::createWorkspace()
         {"physics", uiText(u"\u7269\u7406\u6a21\u578b Physics"), uiText(u"\u6c14\u4f53\u6a21\u578b|\u6d41\u52a8\u6a21\u578b|\u6e4d\u6d41\u6a21\u578b")},
         {"motion", uiText(u"\u8fd0\u52a8 Motion"), uiText(u"\u52a8\u7f51\u683c|\u5f3a\u8feb\u8fd0\u52a8|\u516d\u81ea\u7531\u5ea6")},
         {"boundary", uiText(u"\u8fb9\u754c\u6761\u4ef6"), "inlet|outlet|wall"},
-        {"solver", uiText(u"\u6c42\u89e3\u5668 Solver"), uiText(u"\u7a7a\u95f4\u79bb\u6563|\u65f6\u95f4\u79bb\u6563|\u8fed\u4ee3\u63a7\u5236")},
-        {"parallel", uiText(u"\u5e76\u884c\u8ba1\u7b97"), ""}, {"states", uiText(u"\u72b6\u6001 States"), uiText(u"\u72b6\u6001\u914d\u7f6e\u793a\u4f8b")},
+        {"solver", uiText(u"\u8ba1\u7b97\u53c2\u6570"), uiText(u"\u7a7a\u95f4\u79bb\u6563|\u65f6\u95f4\u79bb\u6563|\u8fed\u4ee3\u63a7\u5236")},
+        {"parallel", uiText(u"\u5e76\u884c\u8ba1\u7b97"), ""}, {"states", uiText(u"\u8ba1\u7b97\u72b6\u6001"), uiText(u"\u72b6\u6001 01\uff08\u4e00\u6b21\u8ba1\u7b97\uff0c\u793a\u4f8b\uff09")},
         {"results", uiText(u"\u7ed3\u679c Results"), uiText(u"\u538b\u529b|\u6e29\u5ea6|\u901f\u5ea6|\u5207\u9762|\u6d41\u7ebf")}
     };
     for (const auto &node : nodes) {
@@ -324,8 +369,8 @@ void MainWindow::selectPage(const QString &pageId)
     currentPage_ = pageId;
     while (propertyForm_->rowCount()) propertyForm_->removeRow(0);
     const QHash<QString, QString> titles = {{"mesh", uiText(u"\u7f51\u683c\u4e0e\u53d8\u6362")}, {"physics", uiText(u"\u7269\u7406\u6a21\u578b / \u5927\u6c14\u53c2\u6570")},
-        {"motion", uiText(u"\u8fd0\u52a8\u53c2\u6570")}, {"boundary", uiText(u"\u8fb9\u754c\u6761\u4ef6")}, {"solver", uiText(u"\u6c42\u89e3\u5668\u8bbe\u7f6e")},
-        {"parallel", uiText(u"\u5e76\u884c\u8bbe\u7f6e")}, {"states", uiText(u"\u5de5\u51b5\u72b6\u6001")}, {"results", uiText(u"\u7ed3\u679c\u4e0e\u540e\u5904\u7406")}};
+        {"motion", uiText(u"\u8fd0\u52a8\u53c2\u6570")}, {"boundary", uiText(u"\u8fb9\u754c\u6761\u4ef6")}, {"solver", uiText(u"\u8ba1\u7b97\u53c2\u6570")},
+        {"parallel", uiText(u"\u5e76\u884c\u8bbe\u7f6e")}, {"states", uiText(u"\u8ba1\u7b97\u72b6\u6001 \u00b7 \u4e00\u6b21\u8ba1\u7b97\u4e00\u4e2a\u72b6\u6001")}, {"results", uiText(u"\u7ed3\u679c\u4e0e\u540e\u5904\u7406")}};
     propertyTitle_->setText(titles.value(pageId, pageId));
     const auto addNumber = [this, pageId](const QString &key, const QString &label, double value, const QString &unit) {
         auto *editor = new QDoubleSpinBox(this);
@@ -361,7 +406,7 @@ void MainWindow::selectPage(const QString &pageId)
     } else if (pageId == "parallel") {
         addNumber("processes", uiText(u"MPI \u8fdb\u7a0b\u6570"), 32, {});
     } else {
-        auto *note = new QLabel(pageId == "results" ? uiText(u"\u5c1a\u65e0\u7ed3\u679c\u6570\u636e\u3002\u7ed3\u679c\u5339\u914d\u6821\u9a8c\u548c\u663e\u793a\u7531\u5de5\u4f5c\u6d41\u53ca\u53ef\u89c6\u5316\u6a21\u5757\u63d0\u4f9b\u3002") : uiText(u"\u9009\u62e9\u914d\u7f6e\u5bf9\u8c61\u540e\u7531\u4e13\u4e1a\u6a21\u5757\u63d0\u4f9b\u53c2\u6570\u3002"), this);
+        auto *note = new QLabel(pageId == "results" ? uiText(u"\u5c1a\u65e0\u7ed3\u679c\u6570\u636e\u3002\u7ed3\u679c\u5339\u914d\u6821\u9a8c\u548c\u663e\u793a\u7531\u5de5\u4f5c\u6d41\u53ca\u53ef\u89c6\u5316\u6a21\u5757\u63d0\u4f9b\u3002") : uiText(u"\u4e00\u6b21\u8ba1\u7b97\u5bf9\u5e94\u4e00\u4e2a\u72b6\u6001\uff0c\u72b6\u6001\u5f52\u5c5e\u5f53\u524d\u5de5\u7a0b\u3002\u6279\u91cf\u7ba1\u7406\u7ec4\u7ec7\u591a\u4e2a\u72b6\u6001\uff1b\u6bcf\u4e2a\u72b6\u6001\u7684\u8f93\u5165\u914d\u7f6e\u4e0e\u8ba1\u7b97\u7ed3\u679c\u7531\u4e1a\u52a1\u670d\u52a1\u7ef4\u62a4\u3002\u5f53\u524d\u4ec5\u4e3a\u754c\u9762\u793a\u4f8b\u3002"), this);
         note->setWordWrap(true);
         propertyForm_->addRow(note);
     }
