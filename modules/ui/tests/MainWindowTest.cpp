@@ -3,6 +3,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QLabel>
+#include <QDockWidget>
 #include <QTreeWidget>
 #include <QTextStream>
 
@@ -28,6 +29,22 @@ int main(int argc, char **argv)
         if (!passed) QTextStream(stderr) << message << '\n';
         return passed;
     };
+    // ASCII source with explicit UTF-16 expectations detects compiler/code-page corruption.
+    const auto text = [](const char16_t *value) {
+        return QString::fromUtf16(reinterpret_cast<const ushort *>(value));
+    };
+    if (!check(window.windowTitle() == text(u"AeroSimWorkbench \u00b7 \u4eff\u771f\u5de5\u4f5c\u53f0\uff08Mock \u670d\u52a1\uff09"),
+               "Window title has incorrect Unicode characters")) return 12;
+    if (!check(window.findChild<QDockWidget *>("projectDock")->windowTitle() == text(u"\u5de5\u7a0b\u4e0e\u5de5\u4f5c\u6d41"),
+               "Dock title has incorrect Unicode characters")) return 13;
+    if (!check(window.findChild<QTreeWidget *>("projectTree")->topLevelItem(0)->child(0)->text(0)
+               == text(u"\u7f51\u683c Mesh"), "Project tree label has incorrect Unicode characters")) return 14;
+    bool hasNewProject = false;
+    for (auto *action : window.findChildren<QAction *>())
+        hasNewProject = hasNewProject || action->text() == text(u"\u65b0\u5efa\u5de5\u7a0b");
+    if (!check(hasNewProject, "Ribbon action has incorrect Unicode characters")) return 15;
+    if (!check(window.findChild<QLabel *>("propertyTitle")->text() == text(u"\u7f51\u683c\u4e0e\u53d8\u6362"),
+               "Property title has incorrect Unicode characters")) return 16;
     if (!check(window.findChild<QTreeWidget *>("projectTree")->topLevelItemCount() == 1, "Missing project navigation")) return 1;
     for (auto slot : {aerosim::WidgetSlot::Viewport, aerosim::WidgetSlot::Log, aerosim::WidgetSlot::Error, aerosim::WidgetSlot::Monitor}) {
         auto *widget = new QLabel("Injected component");

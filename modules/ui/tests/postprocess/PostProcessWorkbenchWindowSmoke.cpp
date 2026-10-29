@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !pan || !topView || !interactionHint || !inspector || !inspectorTabs || inspectorTabs->count() != 3 || !timeSlider)
         return 4;
     pan->trigger();
-    if (!pan->isChecked() || !interactionHint->text().contains(QStringLiteral("平移")))
+    if (!pan->isChecked() || !interactionHint->text().contains(QString::fromUtf16(reinterpret_cast<const ushort *>(u"\u5e73\u79fb"))))
         return 13;
     const int layerCount = layers->count();
     contour->trigger();
