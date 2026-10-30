@@ -213,7 +213,7 @@ void PostProcessWorkbenchWindow::createActions() {
 
     // Use the same SARibbon hierarchy as MainWindow.  Categories group work
     // by intent; the data/scene workspace below remains the post-process UI.
-    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"开始"));
+    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
     dataCategory->setObjectName(uiText(u"postProcessDataCategory"));
     auto *dataSourcePanel = dataCategory->addPanel(uiText(u"结果数据"));
     dataSourcePanel->addLargeAction(importAction); dataSourcePanel->addLargeAction(exportAction);
@@ -230,18 +230,18 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *cameraPanel = displayCategory->addPanel(uiText(u"视图"));
     cameraPanel->addLargeAction(fitAction); cameraPanel->addLargeAction(frontAction); cameraPanel->addLargeAction(rightAction); cameraPanel->addLargeAction(topAction);
 
-    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"后处理"));
+    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"特征"));
     featureCategory->setObjectName(uiText(u"postProcessFeatureCategory"));
     auto *spatialPanel = featureCategory->addPanel(uiText(u"空间特征"));
     spatialPanel->addLargeAction(sliceAction); spatialPanel->addLargeAction(isoAction);
     spatialPanel->addLargeAction(streamAction); spatialPanel->addLargeAction(traceAction);
 
-    auto *analysisCategory = ribbonBar()->addCategoryPage(uiText(u"数据处理"));
+    auto *analysisCategory = ribbonBar()->addCategoryPage(uiText(u"分析"));
     analysisCategory->setObjectName(uiText(u"postProcessAnalysisCategory"));
     auto *analysisPanel = analysisCategory->addPanel(uiText(u"结果分析"));
     for (QAction *action : analysisActions) analysisPanel->addLargeAction(action);
 
-    auto *toolsCategory = ribbonBar()->addCategoryPage(uiText(u"帮助"));
+    auto *toolsCategory = ribbonBar()->addCategoryPage(uiText(u"工具"));
     toolsCategory->setObjectName(uiText(u"postProcessToolsCategory"));
     auto *queryPanel = toolsCategory->addPanel(uiText(u"查询与导出"));
     queryPanel->addLargeAction(probeAction); queryPanel->addLargeAction(geometryExportAction); queryPanel->addLargeAction(animationExportAction);
