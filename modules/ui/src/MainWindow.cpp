@@ -296,6 +296,13 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
         "QLabel#propertyTitle { color: %3; font-size: 16px; font-weight: 600; }"
         "QPushButton { background: %1; color: %3; border: 1px solid %4; padding: 6px 12px; }"
         "QPushButton:hover { background: %5; }").arg(bg, base, text, border, selected));
+    const QString editorStyle = QStringLiteral(
+        "QPlainTextEdit { background: %1; color: %2; border: 1px solid %3; }")
+        .arg(base, text, border);
+    for (auto *editor : findChildren<QPlainTextEdit *>()) {
+        editor->setPalette(colors);
+        editor->setStyleSheet(editorStyle);
+    }
     setProperty("windowThemeId", id);
     if (auto *menu = findChild<QMenu *>(QStringLiteral("themeMenu")))
         for (auto *action : menu->actions()) action->setChecked(action->data().toString() == id);
