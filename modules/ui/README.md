@@ -79,6 +79,6 @@ VTK Viewer、统一场景入口和异步数据读取应分别由后续 `modules/
 
 ## 窗口皮肤
 
-主窗口“帮助 → 外观 → 切换皮肤”提供 Office 蓝色、Office 浅色、深色、深灰色，调用 SARibbon 内置主题，同时调整停靠面板、属性编辑器、日志和视口占位的配色。选择立即生效，通过 `QSettings("AeroSimWorkbench", "Appearance")` 的 `theme` 键保存；下次启动恢复，未知值回退 Office 蓝色。不改变 Ribbon 分组或业务数据，独立后处理工作台暂保留原样。
+主窗口“帮助 → 外观 → 切换皮肤”提供 Office 蓝色、Office 浅色、深色、深灰色，调用 SARibbon 内置主题，同时调整停靠面板、属性编辑器、日志和视口占位的配色。Office 蓝色采用类似 Word 的蓝色标题栏与页签背景，当前页签为浅色，命令区保持浅色。选择立即生效，通过 `QSettings("AeroSimWorkbench", "Appearance")` 的 `theme` 键保存；下次启动恢复，未知值回退 Office 蓝色。不改变 Ribbon 分组或业务数据，独立后处理工作台暂保留原样。
 
 本地兼容预览构建通过；6 项 CTest 通过，集成测试覆盖四种主题、重复切换、配置保存/恢复和无效主题回退。主题测试使用临时配置目录，不污染用户设置。可设置 `AEROSIM_THEME_SCREENSHOTS` 指向已有目录，让 `aerosim_ui_test` 导出各主题截图。本次按要求仅在本地修改，未在 Windows 目标机验证。

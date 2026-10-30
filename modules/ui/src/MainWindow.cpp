@@ -5,6 +5,7 @@
 #include <SARibbonPanel.h>
 #include <QAction>
 #include <QActionGroup>
+#include <QBrush>
 #include <QMenu>
 #include <QSettings>
 #include <QPalette>
@@ -257,6 +258,7 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
     else id = QStringLiteral("office-blue");
     if (property("windowThemeId").toString() == id) return;
     const bool dark = id == "dark" || id == "dark-gray";
+    const bool officeBlue = id == "office-blue";
     const QString bg = dark ? (id == "dark" ? "#20242b" : "#353535") : "#f4f7fb";
     const QString base = dark ? "#292e36" : "#ffffff";
     const QString text = dark ? "#e6eaf0" : "#25364c";
@@ -278,6 +280,25 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
     // SARibbon replaces its QSS on every call. Append workspace styling once,
     // avoiding accumulated overrides when the user switches themes repeatedly.
     setRibbonTheme(theme);
+    const QColor wordBlue(QStringLiteral("#2b579a"));
+    ribbonBar()->setWindowTitleBackgroundBrush(
+        officeBlue ? QBrush(wordBlue) : QBrush(Qt::NoBrush));
+    ribbonBar()->setWindowTitleTextColor(officeBlue ? QColor(Qt::white) : QColor());
+    const QString wordChrome = officeBlue ? QStringLiteral(
+        "SARibbonBar { background-color: #2b579a; color: white; border-color: #2b579a; }"
+        "SARibbonApplicationWidget { background-color: #2b579a; color: white; }"
+        "SARibbonTabBar { background-color: transparent; }"
+        "SARibbonTabBar::tab { color: white; background: transparent; border: 1px solid transparent; }"
+        "SARibbonTabBar::tab:selected { color: #2b579a; background: #f4f7fb; border: 1px solid #f4f7fb; }"
+        "SARibbonTabBar::tab:hover:!selected { color: white; background: #3f6fb2; border: 1px solid #6f92c4; }"
+        "SARibbonCategory, SARibbonPanel { background-color: #f4f7fb; color: #25364c; }"
+        "SARibbonPanelLabel { background: transparent; color: #5d6b7a; }"
+        "SARibbonToolButton { color: #25364c; background: transparent; border: 1px solid transparent; }"
+        "SARibbonToolButton:hover { background: #dceafd; border: 1px solid #b6d0ee; }"
+        "SARibbonToolButton:pressed, SARibbonToolButton:checked { background: #c8ddf5; border: 1px solid #8fb5df; }"
+        "SARibbonPanel > SARibbonButtonGroupWidget { background: #f4f7fb; border-color: #dce2eb; }"
+        "SARibbonSystemButtonBar QToolButton { color: white; background: transparent; }"
+        "SARibbonSystemButtonBar QToolButton:hover { background: #3f6fb2; }") : QString();
     setStyleSheet(styleSheet() + QStringLiteral(
         "QMainWindow#AeroSimMainWindow, QDockWidget, QDockWidget QWidget, QStatusBar QLabel { background: %1; color: %3; }"
         "QMenu { background: %2; color: %3; border: 1px solid %4; }"
@@ -295,7 +316,8 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
         "QWidget#viewportSlot QLabel { color: %3; }"
         "QLabel#propertyTitle { color: %3; font-size: 16px; font-weight: 600; }"
         "QPushButton { background: %1; color: %3; border: 1px solid %4; padding: 6px 12px; }"
-        "QPushButton:hover { background: %5; }").arg(bg, base, text, border, selected));
+        "QPushButton:hover { background: %5; }").arg(bg, base, text, border, selected)
+        + wordChrome);
     const QString editorStyle = QStringLiteral(
         "QPlainTextEdit { background: %1; color: %2; border: 1px solid %3; }")
         .arg(base, text, border);

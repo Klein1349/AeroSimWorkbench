@@ -83,6 +83,14 @@ int main(int argc, char **argv)
         action->trigger();
         if (!check(action->isChecked() && window.property("windowThemeId").toString() == id
                    && window.styleSheet() == qss, "Theme switch must be checked and idempotent")) return 24;
+        if (id == "office-blue"
+            && !check(window.ribbonBar()->windowTitleBackgroundBrush().color() == QColor("#2b579a")
+                      && window.ribbonBar()->windowTitleTextColor() == QColor(Qt::white)
+                      && qss.contains("SARibbonTabBar::tab:selected"),
+                      "Office blue theme must use Word-like blue title and tab chrome")) return 28;
+        if (id != "office-blue"
+            && !check(window.ribbonBar()->windowTitleBackgroundBrush().style() == Qt::NoBrush,
+                      "Non-blue themes must clear the Word title background")) return 29;
         QSettings saved(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
         if (!check(saved.value("theme").toString() == id, "Theme selection not saved")) return 25;
         const QString screenshots = qEnvironmentVariable("AEROSIM_THEME_SCREENSHOTS");
