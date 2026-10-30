@@ -19,6 +19,9 @@ set(SARIBBON_BUILD_STATIC_LIBS ON)
 set(SARIBBON_USE_FRAMELESS_LIB OFF)
 set(SARIBBON_INSTALL_IN_CURRENT_DIR OFF)
 set(BUILD_TESTS OFF)
+# Honor the host options even when SARibbon resets policies with an older
+# cmake_minimum_required (also applies to standalone modules/ui builds).
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 if(NOT TARGET SARibbonBar::SARibbonBar)
     add_subdirectory("${SARIBBON_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/saribbon" EXCLUDE_FROM_ALL)
 endif()

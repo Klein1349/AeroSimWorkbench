@@ -34,7 +34,6 @@
 #include <QStyle>
 #include <QTabWidget>
 #include <QTextEdit>
-#include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
@@ -222,14 +221,10 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
             "SARibbonTabBar::tab:selected { color:#2563b6; background:#fff; border-bottom:2px solid #2563b6; }"
             "SARibbonStackedWidget { border:0; }"
             "SARibbonToolButton { border-radius:0; }"
-            "QToolBar#postProcessQuickActions QToolButton { border:1px solid transparent; padding:3px; }"
-            "QToolBar#postProcessQuickActions QToolButton:hover { background:#e0eaf6; }"
-            "QToolBar#postProcessQuickActions QToolButton:checked { background:#dceafd; border-color:#9cbce1; }"
             "QDockWidget::title { background:#e9eef5; padding:3px; color:#25364c; font:9pt 'Microsoft YaHei UI'; }"
             "QStatusBar { background:#e9eef5; color:#25364c; }"
             "QStatusBar,QStatusBar QLabel { font:9pt 'Microsoft YaHei UI'; }"
-            "QStatusBar::item { border:0; }"
-            "QToolBar#postProcessQuickActions { background:white; border:0; spacing:2px; padding:3px; }"));
+            "QStatusBar::item { border:0; }"));
     });
     updateDataSelection(datasetTree_->currentItem(), 0);
 }
@@ -311,18 +306,23 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *assistantPanel = toolsCategory->addPanel(uiText(u"智能辅助"));
     assistantPanel->addLargeAction(deepSeekAction);
 
-    auto *quick = new QToolBar(uiText(u"快捷操作"), this);
-    quick->setObjectName(QStringLiteral("postProcessQuickActions"));
-    quick->setMovable(false); quick->setFloatable(false);
-    quick->setIconSize(QSize(20,20)); quick->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    addToolBar(Qt::TopToolBarArea, quick);
-    for (QAction *action : {importAction, exportAction}) quick->addAction(action);
-    quick->addSeparator();
-    for (QAction *action : {selectAction, boxSelectAction, panAction, zoomAction, rotateAction}) quick->addAction(action);
-    quick->addSeparator();
-    for (QAction *action : {meshAction, contourAction, colorAction, sliceAction, isoAction, streamAction, traceAction}) quick->addAction(action);
-    quick->addSeparator();
-    for (QAction *action : {fitAction, frontAction, rightAction, topAction, probeAction, deepSeekAction}) quick->addAction(action);
+    // The landing page carries the former quick actions in the same ribbon
+    // row as data operations. Reuse QActions so checked/enabled state stays in
+    // sync with their specialist categories; never add a second toolbar.
+    auto *quickInteraction = dataCategory->addPanel(uiText(u"交互"));
+    quickInteraction->addLargeAction(selectAction);
+    for (QAction *action : {boxSelectAction, panAction, zoomAction, rotateAction}) quickInteraction->addSmallAction(action);
+    auto *quickLayers = dataCategory->addPanel(uiText(u"显示"));
+    quickLayers->addLargeAction(contourAction);
+    quickLayers->addSmallAction(meshAction); quickLayers->addSmallAction(colorAction);
+    auto *quickFeatures = dataCategory->addPanel(uiText(u"空间特征"));
+    quickFeatures->addLargeAction(sliceAction);
+    for (QAction *action : {isoAction, streamAction, traceAction}) quickFeatures->addSmallAction(action);
+    auto *quickCamera = dataCategory->addPanel(uiText(u"视图"));
+    quickCamera->addLargeAction(fitAction);
+    for (QAction *action : {frontAction, rightAction, topAction}) quickCamera->addSmallAction(action);
+    auto *quickQuery = dataCategory->addPanel(uiText(u"查询与辅助"));
+    quickQuery->addSmallAction(probeAction); quickQuery->addSmallAction(deepSeekAction);
 
     auto *interactionHint = new QLabel(uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放"), this);
     interactionHint->setObjectName(uiText(u"postProcessInteractionHint"));
