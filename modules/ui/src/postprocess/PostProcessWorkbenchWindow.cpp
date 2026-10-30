@@ -227,11 +227,6 @@ void PostProcessWorkbenchWindow::createActions() {
     dataCategory->setObjectName(uiText(u"postProcessDataCategory"));
     auto *dataSourcePanel = dataCategory->addPanel(uiText(u"工程数据"));
     dataSourcePanel->addLargeAction(importAction); dataSourcePanel->addLargeAction(exportAction);
-    auto *quickPlotPanel = dataCategory->addPanel(uiText(u"快速绘制"));
-    quickPlotPanel->addLargeAction(meshAction); quickPlotPanel->addLargeAction(contourAction); quickPlotPanel->addLargeAction(colorAction);
-    auto *quickViewPanel = dataCategory->addPanel(uiText(u"常用视图"));
-    quickViewPanel->addLargeAction(fitAction); quickViewPanel->addLargeAction(frontAction);
-    quickViewPanel->addLargeAction(rightAction); quickViewPanel->addLargeAction(topAction); quickViewPanel->addLargeAction(probeAction);
     auto *dataToolsPanel = dataCategory->addPanel(uiText(u"数据处理"));
     dataToolsPanel->addLargeAction(convertAction); dataToolsPanel->addLargeAction(excelAction);
 
@@ -240,6 +235,10 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *interactionPanel = displayCategory->addPanel(uiText(u"交互"));
     interactionPanel->addLargeAction(selectAction); interactionPanel->addLargeAction(boxSelectAction);
     interactionPanel->addLargeAction(panAction); interactionPanel->addLargeAction(zoomAction); interactionPanel->addLargeAction(rotateAction);
+    auto *layerPanel = displayCategory->addPanel(uiText(u"图层"));
+    layerPanel->addLargeAction(meshAction); layerPanel->addLargeAction(contourAction); layerPanel->addLargeAction(colorAction);
+    auto *cameraPanel = displayCategory->addPanel(uiText(u"视图"));
+    cameraPanel->addLargeAction(fitAction); cameraPanel->addLargeAction(frontAction); cameraPanel->addLargeAction(rightAction); cameraPanel->addLargeAction(topAction);
 
     auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"后处理"));
     featureCategory->setObjectName(uiText(u"postProcessFeatureCategory"));
