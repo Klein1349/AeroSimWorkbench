@@ -76,6 +76,7 @@ QIcon commandIcon(const QString &kind) {
         {"trace", "animation"}, {"analysis", "curve"}, {"add", "new-state"}};
     const QString key = aliases.value(kind, kind);
     QSvgRenderer renderer(QStringLiteral(":/aerosim/postprocess/") + key + QStringLiteral(".svg"));
+    if (!renderer.isValid()) return QIcon();
     QIcon icon;
     for (int size : {16, 20, 24, 32, 40, 48, 64, 96}) {
         QPixmap pixmap(size, size);
@@ -162,6 +163,8 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
         "QTabBar::tab:selected { background:#fff; border-bottom-color:#fff; }"
         "QTabBar::tab:hover:!selected { background:#e0eaf6; }"
         "QLineEdit,QComboBox { background:#fff; color:#222; border:1px solid #aeb5be; padding:4px 6px; }"
+        "QComboBox::drop-down { subcontrol-origin:padding; subcontrol-position:top right; width:22px; border:0; }"
+        "QComboBox::down-arrow { image:url(:/aerosim/postprocess/dropdown.svg); width:10px; height:6px; }"
         "QLineEdit:focus,QComboBox:focus { border-color:#2563b6; }"
         "QPushButton { background:#fafafa; color:#222; border:1px solid #aeb5be; padding:5px 8px; }"
         "QPushButton:hover { background:#e0eaf6; border-color:#8baed7; }"
@@ -194,8 +197,9 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
             "QToolBar#postProcessQuickActions QToolButton { border:1px solid transparent; padding:3px; }"
             "QToolBar#postProcessQuickActions QToolButton:hover { background:#e0eaf6; }"
             "QToolBar#postProcessQuickActions QToolButton:checked { background:#dceafd; border-color:#9cbce1; }"
-            "QDockWidget::title { background:#e9eef5; padding:7px; color:#25364c; }"
+            "QDockWidget::title { background:#e9eef5; padding:3px; color:#25364c; font:9pt 'Microsoft YaHei UI'; }"
             "QStatusBar { background:#e9eef5; color:#25364c; }"
+            "QStatusBar,QStatusBar QLabel { font:9pt 'Microsoft YaHei UI'; }"
             "QStatusBar::item { border:0; }"
             "QToolBar#postProcessQuickActions { background:white; border:0; spacing:2px; padding:3px; }"));
     });
