@@ -98,6 +98,34 @@ QWidget *scrollPanel(QWidget *contents) {
     return scroll;
 }
 
+// Native QDockWidget title metrics do not include QSS padding on Qt 5.12.
+// A real layout gives the caption and controls their full font-derived height.
+void installDockTitle(QDockWidget *dock) {
+    auto *bar = new QWidget(dock);
+    bar->setObjectName(QStringLiteral("postProcessDockTitle"));
+    bar->setStyleSheet(QStringLiteral(
+        "QWidget#postProcessDockTitle { background:#e9eef5; }"
+        "QLabel { font:9pt 'Microsoft YaHei UI'; color:#25364c; }"
+        "QToolButton { border:0; background:transparent; padding:3px; }"
+        "QToolButton:hover { background:#dceafd; }"));
+    auto *layout = new QHBoxLayout(bar);
+    layout->setContentsMargins(8,3,4,3);
+    layout->setSpacing(2);
+    auto *label = new QLabel(dock->windowTitle(), bar);
+    label->setObjectName(QStringLiteral("postProcessDockCaption"));
+    layout->addWidget(label, 1);
+    auto *floating = new QToolButton(bar);
+    floating->setIcon(commandIcon("dock")); floating->setIconSize(QSize(16,16));
+    floating->setToolTip(uiText(u"切换浮动 / 停靠"));
+    auto *close = new QToolButton(bar);
+    close->setIcon(commandIcon("close")); close->setIconSize(QSize(16,16));
+    close->setToolTip(uiText(u"关闭面板"));
+    layout->addWidget(floating); layout->addWidget(close);
+    QObject::connect(floating, &QToolButton::clicked, dock, [dock] { dock->setFloating(!dock->isFloating()); });
+    QObject::connect(close, &QToolButton::clicked, dock, &QWidget::hide);
+    dock->setTitleBarWidget(bar);
+}
+
 QAction *ribbonAction(QWidget *owner, const QIcon &icon, const QString &text,
                       const QString &tip, const QString &objectName) {
     auto *action = new QAction(icon, text, owner);
@@ -151,7 +179,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     tabs->addTab(scrollPanel(createViewPanel()), uiText(u"视图")); tabs->addTab(createDataPanel(), uiText(u"数据")); tabs->addTab(createObjectPanel(), uiText(u"对象"));
     content->addWidget(tabs); content->addWidget(createViewportPanel()); content->addWidget(createPropertiesPanel()); content->setStretchFactor(1, 1); content->setSizes({270, 850, 320}); content->setChildrenCollapsible(false);
     root->addWidget(content, 1); root->addWidget(createTimeline()); setCentralWidget(workbench);
-    auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
+    auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); installDockTitle(dock); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
     statusBar()->showMessage(uiText(u"已加载翼身组合结果集：从左侧选择数据，再在 Ribbon 中创建显示或分析对象。"));
     // Scope workspace styling so SARibbon's buttons, tabs and window controls
     // retain their own metrics. Native inputs use the same style as MainWindow.
@@ -332,6 +360,7 @@ void PostProcessWorkbenchWindow::createActions() {
 void PostProcessWorkbenchWindow::openDeepSeekHarness() {
     if (!deepSeekHarnessDock_) {
         deepSeekHarnessDock_ = new QDockWidget(uiText(u"DeepSeek Harness"), this);
+        installDockTitle(deepSeekHarnessDock_);
         deepSeekHarnessDock_->setObjectName(uiText(u"deepSeekHarnessDock"));
         auto *panel = new QWidget(deepSeekHarnessDock_);
         auto *layout = new QVBoxLayout(panel);

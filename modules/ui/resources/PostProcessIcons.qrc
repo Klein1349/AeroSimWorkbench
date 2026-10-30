@@ -33,5 +33,7 @@
   <file alias="visible.svg">icons/visible.svg</file>
   <file alias="zoom.svg">icons/zoom.svg</file>
   <file alias="dropdown.svg">icons/dropdown.svg</file>
+  <file alias="dock.svg">icons/dock.svg</file>
+  <file alias="close.svg">icons/close.svg</file>
  </qresource>
 </RCC>

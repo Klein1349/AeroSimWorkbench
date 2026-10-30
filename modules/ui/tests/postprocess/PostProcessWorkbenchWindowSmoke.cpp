@@ -139,6 +139,13 @@ int main(int argc, char *argv[])
     auto *harness = window.findChild<QAction *>(QStringLiteral("postProcessHarnessAction"));
     harness->trigger();
     app.processEvents();
+    for (auto *caption : window.findChildren<QLabel *>(QStringLiteral("postProcessDockCaption"))) {
+        if (caption->isVisible() && (caption->height() < caption->sizeHint().height() ||
+            caption->width() < caption->sizeHint().width())) {
+            qCritical() << "Dock caption clipped" << caption->size() << caption->sizeHint();
+            return 28;
+        }
+    }
     if (!captureDir.isEmpty() && !window.grab().save(captureDir + QStringLiteral("/harness.png"))) return 27;
 
     for (auto *action : window.findChildren<QAction *>()) {
