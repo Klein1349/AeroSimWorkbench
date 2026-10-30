@@ -7,7 +7,6 @@
   <file alias="contour.svg">icons/contour.svg</file>
   <file alias="curve.svg">icons/curve.svg</file>
   <file alias="delete.svg">icons/delete.svg</file>
-  <file alias="errors.svg">icons/errors.svg</file>
   <file alias="export-config.svg">icons/export-config.svg</file>
   <file alias="field.svg">icons/field.svg</file>
   <file alias="first.svg">icons/first.svg</file>
@@ -19,24 +18,19 @@
   <file alias="iso.svg">icons/iso.svg</file>
   <file alias="last.svg">icons/last.svg</file>
   <file alias="mesh.svg">icons/mesh.svg</file>
-  <file alias="monitor.svg">icons/monitor.svg</file>
   <file alias="new-state.svg">icons/new-state.svg</file>
   <file alias="next.svg">icons/next.svg</file>
   <file alias="palette.svg">icons/palette.svg</file>
   <file alias="pan.svg">icons/pan.svg</file>
-  <file alias="physics.svg">icons/physics.svg</file>
   <file alias="previous.svg">icons/previous.svg</file>
   <file alias="probe.svg">icons/probe.svg</file>
-  <file alias="property.svg">icons/property.svg</file>
   <file alias="right.svg">icons/right.svg</file>
   <file alias="rotate.svg">icons/rotate.svg</file>
   <file alias="select.svg">icons/select.svg</file>
   <file alias="slice.svg">icons/slice.svg</file>
   <file alias="stream.svg">icons/stream.svg</file>
   <file alias="top.svg">icons/top.svg</file>
-  <file alias="transform.svg">icons/transform.svg</file>
   <file alias="visible.svg">icons/visible.svg</file>
-  <file alias="workbench.svg">icons/workbench.svg</file>
   <file alias="zoom.svg">icons/zoom.svg</file>
  </qresource>
 </RCC>

@@ -27,6 +27,8 @@ QString uiText(const char16_t (&text)[N])
 
 int main(int argc, char *argv[])
 {
+    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
     QApplication app(argc, argv);
     aerosim::PostProcessWorkbenchWindow window;
     if (!window.findChild<QWidget *>(QStringLiteral("postProcessDataCategory")) ||
@@ -126,6 +128,19 @@ int main(int argc, char *argv[])
                 return 23;
         }
     }
+    navigator->setCurrentIndex(1);
+    window.resize(1120,680);
+    for (int group : {2,3}) {
+        tree->setCurrentItem(tree->topLevelItem(group)->child(0));
+        app.processEvents();
+        if (!captureDir.isEmpty() && !window.grab().save(captureDir +
+            QStringLiteral("/inspector-%1.png").arg(group))) return 26;
+    }
+    auto *harness = window.findChild<QAction *>(QStringLiteral("postProcessHarnessAction"));
+    harness->trigger();
+    app.processEvents();
+    if (!captureDir.isEmpty() && !window.grab().save(captureDir + QStringLiteral("/harness.png"))) return 27;
+
     for (auto *action : window.findChildren<QAction *>()) {
         if (action->objectName().startsWith("postProcess") && action->icon().isNull()) {
             qCritical() << "Missing command icon" << action->objectName();

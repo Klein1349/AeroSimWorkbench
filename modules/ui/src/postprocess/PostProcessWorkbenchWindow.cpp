@@ -112,7 +112,7 @@ protected:
     void paintEvent(QPaintEvent *) override {
         // Keep the preview illustrative, but use the same light workspace
         // surface as the main window's viewport placeholder.
-        QPainter p(this); p.fillRect(rect(), QColor("#edf2f8"));
+        QPainter p(this); p.setRenderHint(QPainter::Antialiasing); p.fillRect(rect(), QColor("#edf2f8"));
         const QRect area = rect().adjusted(28, 58, -86, -48);
         QLinearGradient gradient(area.topLeft(), area.bottomRight());
         gradient.setColorAt(0, QColor("#174f88")); gradient.setColorAt(.32, QColor("#10a4bd")); gradient.setColorAt(.58, QColor("#79c76f")); gradient.setColorAt(.78, QColor("#f6c84b")); gradient.setColorAt(1, QColor("#d94e4e"));
@@ -348,7 +348,8 @@ void PostProcessWorkbenchWindow::openDeepSeekHarness() {
         auto *state = new QLabel(uiText(u"Harness 服务尚未接入；此入口会发出任务请求并保留当前上下文。"), panel);
         state->setObjectName(uiText(u"mutedText")); state->setWordWrap(true);
         layout->addWidget(state); layout->addStretch();
-        deepSeekHarnessDock_->setWidget(panel);
+        panel->setStyleSheet(centralWidget()->styleSheet());
+        deepSeekHarnessDock_->setWidget(scrollPanel(panel));
         addDockWidget(Qt::RightDockWidgetArea, deepSeekHarnessDock_);
         connect(run, &QPushButton::clicked, this, [this, prompt, scope] {
             emit postProcessCommandRequested(uiText(u"openDeepSeekHarness"));
