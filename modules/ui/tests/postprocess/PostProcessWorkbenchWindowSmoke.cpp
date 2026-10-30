@@ -92,7 +92,12 @@ int main(int argc, char *argv[])
         qCritical() << "SARibbon theme resources not linked";
         return 25;
     }
-    if (!window.findChildren<QToolBar *>().isEmpty()) return 29;
+    for (auto *toolbar : window.findChildren<QToolBar *>()) {
+        if (window.toolBarArea(toolbar) != Qt::NoToolBarArea) {
+            qCritical() << "Unexpected second toolbar row" << toolbar->objectName();
+            return 29;
+        }
+    }
     window.show();
     for (const QSize size : {QSize(1120,680), QSize(1440,960)}) {
         window.resize(size);
