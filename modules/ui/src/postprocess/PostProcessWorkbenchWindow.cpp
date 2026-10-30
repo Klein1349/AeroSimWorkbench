@@ -124,11 +124,11 @@ protected:
         for (int i = 1; i < 9; ++i) { const int x = area.left() + area.width() * i / 9; p.drawLine(x, area.top() + 30, x, area.bottom() - 30); }
         for (int i = 1; i < 6; ++i) { const int y = area.top() + area.height() * i / 6; p.drawLine(area.left() + 24, y, area.right() - 24, y); }
         p.setPen(QPen(QColor("#234d7a"), 2)); p.drawPath(body);
-        const QRect legend(rect().right() - 45, 80, 13, qMax(120, height() - 175)); QLinearGradient lg(legend.topLeft(), legend.bottomLeft());
+        const QRect legend(rect().right() - 45, 80, 13, qMax(40, height() - 175)); QLinearGradient lg(legend.topLeft(), legend.bottomLeft());
         lg.setColorAt(0, QColor("#d94e4e")); lg.setColorAt(.35, QColor("#f6c84b")); lg.setColorAt(.67, QColor("#10a4bd")); lg.setColorAt(1, QColor("#174f88")); p.fillRect(legend, lg); p.setPen(QColor("#8fa5bb")); p.drawRect(legend);
         p.setPen(QColor("#25364c")); p.drawText(QRect(20, 14, width() - 50, 30), Qt::AlignLeft | Qt::AlignVCenter, uiText(u"三维结果预览"));
         p.setPen(QColor("#52677f")); p.drawText(QRect(20, height() - 34, width() - 40, 20), Qt::AlignLeft | Qt::AlignVCenter, uiText(u"翼身组合 / 压力场 / 时间步 0"));
-        p.drawText(QRect(0, 0, width() - 19, height()), Qt::AlignRight | Qt::AlignVCenter, uiText(u"压力"));
+        p.drawText(QRect(width() - 65, 52, 50, 24), Qt::AlignCenter, uiText(u"压力"));
     }
 };
 }
@@ -140,6 +140,8 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     setRibbonTheme(SARibbonTheme::RibbonThemeOffice2013);
     ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleLooseThreeRow);
     ribbonBar()->applicationButton()->hide();
+    ribbonBar()->setWindowTitleBackgroundBrush(QColor("#e5e4e4"));
+    ribbonBar()->setWindowTitleTextColor(QColor("#222222"));
     createActions();
     auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(0, 0, 0, 0); root->setSpacing(0);
     workbench->setObjectName(QStringLiteral("postProcessWorkspace"));
@@ -153,8 +155,18 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     // Scope workspace styling so SARibbon's buttons, tabs and window controls
     // retain their own metrics. Native inputs use the same style as MainWindow.
     workbench->setStyleSheet(QStringLiteral(
+        "QWidget { font-family: 'Microsoft YaHei UI'; font-size:9pt; }"
         "QWidget#postProcessWorkspace { background:#e9eef5; color:#25364c; }"
         "QTabWidget::pane { border:0; background:#efefef; }"
+        "QTabBar::tab { background:#e8e8e8; color:#222; border:1px solid #bfc4cb; padding:5px 12px; margin-right:1px; }"
+        "QTabBar::tab:selected { background:#fff; border-bottom-color:#fff; }"
+        "QTabBar::tab:hover:!selected { background:#e0eaf6; }"
+        "QLineEdit,QComboBox { background:#fff; color:#222; border:1px solid #aeb5be; padding:4px 6px; }"
+        "QLineEdit:focus,QComboBox:focus { border-color:#2563b6; }"
+        "QPushButton { background:#fafafa; color:#222; border:1px solid #aeb5be; padding:5px 8px; }"
+        "QPushButton:hover { background:#e0eaf6; border-color:#8baed7; }"
+        "QPushButton:pressed { background:#dceafd; }"
+        "QPushButton:focus { border-color:#2563b6; }"
         "QScrollArea { border:0; background:#efefef; }"
         "QSplitter::handle { background:#e9eef5; }"
         "QFrame#viewportFrame { border:0; background:#edf2f8; }"
@@ -167,13 +179,21 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
         "QTreeWidget::item:selected,QListWidget::item:selected { background:#dceafd; color:#153b6b; }"
         "QGroupBox { border:0; margin-top:22px; }"
         "QGroupBox::title { subcontrol-origin:margin; left:0; top:3px; color:#234d7a; }"
-        "QPushButton { padding:4px 8px; }"
+
         "QFrame#postProcessTimeline { border:0; background:#e9eef5; }"
         "QToolButton { border:1px solid transparent; padding:4px; background:transparent; }"
         "QToolButton:hover { background:#e0eaf6; border-color:#b8cde6; }"
         "QToolButton:checked { background:#dceafd; border-color:#9cbce1; }"));
     QTimer::singleShot(0, this, [this] {
         setStyleSheet(styleSheet() + QStringLiteral(
+            "SARibbonBar { background:#e5e4e4; }"
+            "SARibbonTabBar::tab { color:#222; border:0; margin:0; padding:0 12px; }"
+            "SARibbonTabBar::tab:selected { color:#2563b6; background:#fff; border-bottom:2px solid #2563b6; }"
+            "SARibbonStackedWidget { border:0; }"
+            "SARibbonToolButton { border-radius:0; }"
+            "QToolBar#postProcessQuickActions QToolButton { border:1px solid transparent; padding:3px; }"
+            "QToolBar#postProcessQuickActions QToolButton:hover { background:#e0eaf6; }"
+            "QToolBar#postProcessQuickActions QToolButton:checked { background:#dceafd; border-color:#9cbce1; }"
             "QDockWidget::title { background:#e9eef5; padding:7px; color:#25364c; }"
             "QStatusBar { background:#e9eef5; color:#25364c; }"
             "QStatusBar::item { border:0; }"
