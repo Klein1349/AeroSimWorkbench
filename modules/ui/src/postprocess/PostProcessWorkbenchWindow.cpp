@@ -123,7 +123,9 @@ public:
     explicit ResultPreviewWidget(QWidget *parent = nullptr) : QWidget(parent) { setMinimumSize(420, 360); }
 protected:
     void paintEvent(QPaintEvent *) override {
-        QPainter p(this); p.fillRect(rect(), QColor("#162536"));
+        // Keep the preview illustrative, but use the same light workspace
+        // surface as the main window's viewport placeholder.
+        QPainter p(this); p.fillRect(rect(), QColor("#edf2f8"));
         const QRect area = rect().adjusted(28, 58, -86, -48);
         QLinearGradient gradient(area.topLeft(), area.bottomRight());
         gradient.setColorAt(0, QColor("#174f88")); gradient.setColorAt(.32, QColor("#10a4bd")); gradient.setColorAt(.58, QColor("#79c76f")); gradient.setColorAt(.78, QColor("#f6c84b")); gradient.setColorAt(1, QColor("#d94e4e"));
@@ -131,14 +133,14 @@ protected:
         body.cubicTo(area.left() + area.width() * .27, area.top() + 14, area.left() + area.width() * .68, area.top() + 24, area.right() - 12, area.center().y() - 8);
         body.cubicTo(area.left() + area.width() * .68, area.bottom() - 20, area.left() + area.width() * .25, area.bottom() - 24, area.left() + 12, area.center().y());
         p.setBrush(gradient); p.setPen(Qt::NoPen); p.drawPath(body);
-        p.setBrush(Qt::NoBrush); p.setPen(QPen(QColor(255,255,255,90), 1));
+        p.setBrush(Qt::NoBrush); p.setPen(QPen(QColor("#c4d2e0"), 1));
         for (int i = 1; i < 9; ++i) { const int x = area.left() + area.width() * i / 9; p.drawLine(x, area.top() + 30, x, area.bottom() - 30); }
         for (int i = 1; i < 6; ++i) { const int y = area.top() + area.height() * i / 6; p.drawLine(area.left() + 24, y, area.right() - 24, y); }
-        p.setPen(QPen(QColor("#e6f0fb"), 2)); p.drawPath(body);
+        p.setPen(QPen(QColor("#234d7a"), 2)); p.drawPath(body);
         const QRect legend(rect().right() - 45, 80, 13, qMax(120, height() - 175)); QLinearGradient lg(legend.topLeft(), legend.bottomLeft());
-        lg.setColorAt(0, QColor("#d94e4e")); lg.setColorAt(.35, QColor("#f6c84b")); lg.setColorAt(.67, QColor("#10a4bd")); lg.setColorAt(1, QColor("#174f88")); p.fillRect(legend, lg); p.setPen(QColor("#c8d7e8")); p.drawRect(legend);
-        p.setPen(QColor("#eff6fd")); p.drawText(QRect(20, 14, width() - 50, 30), Qt::AlignLeft | Qt::AlignVCenter, uiText(u"三维结果预览"));
-        p.setPen(QColor("#aac2da")); p.drawText(QRect(20, height() - 34, width() - 40, 20), Qt::AlignLeft | Qt::AlignVCenter, uiText(u"翼身组合 / 压力场 / 时间步 0"));
+        lg.setColorAt(0, QColor("#d94e4e")); lg.setColorAt(.35, QColor("#f6c84b")); lg.setColorAt(.67, QColor("#10a4bd")); lg.setColorAt(1, QColor("#174f88")); p.fillRect(legend, lg); p.setPen(QColor("#8fa5bb")); p.drawRect(legend);
+        p.setPen(QColor("#25364c")); p.drawText(QRect(20, 14, width() - 50, 30), Qt::AlignLeft | Qt::AlignVCenter, uiText(u"三维结果预览"));
+        p.setPen(QColor("#52677f")); p.drawText(QRect(20, height() - 34, width() - 40, 20), Qt::AlignLeft | Qt::AlignVCenter, uiText(u"翼身组合 / 压力场 / 时间步 0"));
         p.drawText(QRect(0, 0, width() - 19, height()), Qt::AlignRight | Qt::AlignVCenter, uiText(u"压力"));
     }
 };
@@ -149,7 +151,6 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
                          SARibbonMainWindowStyleFlag::UseNativeMenuBar
                              | SARibbonMainWindowStyleFlag::UseNativeFrame) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
-    QFont font(uiText(u"Microsoft YaHei UI")); font.setPointSize(10); setFont(font);
     createActions();
     auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
     auto *content = new QSplitter(Qt::Horizontal, workbench); content->setObjectName(uiText(u"postProcessContent"));
@@ -159,7 +160,9 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     root->addWidget(content, 1); root->addWidget(createTimeline()); setCentralWidget(workbench);
     auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
     statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用上方工具栏创建显示或分析对象。"));
-    setStyleSheet(uiText(u"QMainWindow{background:#edf2f6;color:#24364a;}QMenuBar,QToolBar{background:#fff;border-bottom:1px solid #ccd7e2;}QMenuBar{padding-left:4px;}QMenuBar::item{padding:5px 11px;background:transparent;}QMenuBar::item:selected{background:#e4f0f8;color:#075b9e;}QMenu{border:1px solid #b9c8d5;padding:3px;background:#fff;}QMenu::item{padding:5px 26px 5px 18px;}QMenu::item:selected{background:#e3eff9;color:#075b9e;}QToolBar{spacing:2px;padding:3px 6px;}QToolButton{border:1px solid transparent;border-radius:3px;padding:3px;}QToolButton:hover,QToolButton:checked{background:#e3eff9;border-color:#76a8d1;}QLabel#postProcessInteractionHint{color:#5d7185;border-left:1px solid #ccd7e2;padding-left:9px;margin-left:5px;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #ccd7e2;}QTabBar::tab{padding:8px 18px;background:#e7edf3;}QTabBar::tab:selected{background:#fff;color:#0a5d9f;}QFrame#viewportHeader{background:#f7fafc;border-bottom:1px solid #ccd7e2;}QLabel#viewportTitle{color:#234d7a;font-weight:bold;}QLabel#viewportOrientation{color:#0a69b7;font-weight:bold;border-left:1px solid #ccd7e2;padding-left:10px;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#e3eff9;color:#075b9e;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f5f8fc;border:1px solid #d7e2ec;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #c5d1dd;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #c5d1dd;border-radius:4px;background:#fff;padding:3px 9px;}QPushButton:hover{background:#e3eff9;border-color:#76a8d1;}QPushButton#primaryAction{background:#0a69b7;color:#fff;border:0;font-weight:bold;}QLabel#mutedText{color:#65798d;font-size:12px;}QLabel#sectionTitle{color:#31475f;font-weight:bold;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:bold;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QTextEdit{background:#162536;color:#dceafb;border:0;}"));
+    // Match MainWindow's system font and cool-grey workbench palette.  The
+    // post-processing menu/toolbar arrangement deliberately stays unchanged.
+    setStyleSheet(uiText(u"QMainWindow{background:#edf2f8;color:#25364c;}QMenuBar,QToolBar{background:#e9eef5;border-bottom:1px solid #dce2eb;}QMenuBar{padding-left:4px;}QMenuBar::item{padding:5px 11px;background:transparent;}QMenuBar::item:selected{background:#dceafd;color:#153b6b;}QMenu{border:1px solid #dce2eb;padding:3px;background:#fff;}QMenu::item{padding:5px 26px 5px 18px;}QMenu::item:selected{background:#dceafd;color:#153b6b;}QToolBar{spacing:2px;padding:3px 6px;}QToolButton{border:1px solid transparent;border-radius:3px;padding:4px;}QToolButton:hover,QToolButton:checked{background:#dceafd;border-color:#a8c6e5;}QLabel#postProcessInteractionHint{color:#52677f;border-left:1px solid #dce2eb;padding-left:9px;margin-left:5px;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #dce2eb;}QTabBar::tab{padding:8px 18px;background:#e9eef5;color:#52677f;}QTabBar::tab:selected{background:#fff;color:#153b6b;}QFrame#viewportHeader{background:#edf2f8;border-bottom:1px solid #dce2eb;}QLabel#viewportTitle{color:#234d7a;font-weight:600;}QLabel#viewportOrientation{color:#234d7a;font-weight:600;border-left:1px solid #dce2eb;padding-left:10px;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;alternate-background-color:#f4f7fb;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#dceafd;color:#153b6b;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f4f7fb;border:1px solid #dce2eb;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #dce2eb;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #dce2eb;border-radius:4px;background:#fff;padding:6px 12px;}QPushButton:hover{background:#dceafd;border-color:#a8c6e5;}QPushButton#primaryAction{background:#234d7a;color:#fff;border:0;font-weight:600;}QLabel#mutedText{color:#52677f;font-size:12px;}QLabel#sectionTitle{color:#234d7a;font-weight:600;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:600;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QStatusBar{background:#e9eef5;color:#25364c;}QTextEdit{background:#edf2f8;color:#25364c;border:1px solid #dce2eb;}"));
     updateDataSelection(datasetTree_->currentItem(), 0);
 }
 
