@@ -10,6 +10,8 @@ if not defined AEROSIM_BUILD_GUI set "AEROSIM_BUILD_GUI=ON"
 if not defined AEROSIM_BUILD_VISUALIZATION set "AEROSIM_BUILD_VISUALIZATION=OFF"
 if not defined AEROSIM_BUILD_STACK_PROBE set "AEROSIM_BUILD_STACK_PROBE=OFF"
 set "PATH=%AEROSIM_QT_ROOT%\bin;%PATH%"
+rem Deployed GUI directories may only contain qwindowsd; CTest also needs offscreen.
+set "QT_QPA_PLATFORM_PLUGIN_PATH=%AEROSIM_QT_ROOT%\plugins\platforms"
 if defined AEROSIM_VTK_BIN set "PATH=%AEROSIM_VTK_BIN%;%PATH%"
 set "TARGET=%~1"
 if "%TARGET%"=="" set "TARGET=all"
@@ -39,7 +41,7 @@ if errorlevel 1 exit /b %errorlevel%
 if /I "%TARGET%"=="all" (
     pushd "%AEROSIM_BUILD_DIR%"
     ctest -C "%CONFIG%" --output-on-failure
-    set "TEST_RESULT=%errorlevel%"
+    set "TEST_RESULT=!errorlevel!"
     popd
     exit /b !TEST_RESULT!
 )
