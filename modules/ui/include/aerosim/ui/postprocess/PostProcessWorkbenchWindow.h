@@ -4,8 +4,12 @@
 #include <SARibbonMainWindow.h>
 
 #include <QList>
+#include <QHash>
+#include <QPointer>
+#include <QVariantMap>
 
 class QAction;
+class QDialog;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -33,6 +37,10 @@ public:
     bool insertWidget(WidgetSlot slot, QWidget *widget) override;
     void bindServices(const ServiceBindings &services) override;
 
+public slots:
+    // GUI-thread presentation endpoint; no picking or numerical work is done here.
+    void displayProbeResult(const QString &text);
+
 signals:
     void viewRequested(const QString &orientation);
     void postProcessCommandRequested(const QString &command);
@@ -42,11 +50,15 @@ private:
     QWidget *createViewPanel();
     QWidget *createObjectPanel();
     QWidget *createViewportPanel();
-    QWidget *createPropertiesPanel();
     QWidget *createTimeline();
     void createActions();
     void openDeepSeekHarness();
     void showProbePanel();
+    void openObjectStyle();
+    void openObjectParameters();
+    void openSelectedSettings();
+    void updateSelectionActions();
+    void showTaskPanel();
     void updateDataSelection(QTreeWidgetItem *item, int column);
     void addDerivedLayer(const QString &kind, const QString &name, const QString &message);
     void setFeatureActionsEnabled(bool mesh, bool contour, bool slice, bool iso, bool streamline);
@@ -57,23 +69,26 @@ private:
     QWidget *emptyViewport_ = nullptr;
     QTreeWidget *datasetTree_ = nullptr;
     QListWidget *sceneList_ = nullptr;
-    QStackedWidget *propertiesStack_ = nullptr;
-    QTabWidget *inspectorTabs_ = nullptr;
-    QLineEdit *selectionName_ = nullptr;
+    QAction *styleAction_ = nullptr;
+    QAction *parameterAction_ = nullptr;
+    QAction *probeAction_ = nullptr;
+    QPointer<QDialog> styleDialog_;
+    QPointer<QDialog> parameterDialog_;
+    QString selectedId_;
+    QString selectedKind_;
+    QString selectedName_;
+    QHash<QString, QVariantMap> styleDrafts_;
+    QHash<QString, QVariantMap> parameterDrafts_;
+    int nextObjectId_ = 0;
     QSlider *timeSlider_ = nullptr;
     QLabel *timeLabel_ = nullptr;
     QLabel *sessionContext_ = nullptr;
     QLabel *viewportTitle_ = nullptr;
     QLabel *viewportHint_ = nullptr;
-    QLabel *propertyContextTitle_ = nullptr;
-    QLabel *propertyContextHint_ = nullptr;
     QLabel *selectionSummary_ = nullptr;
-    QLabel *zoneSummary_ = nullptr;
-    QLabel *fieldSummary_ = nullptr;
-    QLabel *timeSummary_ = nullptr;
-    QLabel *curveSummary_ = nullptr;
-    QLabel *derivedSummary_ = nullptr;
-    QLabel *probeSummary_ = nullptr;
+    QTextEdit *probeResult_ = nullptr;
+    QDockWidget *probeDock_ = nullptr;
+    QDockWidget *taskDock_ = nullptr;
     QTextEdit *events_ = nullptr;
     QDockWidget *deepSeekHarnessDock_ = nullptr;
     QList<QAction *> featureActions_;

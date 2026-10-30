@@ -35,5 +35,7 @@
   <file alias="dropdown.svg">icons/dropdown.svg</file>
   <file alias="dock.svg">icons/dock.svg</file>
   <file alias="close.svg">icons/close.svg</file>
+  <file alias="style.svg">icons/style.svg</file>
+  <file alias="parameters.svg">icons/parameters.svg</file>
  </qresource>
 </RCC>

@@ -1,173 +1,176 @@
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
-
+#include <SARibbonBar.h>
 #include <QAction>
 #include <QApplication>
-#include <QLabel>
-#include <QDir>
-#include <QFile>
-#include <QDebug>
-#include <QToolButton>
-#include <QToolBar>
-#include <QPushButton>
+#include <QCheckBox>
 #include <QComboBox>
-#include <QScrollArea>
-#include <SARibbonBar.h>
+#include <QDebug>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QDockWidget>
+#include <QDoubleSpinBox>
+#include <QFile>
+#include <QLabel>
 #include <QListWidget>
+#include <QPushButton>
 #include <QSlider>
-#include <QStackedWidget>
-#include <QTreeWidget>
+#include <QSpinBox>
+#include <QSplitter>
 #include <QTabWidget>
+#include <QTextEdit>
+#include <QToolBar>
+#include <QToolButton>
+#include <QTreeWidget>
 
-namespace {
-template <size_t N>
-QString uiText(const char16_t (&text)[N])
-{
-    return QString::fromUtf16(reinterpret_cast<const ushort *>(text), int(N) - 1);
-}
-}
+#define CHECK(condition) do { if (!(condition)) { qCritical() << "Failed at line" << __LINE__ << #condition; return 1; } } while (false)
 
 int main(int argc, char *argv[])
 {
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-    QApplication app(argc, argv);
+    QApplication app(argc,argv);
     aerosim::PostProcessWorkbenchWindow window;
-    if (!window.findChild<QWidget *>(QStringLiteral("postProcessDataCategory")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessDisplayCategory")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessFeatureCategory")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessAnalysisCategory")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessToolsCategory")))
-        return 12;
-    if (!window.findChild<QWidget *>(QStringLiteral("postProcessDatasetTree")) ||
-        !window.findChild<QWidget *>(QStringLiteral("sceneLayerList")) ||
-        !window.findChild<QWidget *>(QStringLiteral("postProcessTimeSlider")))
-        return 1;
-
-    auto *tree = window.findChild<QTreeWidget *>(QStringLiteral("postProcessDatasetTree"));
-    auto *layers = window.findChild<QListWidget *>(QStringLiteral("sceneLayerList"));
-    auto *contour = window.findChild<QAction *>(QStringLiteral("postProcessContourAction"));
-    auto *probe = window.findChild<QAction *>(QStringLiteral("postProcessProbeAction"));
-    auto *pan = window.findChild<QAction *>(QStringLiteral("postProcessPanAction"));
-    auto *topView = window.findChild<QAction *>(QStringLiteral("postProcessTopViewAction"));
-    auto *inspector = window.findChild<QStackedWidget *>(QStringLiteral("postProcessProperties"));
-    auto *inspectorTabs = window.findChild<QTabWidget *>(QStringLiteral("postProcessInspectorTabs"));
-    auto *timeSlider = window.findChild<QSlider *>(QStringLiteral("postProcessTimeSlider"));
-    auto *interactionHint = window.findChild<QLabel *>(QStringLiteral("postProcessInteractionHint"));
-    if (!tree || tree->topLevelItemCount() < 4 || !layers || !contour || !probe || !pan || !topView || !interactionHint || !inspector || !inspectorTabs || inspectorTabs->count() != 3 || !timeSlider)
-        return 4;
-    pan->trigger();
-    if (!pan->isChecked() || !interactionHint->text().contains(uiText(u"平移")))
-        return 13;
-    const int layerCount = layers->count();
-    contour->trigger();
-    if (layers->count() != layerCount + 1)
-        return 7;
-    if (window.findChild<QWidget *>(QStringLiteral("postProcessTimeline"))->isHidden())
-        return 5;
-
-    // Every category has its own inspector.  This protects the UI contract
-    // against reverting to one generic "object properties" form.
-    tree->setCurrentItem(tree->topLevelItem(1)->child(0));
-    if (inspector->currentIndex() != 2)
-        return 8;
-    tree->setCurrentItem(tree->topLevelItem(2)->child(2));
-    if (inspector->currentIndex() != 3 || timeSlider->value() != 2)
-        return 9;
-    tree->setCurrentItem(tree->topLevelItem(3)->child(0));
-    if (inspector->currentIndex() != 4)
-        return 10;
-    layers->setCurrentRow(0);
-    if (inspector->currentIndex() != 5)
-        return 11;
-    probe->trigger();
-    if (inspectorTabs->currentIndex() != 1)
-        return 12;
-
-    // Exercise the actual window after SARibbon's deferred theme/layout work.
-    // Optional captures are produced by the same binary used in CTest.
+    const auto action = [&window](const char *name) { return window.findChild<QAction *>(QString::fromLatin1(name)); };
+    auto *tree = window.findChild<QTreeWidget *>("postProcessDatasetTree");
+    auto *layers = window.findChild<QListWidget *>("sceneLayerList");
+    auto *nav = window.findChild<QTabWidget *>("postProcessNavigator");
+    auto *content = window.findChild<QSplitter *>("postProcessContent");
+    auto *style = action("postProcessObjectStyleAction");
+    auto *parameters = action("postProcessParametersAction");
+    auto *probe = action("postProcessProbeAction");
+    auto *results = action("postProcessProbeResultsAction");
+    auto *select = action("postProcessSelectAction");
+    auto *pan = action("postProcessPanAction");
+    auto *tasks = action("postProcessTasksAction");
+    CHECK(tree && layers && nav && content && style && parameters && probe && results && select && pan && tasks);
+    CHECK(content->count() == 2);
+    CHECK(!window.findChild<QWidget *>("postProcessInspectorTabs"));
+    CHECK(!window.findChild<QDockWidget *>("postProcessProbeDock"));
+    CHECK(QFile::exists(":/SARibbonTheme/resource/palettes/office2013-default.json"));
     const QString captureDir = qEnvironmentVariable("AEROSIM_UI_CAPTURE_DIR");
     if (!captureDir.isEmpty()) QDir().mkpath(captureDir);
-    auto *navigator = window.findChild<QTabWidget *>(QStringLiteral("postProcessNavigator"));
-    if (!QFile::exists(QStringLiteral(":/SARibbonTheme/resource/palettes/office2013-default.json"))) {
-        qCritical() << "SARibbon theme resources not linked";
-        return 25;
+    const auto flush = [&app] { app.processEvents(); QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete); app.processEvents(); };
+    const auto capture = [&captureDir, &flush](QWidget *widget, const QString &name) {
+        flush();
+        return captureDir.isEmpty() || widget->grab().save(captureDir + "/" + name + ".png");
+    };
+    const auto chooseZone = [&] (int index) {
+        nav->setCurrentIndex(1);
+        auto *item = tree->topLevelItem(0)->child(index);
+        tree->setCurrentItem(item); tree->itemClicked(item,0); flush();
+    };
+    const auto chooseObject = [&] (int index) {
+        nav->setCurrentIndex(2); layers->setCurrentRow(index); layers->itemClicked(layers->currentItem()); flush();
+    };
+    window.show(); flush();
+    for (auto *dock : window.findChildren<QDockWidget *>()) CHECK(!dock->isVisible());
+    for (auto *toolbar : window.findChildren<QToolBar *>()) CHECK(window.toolBarArea(toolbar) == Qt::NoToolBarArea);
+
+    // Merely selecting a zone or object must never open an editor or sidebar.
+    chooseObject(0); chooseZone(0);
+    CHECK(window.findChildren<QDialog *>().isEmpty());
+    CHECK(style->isEnabled() && !parameters->isEnabled());
+
+    // Editing is transactional and keyed by object identity, not the selected row.
+    style->trigger(); flush();
+    auto *dialog = window.findChild<QDialog *>("postProcessObjectStyleDialog");
+    CHECK(dialog && dialog->isVisible());
+    CHECK(capture(dialog,"object-style"));
+    auto *opacity = dialog->findChild<QSpinBox *>("objectStyleOpacity");
+    CHECK(opacity && opacity->value() == 100);
+    opacity->setValue(25); dialog->reject(); flush();
+    style->trigger(); flush(); dialog = window.findChild<QDialog *>("postProcessObjectStyleDialog");
+    CHECK(dialog->findChild<QSpinBox *>("objectStyleOpacity")->value() == 100);
+    dialog->findChild<QSpinBox *>("objectStyleOpacity")->setValue(60);
+    dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click(); flush();
+    chooseZone(1); style->trigger(); flush(); dialog = window.findChild<QDialog *>("postProcessObjectStyleDialog");
+    CHECK(dialog->findChild<QSpinBox *>("objectStyleOpacity")->value() == 100);
+    dialog->reject(); flush(); chooseZone(0); style->trigger(); flush();
+    dialog = window.findChild<QDialog *>("postProcessObjectStyleDialog");
+    CHECK(dialog->findChild<QSpinBox *>("objectStyleOpacity")->value() == 60);
+    dialog->reject(); flush();
+    tree->itemDoubleClicked(tree->currentItem(),0); flush();
+    CHECK(window.findChild<QDialog *>("postProcessObjectStyleDialog"));
+    window.findChild<QDialog *>("postProcessObjectStyleDialog")->reject(); flush();
+
+    chooseObject(0);
+    layers->itemDoubleClicked(layers->currentItem()); flush();
+    dialog = window.findChild<QDialog *>("postProcessParameterDialog");
+    CHECK(dialog && dialog->findChild<QDoubleSpinBox *>("offset"));
+    CHECK(!dialog->findChild<QSpinBox *>("objectStyleOpacity"));
+    CHECK(capture(dialog,"slice-parameters"));
+    dialog->findChild<QDoubleSpinBox *>("offset")->setValue(1.25);
+    dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click(); flush();
+    parameters->trigger(); flush(); dialog = window.findChild<QDialog *>("postProcessParameterDialog");
+    CHECK(dialog->findChild<QDoubleSpinBox *>("offset")->value() == 1.25);
+    dialog->reject(); flush();
+    for (int i : {1,2}) {
+        chooseObject(i); parameters->trigger(); flush();
+        dialog = window.findChild<QDialog *>("postProcessParameterDialog");
+        CHECK(dialog && dialog->findChild<QDoubleSpinBox *>(i==1 ? "isoValue" : "seedX"));
+        CHECK(capture(dialog, i==1 ? "iso-parameters" : "stream-parameters"));
+        dialog->reject(); flush();
     }
-    for (auto *toolbar : window.findChildren<QToolBar *>()) {
-        if (window.toolBarArea(toolbar) != Qt::NoToolBarArea) {
-            qCritical() << "Unexpected second toolbar row" << toolbar->objectName();
-            return 29;
-        }
+    nav->setCurrentIndex(1);
+    for (int group : {1,3}) {
+        auto *item = tree->topLevelItem(group)->child(0); tree->setCurrentItem(item); tree->itemClicked(item,0);
+        parameters->trigger(); flush(); dialog = window.findChild<QDialog *>("postProcessParameterDialog");
+        CHECK(dialog && capture(dialog,group==1 ? "field-settings" : "curve-settings"));
+        dialog->reject(); flush();
     }
-    window.show();
+    tree->setCurrentItem(tree->topLevelItem(2)->child(2));
+    CHECK(window.findChild<QSlider *>("postProcessTimeSlider")->value() == 2);
+    CHECK(!style->isEnabled() && !parameters->isEnabled());
+    chooseZone(0);
+    const int count = layers->count(); action("postProcessContourAction")->trigger();
+    CHECK(layers->count() == count+1);
+    CHECK(window.findChildren<QDialog *>().isEmpty());
+
+    // Probe is an exclusive mouse mode; results visibility is a separate action.
+    pan->trigger(); CHECK(pan->isChecked());
+    probe->trigger(); CHECK(probe->isChecked() && !pan->isChecked());
+    CHECK(!window.findChild<QDockWidget *>("postProcessProbeDock"));
+    results->trigger(); flush();
+    auto *probeDock = window.findChild<QDockWidget *>("postProcessProbeDock");
+    CHECK(probeDock && probeDock->isVisible() && probe->isChecked());
+    CHECK(capture(&window,"probe-results-empty"));
+    probeDock->hide(); CHECK(probe->isChecked());
+    select->trigger(); CHECK(select->isChecked() && !probe->isChecked());
+    results->trigger(); CHECK(select->isChecked() && !probe->isChecked());
+    probeDock->hide();
+    // Presentation fixture only: no simulated picking or numerical computation.
+    window.displayProbeResult(QStringLiteral("UI presentation test fixture: node 7, P = 42"));
+    CHECK(probeDock->isVisible() && select->isChecked());
+    CHECK(window.findChild<QTextEdit *>("postProcessProbeResult")->toPlainText().contains("node 7"));
+    probeDock->hide(); results->trigger();
+    CHECK(window.findChild<QTextEdit *>("postProcessProbeResult")->toPlainText().contains("node 7"));
+    probeDock->hide();
+    tasks->trigger(); flush();
+    auto *taskDock = window.findChild<QDockWidget *>("postProcessMessageDock");
+    CHECK(taskDock && taskDock->isVisible() && capture(&window,"tasks")); taskDock->hide();
+
     for (const QSize size : {QSize(1120,680), QSize(1440,960)}) {
         window.resize(size);
-        app.processEvents();
-        for (int category = 0; category < 5; ++category) {
-            window.ribbonBar()->setCurrentIndex(category);
-            navigator->setCurrentIndex(category % 3);
-            if (category == 0) tree->setCurrentItem(tree->topLevelItem(0)->child(0));
-            if (category == 1) tree->setCurrentItem(tree->topLevelItem(1)->child(0));
-            if (category == 2) layers->setCurrentRow(1);
-            if (category == 3) probe->trigger();
-            if (category == 4) inspectorTabs->setCurrentIndex(2);
-            app.processEvents();
-            if (window.size() != size) {
-                qCritical() << "Window minimum grew beyond requested size" << size << window.size();
-                return 20;
-            }
+        for (int category=0; category<5; ++category) {
+            window.ribbonBar()->setCurrentIndex(category); nav->setCurrentIndex(category%3); flush();
+            CHECK(window.size() == size);
             for (auto *button : window.findChildren<QToolButton *>()) {
-                if (!button->isVisible() || !button->objectName().startsWith("postProcess")) continue;
-                if (button->width() < button->iconSize().width() + 8 ||
-                    button->height() < button->iconSize().height() + 8) {
-                    qCritical() << "Clipped timeline button" << button->objectName() << button->size();
-                    return 21;
-                }
+                if (button->isVisible() && button->objectName().startsWith("postProcess"))
+                    CHECK(button->width() >= button->iconSize().width()+8 && button->height() >= button->iconSize().height()+8);
             }
-            for (auto *combo : window.findChildren<QComboBox *>()) {
-                if (!combo->isVisible()) continue;
-                if (!combo->parentWidget()->rect().contains(combo->geometry())) {
-                    qCritical() << "Inspector field outside parent" << combo->geometry();
-                    return 22;
-                }
-            }
-            if (!captureDir.isEmpty() && !window.grab().save(captureDir +
-                QStringLiteral("/postprocess-%1x%2-%3.png").arg(size.width()).arg(size.height()).arg(category)))
-                return 23;
+            CHECK(capture(&window,QString("workspace-%1x%2-%3").arg(size.width()).arg(size.height()).arg(category)));
         }
     }
-    navigator->setCurrentIndex(1);
-    window.resize(1120,680);
-    for (int group : {2,3}) {
-        tree->setCurrentItem(tree->topLevelItem(group)->child(0));
-        app.processEvents();
-        if (!captureDir.isEmpty() && !window.grab().save(captureDir +
-            QStringLiteral("/inspector-%1.png").arg(group))) return 26;
+    action("postProcessHarnessAction")->trigger(); flush();
+    CHECK(capture(&window,"harness"));
+    for (auto *caption : window.findChildren<QLabel *>("postProcessDockCaption")) {
+        if (caption->isVisible()) CHECK(caption->height() >= caption->sizeHint().height() && caption->width() >= caption->sizeHint().width());
     }
-    auto *harness = window.findChild<QAction *>(QStringLiteral("postProcessHarnessAction"));
-    harness->trigger();
-    app.processEvents();
-    for (auto *caption : window.findChildren<QLabel *>(QStringLiteral("postProcessDockCaption"))) {
-        if (caption->isVisible() && (caption->height() < caption->sizeHint().height() ||
-            caption->width() < caption->sizeHint().width())) {
-            qCritical() << "Dock caption clipped" << caption->size() << caption->sizeHint();
-            return 28;
-        }
+    for (auto *command : window.findChildren<QAction *>()) {
+        if (command->objectName().startsWith("postProcess")) CHECK(!command->icon().isNull());
     }
-    if (!captureDir.isEmpty() && !window.grab().save(captureDir + QStringLiteral("/harness.png"))) return 27;
-
-    for (auto *action : window.findChildren<QAction *>()) {
-        if (action->objectName().startsWith("postProcess") && action->icon().isNull()) {
-            qCritical() << "Missing command icon" << action->objectName();
-            return 24;
-        }
-    }
-
-    auto *viewer = new QLabel(QStringLiteral("Viewer"));
-    if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer))
-        return 2;
-    auto *secondViewer = new QLabel(QStringLiteral("Second viewer"));
-    if (window.insertWidget(aerosim::WidgetSlot::Viewport, secondViewer))
-        return 3;
-    delete secondViewer;
+    auto *viewer = new QLabel("Viewer"); CHECK(window.insertWidget(aerosim::WidgetSlot::Viewport,viewer));
+    auto *second = new QLabel("Second viewer"); CHECK(!window.insertWidget(aerosim::WidgetSlot::Viewport,second)); delete second;
     return 0;
 }
