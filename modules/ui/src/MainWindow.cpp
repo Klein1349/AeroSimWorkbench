@@ -81,8 +81,7 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
     statusBar()->addWidget(status_, 1);
     statusBar()->addPermanentWidget(new QLabel(uiText(u"UI 框架 · Mock 服务"), this));
     QTimer::singleShot(0, this, [this] {
-        setStyleSheet(styleSheet() + uiText(u
-            "QDockWidget::title { background: #e9eef5; padding: 7px; color: #25364c; }"
+        setStyleSheet(styleSheet() + uiText(u"QDockWidget::title { background: #e9eef5; padding: 7px; color: #25364c; }"
             "QTreeWidget { border: 0; alternate-background-color: #f4f7fb; }"
             "QTreeWidget::item { padding: 5px 2px; }"
             "QTreeWidget::item:selected { background: #dceafd; color: #153b6b; }"
