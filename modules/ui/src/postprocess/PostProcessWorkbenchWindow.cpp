@@ -48,6 +48,7 @@
 static QWidget *initializePostProcessResources(QWidget *parent)
 {
     Q_INIT_RESOURCE(PostProcessIcons);
+    Q_INIT_RESOURCE(SARibbonResource);
     return parent;
 }
 
@@ -136,6 +137,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     : SARibbonMainWindow(initializePostProcessResources(parent)) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench · 后处理工作台")); resize(1440, 960); setMinimumSize(1120, 680);
     QFont workbenchFont(uiText(u"Microsoft YaHei UI")); workbenchFont.setPointSize(9); setFont(workbenchFont);
+    setRibbonTheme(SARibbonTheme::RibbonThemeOffice2013);
     ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleLooseThreeRow);
     ribbonBar()->applicationButton()->hide();
     createActions();

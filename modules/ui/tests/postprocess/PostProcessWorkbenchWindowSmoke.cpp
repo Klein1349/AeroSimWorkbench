@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QLabel>
 #include <QDir>
+#include <QFile>
 #include <QDebug>
 #include <QToolButton>
 #include <QPushButton>
@@ -84,6 +85,10 @@ int main(int argc, char *argv[])
     const QString captureDir = qEnvironmentVariable("AEROSIM_UI_CAPTURE_DIR");
     if (!captureDir.isEmpty()) QDir().mkpath(captureDir);
     auto *navigator = window.findChild<QTabWidget *>(QStringLiteral("postProcessNavigator"));
+    if (!QFile::exists(QStringLiteral(":/SARibbonTheme/resource/palettes/office2013-default.json"))) {
+        qCritical() << "SARibbon theme resources not linked";
+        return 25;
+    }
     window.show();
     for (const QSize size : {QSize(1120,680), QSize(1440,960)}) {
         window.resize(size);
