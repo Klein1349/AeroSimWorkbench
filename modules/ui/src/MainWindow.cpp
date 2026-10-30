@@ -9,6 +9,7 @@
 #include <QDockWidget>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QFont>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
@@ -62,6 +63,9 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
 {
     setObjectName(QStringLiteral("AeroSimMainWindow"));
     setWindowTitle(QStringLiteral("AeroSimWorkbench · 仿真工作台（Mock 服务）"));
+    QFont workbenchFont(QStringLiteral("Microsoft YaHei UI"));
+    workbenchFont.setPointSize(9);
+    setFont(workbenchFont);
     resize(1440, 960);
     setMinimumSize(1000, 720);
     setDockNestingEnabled(true);

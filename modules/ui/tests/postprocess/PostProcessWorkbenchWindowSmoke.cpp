@@ -4,10 +4,8 @@
 #include <QApplication>
 #include <QLabel>
 #include <QListWidget>
-#include <QMenuBar>
 #include <QSlider>
 #include <QStackedWidget>
-#include <QToolBar>
 #include <QTreeWidget>
 #include <QTabWidget>
 
@@ -15,9 +13,11 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     aerosim::PostProcessWorkbenchWindow window;
-    auto *menuBar = window.findChild<QMenuBar *>(QStringLiteral("postProcessMenuBar"));
-    auto *quickTools = window.findChild<QToolBar *>(QStringLiteral("postProcessQuickTools"));
-    if (!menuBar || menuBar->actions().size() != 5 || !quickTools || quickTools->actions().size() < 10)
+    if (!window.findChild<QWidget *>(QStringLiteral("postProcessDataCategory")) ||
+        !window.findChild<QWidget *>(QStringLiteral("postProcessDisplayCategory")) ||
+        !window.findChild<QWidget *>(QStringLiteral("postProcessFeatureCategory")) ||
+        !window.findChild<QWidget *>(QStringLiteral("postProcessAnalysisCategory")) ||
+        !window.findChild<QWidget *>(QStringLiteral("postProcessToolsCategory")))
         return 12;
     if (!window.findChild<QWidget *>(QStringLiteral("postProcessDatasetTree")) ||
         !window.findChild<QWidget *>(QStringLiteral("sceneLayerList")) ||

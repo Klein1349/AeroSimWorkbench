@@ -9,6 +9,7 @@
 #include <QDockWidget>
 #include <QFormLayout>
 #include <QFrame>
+#include <QFont>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -33,6 +34,10 @@
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+#include <SARibbonBar.h>
+#include <SARibbonCategory.h>
+#include <SARibbonPanel.h>
 
 #include <functional>
 
@@ -147,10 +152,9 @@ protected:
 }
 
 PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
-    : SARibbonMainWindow(parent,
-                         SARibbonMainWindowStyleFlag::UseNativeMenuBar
-                             | SARibbonMainWindowStyleFlag::UseNativeFrame) {
+    : SARibbonMainWindow(parent) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
+    QFont workbenchFont(uiText(u"Microsoft YaHei UI")); workbenchFont.setPointSize(9); setFont(workbenchFont);
     createActions();
     auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
     auto *content = new QSplitter(Qt::Horizontal, workbench); content->setObjectName(uiText(u"postProcessContent"));
@@ -160,9 +164,7 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     root->addWidget(content, 1); root->addWidget(createTimeline()); setCentralWidget(workbench);
     auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
     statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用上方工具栏创建显示或分析对象。"));
-    // Match MainWindow's system font and cool-grey workbench palette.  The
-    // post-processing menu/toolbar arrangement deliberately stays unchanged.
-    setStyleSheet(uiText(u"QMainWindow{background:#edf2f8;color:#25364c;}QMenuBar,QToolBar{background:#e9eef5;border-bottom:1px solid #dce2eb;}QMenuBar{padding-left:4px;}QMenuBar::item{padding:5px 11px;background:transparent;}QMenuBar::item:selected{background:#dceafd;color:#153b6b;}QMenu{border:1px solid #dce2eb;padding:3px;background:#fff;}QMenu::item{padding:5px 26px 5px 18px;}QMenu::item:selected{background:#dceafd;color:#153b6b;}QToolBar{spacing:2px;padding:3px 6px;}QToolButton{border:1px solid transparent;border-radius:3px;padding:4px;}QToolButton:hover,QToolButton:checked{background:#dceafd;border-color:#a8c6e5;}QLabel#postProcessInteractionHint{color:#52677f;border-left:1px solid #dce2eb;padding-left:9px;margin-left:5px;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #dce2eb;}QTabBar::tab{padding:8px 18px;background:#e9eef5;color:#52677f;}QTabBar::tab:selected{background:#fff;color:#153b6b;}QFrame#viewportHeader{background:#edf2f8;border-bottom:1px solid #dce2eb;}QLabel#viewportTitle{color:#234d7a;font-weight:600;}QLabel#viewportOrientation{color:#234d7a;font-weight:600;border-left:1px solid #dce2eb;padding-left:10px;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;alternate-background-color:#f4f7fb;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#dceafd;color:#153b6b;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f4f7fb;border:1px solid #dce2eb;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #dce2eb;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #dce2eb;border-radius:4px;background:#fff;padding:6px 12px;}QPushButton:hover{background:#dceafd;border-color:#a8c6e5;}QPushButton#primaryAction{background:#234d7a;color:#fff;border:0;font-weight:600;}QLabel#mutedText{color:#52677f;font-size:12px;}QLabel#sectionTitle{color:#234d7a;font-weight:600;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:600;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QStatusBar{background:#e9eef5;color:#25364c;}QTextEdit{background:#edf2f8;color:#25364c;border:1px solid #dce2eb;}"));
+    setStyleSheet(uiText(u"QMainWindow{background:#edf2f8;color:#25364c;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #dce2eb;}QTabBar::tab{padding:8px 18px;background:#e9eef5;color:#52677f;}QTabBar::tab:selected{background:#fff;color:#153b6b;}QFrame#viewportHeader{background:#edf2f8;border-bottom:1px solid #dce2eb;}QLabel#viewportTitle{color:#234d7a;font-weight:600;}QLabel#viewportOrientation{color:#234d7a;font-weight:600;border-left:1px solid #dce2eb;padding-left:10px;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;alternate-background-color:#f4f7fb;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#dceafd;color:#153b6b;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f4f7fb;border:1px solid #dce2eb;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #dce2eb;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #dce2eb;border-radius:4px;background:#fff;padding:6px 12px;}QPushButton:hover{background:#dceafd;border-color:#a8c6e5;}QPushButton#primaryAction{background:#234d7a;color:#fff;border:0;font-weight:600;}QLabel#mutedText{color:#52677f;font-size:12px;}QLabel#sectionTitle{color:#234d7a;font-weight:600;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:600;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QStatusBar{background:#e9eef5;color:#25364c;}QTextEdit{background:#edf2f8;color:#25364c;border:1px solid #dce2eb;}"));
     updateDataSelection(datasetTree_->currentItem(), 0);
 }
 
@@ -206,36 +208,46 @@ void PostProcessWorkbenchWindow::createActions() {
                                             uiText(u"postProcessAnalysisAction")));
     }
 
-    // Tecplot-inspired arrangement: categories live in the menu bar, while
-    // high-frequency operations are available in one compact icon toolbar.
-    auto *menus = menuBar();
-    menus->setObjectName(uiText(u"postProcessMenuBar"));
-    auto *dataMenu = menus->addMenu(uiText(u"数据"));
-    dataMenu->addActions({importAction, exportAction}); dataMenu->addSeparator(); dataMenu->addActions({convertAction, excelAction});
-    auto *displayMenu = menus->addMenu(uiText(u"显示"));
-    displayMenu->addActions({meshAction, contourAction, colorAction}); displayMenu->addSeparator();
-    displayMenu->addActions({selectAction, boxSelectAction, panAction, zoomAction, rotateAction}); displayMenu->addSeparator();
-    displayMenu->addActions({fitAction, frontAction, rightAction, topAction});
-    auto *featureMenu = menus->addMenu(uiText(u"特征"));
-    featureMenu->addActions({sliceAction, isoAction, streamAction, traceAction});
-    auto *analysisMenu = menus->addMenu(uiText(u"分析"));
-    analysisMenu->addActions(analysisActions);
-    auto *toolsMenu = menus->addMenu(uiText(u"工具"));
-    toolsMenu->addActions({fitAction, probeAction}); toolsMenu->addSeparator();
-    toolsMenu->addActions({geometryExportAction, animationExportAction}); toolsMenu->addSeparator(); toolsMenu->addAction(deepSeekAction);
+    // Use the same SARibbon hierarchy as MainWindow.  Categories group work
+    // by intent; the data/scene workspace below remains the post-process UI.
+    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
+    dataCategory->setObjectName(uiText(u"postProcessDataCategory"));
+    auto *dataSourcePanel = dataCategory->addPanel(uiText(u"结果数据"));
+    dataSourcePanel->addLargeAction(importAction); dataSourcePanel->addLargeAction(exportAction);
+    auto *dataToolsPanel = dataCategory->addPanel(uiText(u"数据处理"));
+    dataToolsPanel->addLargeAction(convertAction); dataToolsPanel->addLargeAction(excelAction);
 
-    auto *quickTools = addToolBar(uiText(u"后处理工具"));
-    quickTools->setObjectName(uiText(u"postProcessQuickTools"));
-    quickTools->setMovable(false); quickTools->setFloatable(false); quickTools->setIconSize(QSize(25, 25));
-    quickTools->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    quickTools->addActions({importAction, exportAction}); quickTools->addSeparator();
-    quickTools->addActions({selectAction, boxSelectAction, panAction, zoomAction, rotateAction}); quickTools->addSeparator();
-    quickTools->addActions({meshAction, contourAction, colorAction}); quickTools->addSeparator();
-    quickTools->addActions({sliceAction, isoAction, streamAction, traceAction}); quickTools->addSeparator();
-    quickTools->addActions({fitAction, frontAction, rightAction, topAction, probeAction}); quickTools->addSeparator(); quickTools->addAction(deepSeekAction);
-    auto *interactionHint = new QLabel(uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放"), quickTools);
+    auto *displayCategory = ribbonBar()->addCategoryPage(uiText(u"显示"));
+    displayCategory->setObjectName(uiText(u"postProcessDisplayCategory"));
+    auto *interactionPanel = displayCategory->addPanel(uiText(u"交互"));
+    interactionPanel->addLargeAction(selectAction); interactionPanel->addLargeAction(boxSelectAction);
+    interactionPanel->addLargeAction(panAction); interactionPanel->addLargeAction(zoomAction); interactionPanel->addLargeAction(rotateAction);
+    auto *layerPanel = displayCategory->addPanel(uiText(u"图层"));
+    layerPanel->addLargeAction(meshAction); layerPanel->addLargeAction(contourAction); layerPanel->addLargeAction(colorAction);
+    auto *cameraPanel = displayCategory->addPanel(uiText(u"视图"));
+    cameraPanel->addLargeAction(fitAction); cameraPanel->addLargeAction(frontAction); cameraPanel->addLargeAction(rightAction); cameraPanel->addLargeAction(topAction);
+
+    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"特征"));
+    featureCategory->setObjectName(uiText(u"postProcessFeatureCategory"));
+    auto *spatialPanel = featureCategory->addPanel(uiText(u"空间特征"));
+    spatialPanel->addLargeAction(sliceAction); spatialPanel->addLargeAction(isoAction);
+    spatialPanel->addLargeAction(streamAction); spatialPanel->addLargeAction(traceAction);
+
+    auto *analysisCategory = ribbonBar()->addCategoryPage(uiText(u"分析"));
+    analysisCategory->setObjectName(uiText(u"postProcessAnalysisCategory"));
+    auto *analysisPanel = analysisCategory->addPanel(uiText(u"结果分析"));
+    for (QAction *action : analysisActions) analysisPanel->addLargeAction(action);
+
+    auto *toolsCategory = ribbonBar()->addCategoryPage(uiText(u"工具"));
+    toolsCategory->setObjectName(uiText(u"postProcessToolsCategory"));
+    auto *queryPanel = toolsCategory->addPanel(uiText(u"查询与导出"));
+    queryPanel->addLargeAction(probeAction); queryPanel->addLargeAction(geometryExportAction); queryPanel->addLargeAction(animationExportAction);
+    auto *assistantPanel = toolsCategory->addPanel(uiText(u"智能辅助"));
+    assistantPanel->addLargeAction(deepSeekAction);
+
+    auto *interactionHint = new QLabel(uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放"), this);
     interactionHint->setObjectName(uiText(u"postProcessInteractionHint"));
-    interactionHint->setMinimumWidth(240); quickTools->addWidget(interactionHint);
+    statusBar()->addPermanentWidget(interactionHint, 1);
     featureActions_ = {meshAction, contourAction, sliceAction, isoAction, streamAction, traceAction};
     const auto command = [this](const QString &key, const QString &message) { emit postProcessCommandRequested(key); appendMessage(message); };
     connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"已打开导入结果流程；结果读取服务接入后将填充数据集树。")); });

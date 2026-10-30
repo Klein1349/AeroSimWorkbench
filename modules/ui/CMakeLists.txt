@@ -23,6 +23,11 @@ add_library(aerosim_ui STATIC
 add_library(aerosim::ui ALIAS aerosim_ui)
 target_include_directories(aerosim_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets SARibbonBar::SARibbonBar)
+if(MSVC)
+    # Keep Chinese UI source literals UTF-8 when this module is configured as
+    # part of the top-level project or built on its own.
+    target_compile_options(aerosim_ui PRIVATE /utf-8)
+endif()
 if(AEROSIM_BUILD_TESTS)
     add_executable(aerosim_postprocess_ui_smoke tests/postprocess/PostProcessWorkbenchWindowSmoke.cpp)
     target_link_libraries(aerosim_postprocess_ui_smoke PRIVATE aerosim_ui)
