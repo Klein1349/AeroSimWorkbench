@@ -52,13 +52,13 @@ ctest -C Debug --output-on-failure
 
 当前工作台包含：
 
-- 顶部 Tecplot 风格的菜单与快捷工具栏：菜单按“数据、显示、特征、分析、工具”归类，工具栏保留结果导入/导出、网格/云图、切面/等值面/流线/轨迹、视图、探针与 DeepSeek Harness 等高频操作；
+- 顶部只有一层 SARibbon，保留“数据、显示、特征、分析、工具”分类；“数据”首页在同一 Ribbon 中集成导入/导出、交互、显示、空间特征、视图和查询操作，不再叠加第二条快捷工具栏；
 - 左侧“视图 / 数据 / 对象”标签页，依次管理当前 Frame 的全局图层、结果集/Zone/字段/时间帧，以及派生对象层级；
 - 中央活动 Frame 视口插槽；未接入时显示明确标记的预览、Frame/字段/时间状态和方向提示，正式 Viewer 以 `WidgetSlot::Viewport` 注入；
 - 右侧“属性 / Probe / 任务”检查器：属性随当前对象变化，Probe 只承载拾取结果，任务页呈现后续服务的进度与错误；
 - 底部时间轴和可展开的消息面板。
 
-工具栏当前只发送或记录操作请求，不伪造尚未实现的数据、特征或渲染行为。实际
+Ribbon 当前只发送或记录操作请求，不伪造尚未实现的数据、特征或渲染行为。实际
 VTK Viewer、统一场景入口和异步数据读取应分别由后续 `modules/visualization/scene`
 与数据服务提供；UI 不直接持有 renderer、actor 或 VTK 数据对象。
 
@@ -71,3 +71,20 @@ VTK Viewer、统一场景入口和异步数据读取应分别由后续 `modules/
 默认启动 Ribbon 主窗口，选择“后处理 → 后处理工作台”打开同一进程中的独立工作台窗口（重复点击复用实例）；也可运行 `aerosim_gui --postprocess` 直接打开。工作台的平铺数据/场景面板、时间轴、属性面板及 DeepSeek Harness 入口保留。两个窗口由 GUI 入口绑定同一组服务，主窗口不持有 VTK 数据。
 
 真实 Viewer 将由后续 `modules/visualization/scene` 实现后经 `app/` 注入工作台；当前工作台始终使用明确标记的视口占位。`--screenshot` 可与 `--postprocess` 组合检查工作台。
+
+## 后处理视觉与布局检查
+
+后处理保留自己的三栏内容，以参考主界面的浅灰标题栏、白色 Ribbon、蓝灰工作区、
+Microsoft YaHei UI 9pt 和线性 SVG 图标统一视觉。图标通过本模块的
+`PostProcessIcons.qrc` 打包，并由 Qt Svg 渲染多种尺寸；SVG 不依赖字库中的装饰符号。
+SARibbon 静态资源必须显式注册，否则主题、标题栏图标会退回系统默认样式。
+
+工作区样式单独作用于中央控件，避免输入框和按钮规则污染 Ribbon。检查器采用可滚动页面，
+窄窗表单按行排列，视口标题/字段分两行，时间步进使用由图标尺寸决定大小的工具按钮。
+附加停靠面板的标题使用布局计算高度，避免 Qt 5.12 原生标题区与 QSS padding 不一致导致裁切。
+
+`aerosim_postprocess_ui_smoke` 除功能检查外，也检查 1120×680、1440×960 下的控件几何、
+图标资源、停靠标题及是否意外出现第二层工具栏。设置 `AEROSIM_UI_CAPTURE_DIR` 后可导出
+五个 Ribbon 页、各类检查器和 Harness 的整窗截图。Windows 视觉复查应使用
+`QT_QPA_PLATFORM=windows`；再设 `QT_SCALE_FACTOR=1.5` 检查 150% 缩放。
+CTest 的 offscreen 测试负责装配与几何回归，不代替原生字体截图验收。
