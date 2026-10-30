@@ -72,6 +72,7 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
     QFont workbenchFont(uiText(u"Microsoft YaHei UI"));
     workbenchFont.setPointSize(9);
     setFont(workbenchFont);
+    ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleCompactTwoRow);
     resize(1440, 960);
     setMinimumSize(1000, 720);
     setDockNestingEnabled(true);

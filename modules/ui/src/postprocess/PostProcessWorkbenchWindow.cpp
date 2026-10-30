@@ -61,7 +61,7 @@ QLabel *sectionLabel(const QString &text, QWidget *parent) {
 QIcon commandIcon(const QString &kind) {
     QPixmap pixmap(32, 32); pixmap.fill(Qt::transparent);
     QPainter painter(&pixmap); painter.setRenderHint(QPainter::Antialiasing);
-    const QColor ink("#1d6fae"), accent("#16a6b6"), warm("#ebad37");
+    const QColor ink("#234d7a"), accent("#4687b6"), warm("#c78f2d");
     QPen pen(ink, 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin); painter.setPen(pen); painter.setBrush(Qt::NoBrush);
     if (kind == "import" || kind == "export") {
         const bool down = kind == "import"; painter.drawRoundedRect(5, 22, 22, 5, 1, 1);
@@ -153,10 +153,11 @@ protected:
 
 PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     : SARibbonMainWindow(parent) {
-    setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
+    setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench · 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
     QFont workbenchFont(uiText(u"Microsoft YaHei UI")); workbenchFont.setPointSize(9); setFont(workbenchFont);
+    ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleCompactTwoRow);
     createActions();
-    auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
+    auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(4, 4, 4, 0); root->setSpacing(4);
     auto *content = new QSplitter(Qt::Horizontal, workbench); content->setObjectName(uiText(u"postProcessContent"));
     auto *tabs = new QTabWidget(content); tabs->setObjectName(uiText(u"postProcessNavigator")); tabs->setMinimumWidth(280); tabs->setMaximumWidth(360);
     tabs->addTab(createViewPanel(), uiText(u"视图")); tabs->addTab(createDataPanel(), uiText(u"数据")); tabs->addTab(createObjectPanel(), uiText(u"对象"));
