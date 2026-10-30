@@ -350,16 +350,16 @@ void PostProcessWorkbenchWindow::createActions() {
     const auto command = [this](const QString &key, const QString &message) { emit postProcessCommandRequested(key); appendMessage(message); };
     connect(importAction, &QAction::triggered, this, [command] { command(uiText(u"importResults"), uiText(u"已打开导入结果流程；结果读取服务接入后将填充数据集树。")); });
     connect(exportAction, &QAction::triggered, this, [command] { command(uiText(u"export"), uiText(u"已提交导出请求；请在图层页选择导出对象。")); });
-    const auto setInteractionMode = [this, interactionHint](const QString &mode, const QString &hint) {
+    const auto setInteractionMode = [this, interactionHint](const QString &key, const QString &mode, const QString &hint) {
         interactionHint->setText(hint);
-        emit postProcessCommandRequested(QStringLiteral("interactionMode:") + mode);
+        emit postProcessCommandRequested(QStringLiteral("interactionMode:") + key);
         appendMessage(uiText(u"已切换至") + mode + uiText(u"模式。"));
     };
-    connect(selectAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"选择"), uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放")); });
-    connect(boxSelectAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"框选"), uiText(u"框选模式 · 在视口拖曳以选择对象")); });
-    connect(panAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"平移"), uiText(u"平移模式 · 在视口拖曳以移动视图")); });
-    connect(zoomAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"缩放"), uiText(u"缩放模式 · 拖曳或滚轮缩放视图")); });
-    connect(rotateAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(uiText(u"旋转"), uiText(u"旋转模式 · 拖曳以旋转三维视图")); });
+    connect(selectAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(QStringLiteral("select"), uiText(u"选择"), uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放")); });
+    connect(boxSelectAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(QStringLiteral("boxSelect"), uiText(u"框选"), uiText(u"框选模式 · 在视口拖曳以选择对象")); });
+    connect(panAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(QStringLiteral("pan"), uiText(u"平移"), uiText(u"平移模式 · 在视口拖曳以移动视图")); });
+    connect(zoomAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(QStringLiteral("zoom"), uiText(u"缩放"), uiText(u"缩放模式 · 拖曳或滚轮缩放视图")); });
+    connect(rotateAction, &QAction::triggered, this, [setInteractionMode] { setInteractionMode(QStringLiteral("rotate"), uiText(u"旋转"), uiText(u"旋转模式 · 拖曳以旋转三维视图")); });
     connect(frontAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"front")); appendMessage(uiText(u"已切换至前视图。")); });
     connect(rightAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"right")); appendMessage(uiText(u"已切换至右视图。")); });
     connect(topAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"top")); appendMessage(uiText(u"已切换至俯视图。")); });
@@ -367,7 +367,9 @@ void PostProcessWorkbenchWindow::createActions() {
     connect(meshAction, &QAction::triggered, this, [command] { command(uiText(u"toggleMesh"), uiText(u"已切换当前 Zone 的网格显示。")); });
     connect(colorAction, &QAction::triggered, this, [this] {
         auto *fields = datasetTree_->topLevelItem(1);
-        if (selectedKind_ != "field" && fields && fields->childCount()) datasetTree_->setCurrentItem(fields->child(0));
+        if (selectedKind_ != "field" && fields && fields->childCount()) {
+            datasetTree_->setCurrentItem(fields->child(0)); updateDataSelection(fields->child(0),0);
+        }
         openObjectParameters();
     });
     const auto contourFn = [this] { addDerivedLayer(uiText(u"contour"), uiText(u"压力云图"), uiText(u"已将“压力”以云图添加到图层。")); }; connect(contourAction, &QAction::triggered, this, contourFn);
@@ -759,9 +761,7 @@ void PostProcessWorkbenchWindow::showProbePanel() {
         probeResult_ = new QTextEdit(probeDock_);
         probeResult_->setObjectName(QStringLiteral("postProcessProbeResult"));
         probeResult_->setReadOnly(true);
-        probeResult_->setPlainText(uiText(u"暂无取点结果。
-
-点击顶部“探针”启用取点工具，再在数据位置取点。当前 VTK 拾取服务尚未接入。"));
+        probeResult_->setPlainText(uiText(u"暂无取点结果。\n\n点击顶部“探针”启用取点工具，再在数据位置取点。当前 VTK 拾取服务尚未接入。"));
         probeResult_->setStyleSheet(centralWidget()->styleSheet());
         probeDock_->setWidget(probeResult_);
         addDockWidget(Qt::RightDockWidgetArea, probeDock_);
