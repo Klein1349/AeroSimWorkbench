@@ -1,6 +1,10 @@
 #include "aerosim/ui/MainWindow.h"
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include <QAction>
+#include <QSettings>
+#include <QTemporaryDir>
+#include <QDir>
+#include <QPixmap>
 #include <SARibbonBar.h>
 #include <SARibbonCategory.h>
 #include <SARibbonPanel.h>
@@ -27,6 +31,10 @@ public:
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    QTemporaryDir preferences;
+    if (!preferences.isValid()) return 22;
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, preferences.path());
     aerosim::MainWindow window;
     const auto check = [](bool passed, const char *message) {
         if (!passed) QTextStream(stderr) << message << '\n';
@@ -53,9 +61,9 @@ int main(int argc, char **argv)
     if (!check(categories.size() == 5 && categories[0]->objectName() == "startCategory",
                "Expected Start, Monitor, Postprocess, Data and Help tabs")) return 17;
     auto *start = categories[0];
-    if (!check(start->panelCount() == 4 && start->panelByObjectName("projectGroup")
+    if (!check(start->panelCount() == 5 && start->panelByObjectName("projectGroup")
                && start->panelByObjectName("batchGroup") && start->panelByObjectName("preprocessGroup")
-               && start->panelByObjectName("parametersGroup"), "Missing grouped Start commands")) return 18;
+               && start->panelByObjectName("parametersGroup") && start->panelByObjectName("viewGroup"), "Missing grouped Start commands")) return 18;
     auto *help = window.findChild<SARibbonCategory *>("helpCategory");
     if (!check(help && help->panelByObjectName("toolsGroup"), "Tools must be under Help")) return 19;
     for (auto *action : window.findChildren<QAction *>()) {
@@ -65,6 +73,37 @@ int main(int argc, char **argv)
     window.findChild<QAction *>("stateAction")->trigger();
     if (!check(window.findChild<QLabel *>("propertyTitle")->text().contains(text(u"\u4e00\u6b21\u8ba1\u7b97")),
                "State must represent one calculation")) return 21;
+    app.processEvents();
+    for (const QString &id : {QStringLiteral("office-blue"), QStringLiteral("office-light"),
+                              QStringLiteral("dark"), QStringLiteral("dark-gray")}) {
+        auto *action = window.findChild<QAction *>(QStringLiteral("theme-") + id);
+        if (!check(action, "Missing theme action")) return 23;
+        action->trigger();
+        const QString qss = window.styleSheet();
+        action->trigger();
+        if (!check(action->isChecked() && window.property("windowThemeId").toString() == id
+                   && window.styleSheet() == qss, "Theme switch must be checked and idempotent")) return 24;
+        QSettings saved(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+        if (!check(saved.value("theme").toString() == id, "Theme selection not saved")) return 25;
+        const QString screenshots = qEnvironmentVariable("AEROSIM_THEME_SCREENSHOTS");
+        if (!screenshots.isEmpty()) {
+            window.show();
+            app.processEvents();
+            window.grab().save(QDir(screenshots).filePath(id + QStringLiteral(".png")));
+        }
+    }
+    {
+        aerosim::MainWindow reopened;
+        app.processEvents();
+        if (!check(reopened.property("windowThemeId").toString() == "dark-gray", "Saved theme not restored")) return 26;
+    }
+    {
+        QSettings saved(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+        saved.setValue("theme", "unknown-theme");
+        aerosim::MainWindow fallback;
+        app.processEvents();
+        if (!check(fallback.property("windowThemeId").toString() == "office-blue", "Invalid theme must fall back")) return 27;
+    }
     for (auto slot : {aerosim::WidgetSlot::Viewport, aerosim::WidgetSlot::Log, aerosim::WidgetSlot::Error, aerosim::WidgetSlot::Monitor}) {
         auto *widget = new QLabel("Injected component");
         if (!check(window.insertWidget(slot, widget) && window.isAncestorOf(widget), "Widget ownership not transferred")) return 2;

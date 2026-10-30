@@ -37,3 +37,7 @@ macOS 仅作兼容预览：在隔离的临时源码副本中将 Qt 精确版本�
 在用户交互桌面中改用原生 `windows` 平台运行主窗口和后处理 `--smoke`，两者 ExitCode 均为 0；主窗口 `--screenshot` ExitCode 为 0。人工检查截图：四个开始分组、大/小图标、中文标签正常显示。验证后重新启动新版主窗口，进程在桌面 Session 1 响应正常。原生启动通过不等同于 offscreen 问题已解决。
 
 本地证据位于忽略的 `build-ui-preview/`：`ribbon-start.png`、`ribbon-build.log`、`ribbon-preview-result.txt`；目标机证据位于 `build-windows/` 下同名文件。当前 GUI 构建未启用正式 VTK Viewer，本次不作为三维显示验收。
+
+## 后续本地调整：视图操作移入开始
+
+按用户后续要求，开始页增加第五组“视图”，包含适应、放大、缩小、旋转、正视 X、侧视 Y、顶视 Z、表面、线框，使用独立图标；删除中央视口上方的重复工具栏。这些操作继续保持禁用并提示等待 VTK 视口接口接入。本次只修改本地，没有同步或重新验证 Windows 目标机；上面的 Windows 记录对应之前四组布局。

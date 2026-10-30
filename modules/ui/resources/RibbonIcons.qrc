@@ -40,5 +40,15 @@
   <file alias="navigation.svg">icons/navigation.svg</file>
   <file alias="property.svg">icons/property.svg</file>
   <file alias="output.svg">icons/output.svg</file>
+  <file alias="view-fit.svg">icons/view-fit.svg</file>
+  <file alias="view-zoom-in.svg">icons/view-zoom-in.svg</file>
+  <file alias="view-zoom-out.svg">icons/view-zoom-out.svg</file>
+  <file alias="view-rotate.svg">icons/view-rotate.svg</file>
+  <file alias="view-front.svg">icons/view-front.svg</file>
+  <file alias="view-side.svg">icons/view-side.svg</file>
+  <file alias="view-top.svg">icons/view-top.svg</file>
+  <file alias="view-surface.svg">icons/view-surface.svg</file>
+  <file alias="view-wireframe.svg">icons/view-wireframe.svg</file>
+  <file alias="skin.svg">icons/skin.svg</file>
  </qresource>
 </RCC>

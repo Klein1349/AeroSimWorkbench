@@ -4,6 +4,10 @@
 #include <SARibbonCategory.h>
 #include <SARibbonPanel.h>
 #include <QAction>
+#include <QActionGroup>
+#include <QMenu>
+#include <QSettings>
+#include <QPalette>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDockWidget>
@@ -20,7 +24,7 @@
 #include <QTabWidget>
 #include <QThread>
 #include <QTimer>
-#include <QToolBar>
+#include <QResource>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <cstddef>
@@ -88,16 +92,8 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(initializeRibbonRes
     statusBar()->addWidget(status_, 1);
     statusBar()->addPermanentWidget(new QLabel(uiText(u"UI \u6846\u67b6 \u00b7 Mock \u670d\u52a1"), this));
     QTimer::singleShot(0, this, [this] {
-        setStyleSheet(styleSheet() + QStringLiteral(
-            "QDockWidget::title { background: #e9eef5; padding: 7px; color: #25364c; }"
-            "QTreeWidget { border: 0; alternate-background-color: #f4f7fb; }"
-            "QTreeWidget::item { padding: 5px 2px; }"
-            "QTreeWidget::item:selected { background: #dceafd; color: #153b6b; }"
-            "QTabWidget::pane { border: 1px solid #dce2eb; }"
-            "QStatusBar { background: #e9eef5; color: #25364c; }"
-            "QWidget#viewportSlot { background: #edf2f8; color: #52677f; }"
-            "QLabel#propertyTitle { font-size: 16px; font-weight: 600; color: #234d7a; }"
-            "QPushButton { padding: 6px 12px; }"));
+        QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+        applyWindowTheme(settings.value(QStringLiteral("theme"), QStringLiteral("office-blue")).toString());
     });
     restoreLayout();
     appendMessage(uiText(u"\u4e3b\u754c\u9762\u5df2\u5c31\u7eea\u3002\u5de5\u7a0b\u6811\u4e0e\u53c2\u6570\u4e3a\u754c\u9762\u793a\u4f8b\uff1b\u5c1a\u672a\u63a5\u5165\u5de5\u7a0b\u3001\u914d\u7f6e\u3001VTK \u548c\u771f\u5b9e\u6c42\u89e3\u670d\u52a1\u3002"));
@@ -124,6 +120,8 @@ void MainWindow::createRibbon()
             action->setEnabled(!route.isEmpty());
             action->setToolTip(item.label + (route.isEmpty()
                 ? uiText(u"\uff1a\u7b49\u5f85\u4e1a\u52a1\u6a21\u5757\u63a5\u5165") : uiText(u"\uff1a\u6253\u5f00\u5bf9\u5e94\u9762\u677f")));
+            if (key.startsWith(QStringLiteral("view-")))
+                action->setToolTip(uiText(u"\u7b49\u5f85 VTK \u89c6\u53e3\u53ca\u89c6\u56fe\u63a7\u5236\u63a5\u53e3\u63a5\u5165"));
             if (route.startsWith("page:")) {
                 const QString pageId = route.mid(5);
                 action->setToolTip(uiText(u"\u6253\u5f00\u53c2\u6570\u8349\u7a3f\uff1b\u5c1a\u672a\u6301\u4e45\u5316"));
@@ -178,6 +176,16 @@ void MainWindow::createRibbon()
         {"parallel", uiText(u"\u5e76\u884c\u8bbe\u7f6e"), false, "page:parallel"},
         {"import-config", uiText(u"\u5bfc\u5165\u914d\u7f6e"), false, ""},
         {"export-config", uiText(u"\u5bfc\u51fa\u914d\u7f6e"), false, ""}});
+    addGroup(start, "viewGroup", uiText(u"\u89c6\u56fe"), {
+        {"view-fit", uiText(u"\u9002\u5e94"), true, ""},
+        {"view-zoom-in", uiText(u"\u653e\u5927"), false, ""},
+        {"view-zoom-out", uiText(u"\u7f29\u5c0f"), false, ""},
+        {"view-rotate", uiText(u"\u65cb\u8f6c"), false, ""},
+        {"view-front", uiText(u"\u6b63\u89c6 X"), false, ""},
+        {"view-side", uiText(u"\u4fa7\u89c6 Y"), false, ""},
+        {"view-top", uiText(u"\u9876\u89c6 Z"), false, ""},
+        {"view-surface", uiText(u"\u8868\u9762"), false, ""},
+        {"view-wireframe", uiText(u"\u7ebf\u6846"), false, ""}});
     auto *monitor = ribbonBar()->addCategoryPage(uiText(u"\u76d1\u63a7"));
     addGroup(monitor, "calculationGroup", uiText(u"\u5f53\u524d\u8ba1\u7b97\u72b6\u6001"), {
         {"run", uiText(u"\u5f00\u59cb\u8ba1\u7b97"), true, "run"},
@@ -213,6 +221,84 @@ void MainWindow::createRibbon()
         {"navigation", uiText(u"\u5de5\u7a0b\u5bfc\u822a"), false, "dock:project"},
         {"property", uiText(u"\u5c5e\u6027\u9762\u677f"), false, "dock:property"},
         {"output", uiText(u"\u8f93\u51fa\u9762\u677f"), false, "dock:output"}});
+    auto *appearance = help->addPanel(uiText(u"\u5916\u89c2"));
+    appearance->setObjectName(QStringLiteral("appearanceGroup"));
+    auto *menu = new QMenu(uiText(u"\u5207\u6362\u76ae\u80a4"), this);
+    menu->setObjectName(QStringLiteral("themeMenu"));
+    menu->setIcon(QIcon(QStringLiteral(":/aerosim/ribbon/skin.svg")));
+    auto *group = new QActionGroup(this);
+    group->setExclusive(true);
+    struct ThemeItem { const char *id; QString label; };
+    const ThemeItem themes[] = {{"office-blue", uiText(u"Office \u84dd\u8272")}, {"office-light", uiText(u"Office \u6d45\u8272")}, {"dark", uiText(u"\u6df1\u8272")}, {"dark-gray", uiText(u"\u6df1\u7070\u8272")}};
+    for (const auto &theme : themes) {
+        const QString id = QString::fromLatin1(theme.id);
+        auto *action = menu->addAction(theme.label);
+        action->setObjectName(QStringLiteral("theme-") + id);
+        action->setData(id);
+        action->setCheckable(true);
+        group->addAction(action);
+        connect(action, &QAction::triggered, this, [this, id] {
+            applyWindowTheme(id);
+            QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+            settings.setValue(QStringLiteral("theme"), id);
+        });
+    }
+    appearance->addLargeMenu(menu);
+
+}
+
+void MainWindow::applyWindowTheme(const QString &requestedId)
+{
+    QString id = requestedId;
+    SARibbonTheme theme = SARibbonTheme::RibbonThemeOffice2016Blue;
+    if (id == "office-light") theme = SARibbonTheme::RibbonThemeOffice2013;
+    else if (id == "dark") theme = SARibbonTheme::RibbonThemeDark;
+    else if (id == "dark-gray") theme = SARibbonTheme::RibbonThemeDark2;
+    else id = QStringLiteral("office-blue");
+    if (property("windowThemeId").toString() == id) return;
+    const bool dark = id == "dark" || id == "dark-gray";
+    const QString bg = dark ? (id == "dark" ? "#20242b" : "#353535") : "#f4f7fb";
+    const QString base = dark ? "#292e36" : "#ffffff";
+    const QString text = dark ? "#e6eaf0" : "#25364c";
+    const QString border = dark ? "#59616d" : "#dce2eb";
+    const QString selected = dark ? "#355a80" : "#dceafd";
+    QPalette colors = palette();
+    colors.setColor(QPalette::Window, QColor(bg));
+    colors.setColor(QPalette::Base, QColor(base));
+    colors.setColor(QPalette::AlternateBase, QColor(bg));
+    colors.setColor(QPalette::WindowText, QColor(text));
+    colors.setColor(QPalette::Text, QColor(text));
+    colors.setColor(QPalette::Button, QColor(bg));
+    colors.setColor(QPalette::ButtonText, QColor(text));
+    colors.setColor(QPalette::Highlight, QColor(selected));
+    colors.setColor(QPalette::HighlightedText, QColor(text));
+    colors.setColor(QPalette::Disabled, QPalette::Text, QColor(dark ? "#9ca5b0" : "#808080"));
+    colors.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(dark ? "#9ca5b0" : "#808080"));
+    setPalette(colors);
+    // SARibbon replaces its QSS on every call. Append workspace styling once,
+    // avoiding accumulated overrides when the user switches themes repeatedly.
+    setRibbonTheme(theme);
+    setStyleSheet(styleSheet() + QStringLiteral(
+        "QMainWindow#AeroSimMainWindow, QDockWidget, QDockWidget QWidget, QStatusBar QLabel { background: %1; color: %3; }"
+        "QMenu { background: %2; color: %3; border: 1px solid %4; }"
+        "QMenu::item:selected { background: %5; }"
+        "QDockWidget::title { background: %1; padding: 7px; color: %3; }"
+        "QTreeWidget, QPlainTextEdit, QLineEdit, QComboBox, QAbstractSpinBox { background: %2; color: %3; }"
+        "QTreeWidget { border: 0; alternate-background-color: %1; }"
+        "QTreeWidget::item { padding: 5px 2px; }"
+        "QTreeWidget::item:selected { background: %5; color: %3; }"
+        "QTabWidget::pane { border: 1px solid %4; }"
+        "QTabWidget QTabBar::tab { background: %1; color: %3; padding: 6px 10px; }"
+        "QTabWidget QTabBar::tab:selected { background: %2; }"
+        "QStatusBar { background: %1; color: %3; }"
+        "QWidget#viewportSlot { background: %1; color: %3; }"
+        "QWidget#viewportSlot QLabel { color: %3; }"
+        "QLabel#propertyTitle { color: %3; font-size: 16px; font-weight: 600; }"
+        "QPushButton { background: %1; color: %3; border: 1px solid %4; padding: 6px 12px; }"
+        "QPushButton:hover { background: %5; }").arg(bg, base, text, border, selected));
+    setProperty("windowThemeId", id);
+    if (auto *menu = findChild<QMenu *>(QStringLiteral("themeMenu")))
+        for (auto *action : menu->actions()) action->setChecked(action->data().toString() == id);
 }
 
 QWidget *MainWindow::createSlot(WidgetSlot slot, const QString &text)
@@ -230,13 +316,6 @@ void MainWindow::createWorkspace()
     auto *central = new QWidget(this);
     auto *centerLayout = new QVBoxLayout(central);
     centerLayout->setContentsMargins(0, 0, 0, 0);
-    auto *viewToolbar = new QToolBar(uiText(u"\u89c6\u56fe\u63a7\u5236"), central);
-    for (const QString &name : uiText(u"\u9002\u5e94|\u653e\u5927|\u7f29\u5c0f|\u65cb\u8f6c|\u6b63\u89c6 X|\u4fa7\u89c6 Y|\u9876\u89c6 Z|\u8868\u9762|\u7ebf\u6846").split('|')) {
-        auto *action = viewToolbar->addAction(name);
-        action->setEnabled(false);
-        action->setToolTip(uiText(u"\u7b49\u5f85 VTK \u89c6\u53e3\u53ca\u89c6\u56fe\u63a7\u5236\u63a5\u53e3\u63a5\u5165"));
-    }
-    centerLayout->addWidget(viewToolbar);
     auto *viewport = createSlot(WidgetSlot::Viewport, uiText(u"\u4e09\u7ef4\u5de5\u4f5c\u533a\n\nVTK 8.2 \u89c6\u53e3\u63a5\u5165\u4f4d\u7f6e\n\u5bfc\u5165\u4e0e\u6e32\u67d3\u6a21\u5757\u5c1a\u672a\u63a5\u5165"));
     viewport->setObjectName(QStringLiteral("viewportSlot"));
     centerLayout->addWidget(viewport, 1);
