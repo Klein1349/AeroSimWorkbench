@@ -155,29 +155,16 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
     : SARibbonMainWindow(parent) {
     setObjectName(uiText(u"postProcessWorkbench")); setWindowTitle(uiText(u"AeroSimWorkbench - 后处理工作台")); resize(1320, 820); setMinimumSize(1120, 680);
     QFont workbenchFont(uiText(u"Microsoft YaHei UI")); workbenchFont.setPointSize(9); setFont(workbenchFont);
-    setDockNestingEnabled(true);
     createActions();
-    auto *central = new QWidget(this); auto *centralLayout = new QVBoxLayout(central);
-    centralLayout->setContentsMargins(0, 0, 0, 0); centralLayout->setSpacing(4);
-    centralLayout->addWidget(createViewportPanel(), 1); centralLayout->addWidget(createTimeline()); setCentralWidget(central);
-
-    auto *navigatorDock = new QDockWidget(uiText(u"数据与场景"), this); navigatorDock->setObjectName(uiText(u"postProcessNavigatorDock"));
-    auto *navigatorTabs = new QTabWidget(navigatorDock); navigatorTabs->setObjectName(uiText(u"postProcessNavigator"));
-    navigatorTabs->addTab(createDataPanel(), uiText(u"数据")); navigatorTabs->addTab(createViewPanel(), uiText(u"视图")); navigatorTabs->addTab(createObjectPanel(), uiText(u"对象"));
-    navigatorDock->setWidget(navigatorTabs); addDockWidget(Qt::LeftDockWidgetArea, navigatorDock);
-
-    auto *inspectorDock = new QDockWidget(uiText(u"属性编辑器"), this); inspectorDock->setObjectName(uiText(u"postProcessInspectorDock"));
-    inspectorDock->setWidget(createPropertiesPanel()); addDockWidget(Qt::RightDockWidgetArea, inspectorDock);
-
-    auto *messageDock = new QDockWidget(uiText(u"输出与任务"), this); messageDock->setObjectName(uiText(u"postProcessMessageDock"));
-    auto *messageTabs = new QTabWidget(messageDock); events_ = new QTextEdit(messageTabs); events_->setReadOnly(true);
-    messageTabs->addTab(events_, uiText(u"消息"));
-    auto *taskHint = new QLabel(uiText(u"读取、特征计算和导出任务将在此显示。"), messageTabs); taskHint->setAlignment(Qt::AlignCenter); messageTabs->addTab(taskHint, uiText(u"任务"));
-    messageDock->setWidget(messageTabs); addDockWidget(Qt::BottomDockWidgetArea, messageDock);
-    setCorner(Qt::BottomLeftCorner, Qt::BottomDockWidgetArea); setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
-    resizeDocks({navigatorDock, inspectorDock}, {270, 310}, Qt::Horizontal); resizeDocks({messageDock}, {170}, Qt::Vertical);
-    statusBar()->showMessage(uiText(u"已加载翼身组合结果集：从左侧选择数据，再在 Ribbon 中创建显示或分析对象。"));
-    setStyleSheet(uiText(u"QDockWidget::title{background:#e9eef5;padding:7px;color:#25364c;}QTreeWidget{border:0;alternate-background-color:#f4f7fb;}QTreeWidget::item{padding:5px 2px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#dceafd;color:#153b6b;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #dce2eb;}QTabBar::tab{padding:7px 14px;background:#e9eef5;color:#52677f;}QTabBar::tab:selected{background:#fff;color:#153b6b;}QFrame#viewportHeader{background:#edf2f8;border-bottom:1px solid #dce2eb;}QLabel#viewportTitle,QLabel#sectionTitle{color:#234d7a;font-weight:600;}QLabel#viewportOrientation{color:#234d7a;font-weight:600;border-left:1px solid #dce2eb;padding-left:10px;}QListWidget{border:0;background:#fff;outline:0;}QListWidget::item{min-height:27px;padding:4px;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f4f7fb;border:1px solid #dce2eb;border-radius:4px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #dce2eb;border-radius:3px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #dce2eb;border-radius:3px;background:#fff;padding:6px 12px;}QPushButton:hover{background:#dceafd;border-color:#a8c6e5;}QPushButton#primaryAction{background:#234d7a;color:#fff;border:0;font-weight:600;}QLabel#mutedText{color:#52677f;font-size:12px;}QLabel#sectionTitle{padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:600;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QStatusBar{background:#e9eef5;color:#25364c;}QTextEdit{background:#fff;color:#25364c;border:0;}"));
+    auto *workbench = new QWidget(this); auto *root = new QVBoxLayout(workbench); root->setContentsMargins(7, 7, 7, 0); root->setSpacing(6);
+    auto *content = new QSplitter(Qt::Horizontal, workbench); content->setObjectName(uiText(u"postProcessContent"));
+    auto *tabs = new QTabWidget(content); tabs->setObjectName(uiText(u"postProcessNavigator")); tabs->setMinimumWidth(280); tabs->setMaximumWidth(360);
+    tabs->addTab(createViewPanel(), uiText(u"视图")); tabs->addTab(createDataPanel(), uiText(u"数据")); tabs->addTab(createObjectPanel(), uiText(u"对象"));
+    content->addWidget(tabs); content->addWidget(createViewportPanel()); content->addWidget(createPropertiesPanel()); content->setStretchFactor(1, 1); content->setSizes({300, 830, 320}); content->setChildrenCollapsible(false);
+    root->addWidget(content, 1); root->addWidget(createTimeline()); setCentralWidget(workbench);
+    auto *dock = new QDockWidget(uiText(u"操作消息"), this); dock->setObjectName(uiText(u"postProcessMessageDock")); events_ = new QTextEdit(dock); events_->setReadOnly(true); dock->setWidget(events_); addDockWidget(Qt::BottomDockWidgetArea, dock); dock->hide();
+    statusBar()->showMessage(uiText(u"已加载翼身组合结果集：在左侧选择数据，再使用上方工具栏创建显示或分析对象。"));
+    setStyleSheet(uiText(u"QMainWindow{background:#edf2f8;color:#25364c;}QTabWidget::pane,QFrame#viewportFrame,QGroupBox{background:#fff;border:1px solid #dce2eb;}QTabBar::tab{padding:8px 18px;background:#e9eef5;color:#52677f;}QTabBar::tab:selected{background:#fff;color:#153b6b;}QFrame#viewportHeader{background:#edf2f8;border-bottom:1px solid #dce2eb;}QLabel#viewportTitle{color:#234d7a;font-weight:600;}QLabel#viewportOrientation{color:#234d7a;font-weight:600;border-left:1px solid #dce2eb;padding-left:10px;}QTreeWidget,QListWidget{border:0;background:#fff;outline:0;alternate-background-color:#f4f7fb;}QTreeWidget::item,QListWidget::item{min-height:27px;padding:4px;}QTreeWidget::item:selected,QListWidget::item:selected{background:#dceafd;color:#153b6b;}QFrame#dataCard,QFrame#postProcessTimeline{background:#f4f7fb;border:1px solid #dce2eb;border-radius:5px;}QComboBox,QLineEdit{min-height:27px;border:1px solid #dce2eb;border-radius:4px;padding:2px 7px;background:#fff;}QPushButton{min-height:28px;border:1px solid #dce2eb;border-radius:4px;background:#fff;padding:6px 12px;}QPushButton:hover{background:#dceafd;border-color:#a8c6e5;}QPushButton#primaryAction{background:#234d7a;color:#fff;border:0;font-weight:600;}QLabel#mutedText{color:#52677f;font-size:12px;}QLabel#sectionTitle{color:#234d7a;font-weight:600;padding:4px 2px;}QGroupBox{margin-top:12px;padding:8px;font-weight:600;}QGroupBox::title{subcontrol-origin:margin;left:8px;padding:0 4px;}QStatusBar{background:#e9eef5;color:#25364c;}QTextEdit{background:#edf2f8;color:#25364c;border:1px solid #dce2eb;}"));
     updateDataSelection(datasetTree_->currentItem(), 0);
 }
 
@@ -223,9 +210,9 @@ void PostProcessWorkbenchWindow::createActions() {
 
     // Use the same SARibbon hierarchy as MainWindow.  Categories group work
     // by intent; the data/scene workspace below remains the post-process UI.
-    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"开始"));
+    auto *dataCategory = ribbonBar()->addCategoryPage(uiText(u"数据"));
     dataCategory->setObjectName(uiText(u"postProcessDataCategory"));
-    auto *dataSourcePanel = dataCategory->addPanel(uiText(u"工程数据"));
+    auto *dataSourcePanel = dataCategory->addPanel(uiText(u"结果数据"));
     dataSourcePanel->addLargeAction(importAction); dataSourcePanel->addLargeAction(exportAction);
     auto *dataToolsPanel = dataCategory->addPanel(uiText(u"数据处理"));
     dataToolsPanel->addLargeAction(convertAction); dataToolsPanel->addLargeAction(excelAction);
@@ -240,7 +227,7 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *cameraPanel = displayCategory->addPanel(uiText(u"视图"));
     cameraPanel->addLargeAction(fitAction); cameraPanel->addLargeAction(frontAction); cameraPanel->addLargeAction(rightAction); cameraPanel->addLargeAction(topAction);
 
-    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"后处理"));
+    auto *featureCategory = ribbonBar()->addCategoryPage(uiText(u"特征"));
     featureCategory->setObjectName(uiText(u"postProcessFeatureCategory"));
     auto *spatialPanel = featureCategory->addPanel(uiText(u"空间特征"));
     spatialPanel->addLargeAction(sliceAction); spatialPanel->addLargeAction(isoAction);
