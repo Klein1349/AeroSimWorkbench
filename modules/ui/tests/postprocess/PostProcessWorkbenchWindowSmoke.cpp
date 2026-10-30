@@ -3,6 +3,13 @@
 #include <QAction>
 #include <QApplication>
 #include <QLabel>
+#include <QDir>
+#include <QDebug>
+#include <QToolButton>
+#include <QPushButton>
+#include <QComboBox>
+#include <QScrollArea>
+#include <SARibbonBar.h>
 #include <QListWidget>
 #include <QSlider>
 #include <QStackedWidget>
@@ -71,6 +78,55 @@ int main(int argc, char *argv[])
     probe->trigger();
     if (inspectorTabs->currentIndex() != 1)
         return 12;
+
+    // Exercise the actual window after SARibbon's deferred theme/layout work.
+    // Optional captures are produced by the same binary used in CTest.
+    const QString captureDir = qEnvironmentVariable("AEROSIM_UI_CAPTURE_DIR");
+    if (!captureDir.isEmpty()) QDir().mkpath(captureDir);
+    auto *navigator = window.findChild<QTabWidget *>(QStringLiteral("postProcessNavigator"));
+    window.show();
+    for (const QSize size : {QSize(1120,680), QSize(1440,960)}) {
+        window.resize(size);
+        app.processEvents();
+        for (int category = 0; category < 5; ++category) {
+            window.ribbonBar()->setCurrentIndex(category);
+            navigator->setCurrentIndex(category % 3);
+            if (category == 0) tree->setCurrentItem(tree->topLevelItem(0)->child(0));
+            if (category == 1) tree->setCurrentItem(tree->topLevelItem(1)->child(0));
+            if (category == 2) layers->setCurrentRow(1);
+            if (category == 3) probe->trigger();
+            if (category == 4) inspectorTabs->setCurrentIndex(2);
+            app.processEvents();
+            if (window.size() != size) {
+                qCritical() << "Window minimum grew beyond requested size" << size << window.size();
+                return 20;
+            }
+            for (auto *button : window.findChildren<QToolButton *>()) {
+                if (!button->isVisible() || !button->objectName().startsWith("postProcess")) continue;
+                if (button->width() < button->iconSize().width() + 8 ||
+                    button->height() < button->iconSize().height() + 8) {
+                    qCritical() << "Clipped timeline button" << button->objectName() << button->size();
+                    return 21;
+                }
+            }
+            for (auto *combo : window.findChildren<QComboBox *>()) {
+                if (!combo->isVisible()) continue;
+                if (!combo->parentWidget()->rect().contains(combo->geometry())) {
+                    qCritical() << "Inspector field outside parent" << combo->geometry();
+                    return 22;
+                }
+            }
+            if (!captureDir.isEmpty() && !window.grab().save(captureDir +
+                QStringLiteral("/postprocess-%1x%2-%3.png").arg(size.width()).arg(size.height()).arg(category)))
+                return 23;
+        }
+    }
+    for (auto *action : window.findChildren<QAction *>()) {
+        if (action->objectName().startsWith("postProcess") && action->icon().isNull()) {
+            qCritical() << "Missing command icon" << action->objectName();
+            return 24;
+        }
+    }
 
     auto *viewer = new QLabel(QStringLiteral("Viewer"));
     if (!window.insertWidget(aerosim::WidgetSlot::Viewport, viewer))

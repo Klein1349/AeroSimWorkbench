@@ -16,13 +16,16 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../contracts" contracts)
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/SARibbonDependency.cmake")
+find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Svg)
 add_library(aerosim_ui STATIC
+    resources/PostProcessIcons.qrc
     src/MainWindow.cpp include/aerosim/ui/MainWindow.h
     src/postprocess/PostProcessWorkbenchWindow.cpp
     include/aerosim/ui/postprocess/PostProcessWorkbenchWindow.h)
+set_target_properties(aerosim_ui PROPERTIES AUTORCC ON)
 add_library(aerosim::ui ALIAS aerosim_ui)
 target_include_directories(aerosim_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets SARibbonBar::SARibbonBar)
+target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets Qt5::Svg SARibbonBar::SARibbonBar)
 if(MSVC)
     # Keep Chinese UI source literals UTF-8 when this module is configured as
     # part of the top-level project or built on its own.
