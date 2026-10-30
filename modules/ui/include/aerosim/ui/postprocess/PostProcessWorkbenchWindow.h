@@ -11,14 +11,10 @@
 class QAction;
 class QDialog;
 class QLabel;
-class QLineEdit;
 class QListWidget;
 class QDockWidget;
 class QSlider;
-class QStackedWidget;
-class QTabWidget;
 class QTextEdit;
-class QToolButton;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QVBoxLayout;
@@ -71,7 +67,6 @@ private:
     QListWidget *sceneList_ = nullptr;
     QAction *styleAction_ = nullptr;
     QAction *parameterAction_ = nullptr;
-    QAction *probeAction_ = nullptr;
     QPointer<QDialog> styleDialog_;
     QPointer<QDialog> parameterDialog_;
     QString selectedId_;

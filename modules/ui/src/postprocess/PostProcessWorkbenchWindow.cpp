@@ -24,7 +24,6 @@
 #include <QListWidget>
 #include <QMap>
 #include <QMenu>
-#include <QMenuBar>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
@@ -33,10 +32,9 @@
 #include <QScrollArea>
 #include <QSvgRenderer>
 #include <QTimer>
+#include <QThread>
 #include <QSplitter>
-#include <QStackedWidget>
 #include <QStatusBar>
-#include <QStyle>
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QToolButton>
@@ -185,10 +183,10 @@ PostProcessWorkbenchWindow::PostProcessWorkbenchWindow(QWidget *parent)
         "QTabBar::tab { background:#e8e8e8; color:#222; border:1px solid #bfc4cb; padding:5px 12px; margin-right:1px; }"
         "QTabBar::tab:selected { background:#fff; border-bottom-color:#fff; }"
         "QTabBar::tab:hover:!selected { background:#e0eaf6; }"
-        "QLineEdit,QComboBox { background:#fff; color:#222; border:1px solid #aeb5be; padding:4px 6px; }"
+        "QLineEdit,QComboBox,QSpinBox,QDoubleSpinBox { background:#fff; color:#222; border:1px solid #aeb5be; padding:4px 6px; }"
         "QComboBox::drop-down { subcontrol-origin:padding; subcontrol-position:top right; width:22px; border:0; }"
         "QComboBox::down-arrow { image:url(:/aerosim/postprocess/dropdown.svg); width:10px; height:6px; }"
-        "QLineEdit:focus,QComboBox:focus { border-color:#2563b6; }"
+        "QLineEdit:focus,QComboBox:focus,QSpinBox:focus,QDoubleSpinBox:focus { border-color:#2563b6; }"
         "QPushButton { background:#fafafa; color:#222; border:1px solid #aeb5be; padding:5px 8px; }"
         "QPushButton:hover { background:#e0eaf6; border-color:#8baed7; }"
         "QPushButton:pressed { background:#dceafd; }"
@@ -243,7 +241,6 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *traceAction = ribbonAction(this, commandIcon("trace"), uiText(u"轨迹"), uiText(u"针对时间序结果生成粒子轨迹"), uiText(u"postProcessTraceAction"));
     auto *fitAction = ribbonAction(this, commandIcon("fit"), uiText(u"适配视图"), uiText(u"让可见图层适配当前视口"), uiText(u"postProcessFitAction"));
     auto *probeAction = ribbonAction(this, commandIcon("probe"), uiText(u"探针"), uiText(u"查询单元、节点的坐标和字段值"), uiText(u"postProcessProbeAction"));
-    probeAction_ = probeAction;
     styleAction_ = ribbonAction(this, commandIcon("style"), uiText(u"对象样式…"), uiText(u"编辑选中对象的颜色、网格和可见性"), QStringLiteral("postProcessObjectStyleAction"));
     parameterAction_ = ribbonAction(this, commandIcon("parameters"), uiText(u"编辑参数…"), uiText(u"编辑选中对象的专属参数草稿"), QStringLiteral("postProcessParametersAction"));
     auto *deepSeekAction = ribbonAction(this, commandIcon("harness"), uiText(u"DeepSeek"), uiText(u"打开 DeepSeek Harness，基于当前选择组织后处理任务"), uiText(u"postProcessHarnessAction"));
@@ -352,6 +349,8 @@ void PostProcessWorkbenchWindow::createActions() {
     connect(exportAction, &QAction::triggered, this, [command] { command(uiText(u"export"), uiText(u"已提交导出请求；请在图层页选择导出对象。")); });
     const auto setInteractionMode = [this, interactionHint](const QString &key, const QString &mode, const QString &hint) {
         interactionHint->setText(hint);
+        if (auto *host = findChild<QWidget *>(QStringLiteral("postProcessViewportHost")))
+            host->setCursor(key == "pan" ? Qt::OpenHandCursor : Qt::ArrowCursor);
         emit postProcessCommandRequested(QStringLiteral("interactionMode:") + key);
         appendMessage(uiText(u"已切换至") + mode + uiText(u"模式。"));
     };
@@ -379,8 +378,9 @@ void PostProcessWorkbenchWindow::createActions() {
     const auto traceFn = [this] { addDerivedLayer(uiText(u"trace"), uiText(u"粒子轨迹 1"), uiText(u"已创建轨迹对象；时序数据接入后可运行追踪。")); }; connect(traceAction, &QAction::triggered, this, traceFn);
     connect(fitAction, &QAction::triggered, this, [this] { emit viewRequested(uiText(u"reset")); appendMessage(uiText(u"视图已适配所有可见图层。")); }); connect(probeAction, &QAction::triggered, this, [command] { command(uiText(u"probe"), uiText(u"已进入探针查询模式：请在视口点选单元或节点。")); });
     connect(deepSeekAction, &QAction::triggered, this, &PostProcessWorkbenchWindow::openDeepSeekHarness);
-    connect(probeAction, &QAction::triggered, this, [interactionHint] {
-        interactionHint->setText(uiText(u"探针模式 · 点击数据位置取点；取点结果将自动显示"));
+    connect(probeAction, &QAction::triggered, this, [this, interactionHint] {
+        interactionHint->setText(uiText(u"探针模式 · 点击数据位置取点；当前拾取服务待接入"));
+        if (auto *host = findChild<QWidget *>(QStringLiteral("postProcessViewportHost"))) host->setCursor(Qt::CrossCursor);
     });
     for (QAction *action : analysisActions) connect(action, &QAction::triggered, this, [command, action] { command(uiText(u"openAnalysis"), uiText(u"已打开“%1”工作流程入口。").arg(action->text())); });
 }
@@ -633,8 +633,9 @@ void PostProcessWorkbenchWindow::openObjectStyle() {
     dialog->setObjectName(QStringLiteral("postProcessObjectStyleDialog"));
     dialog->setWindowTitle(uiText(u"对象样式 · ") + name);
     dialog->setStyleSheet(centralWidget()->styleSheet());
-    dialog->resize(480, 340);
+    dialog->resize(480, 280);
     auto *layout = new QVBoxLayout(dialog);
+    layout->addWidget(sectionLabel(uiText(u"对象样式"), dialog));
     auto *context = new QLabel(uiText(u"当前对象：") + name, dialog);
     context->setWordWrap(true); layout->addWidget(context);
     auto *form = new QFormLayout;
@@ -693,8 +694,9 @@ void PostProcessWorkbenchWindow::openObjectParameters() {
         : kind == "stream" ? uiText(u"编辑流线") : kind == "trace" ? uiText(u"编辑轨迹")
         : kind == "curve" ? uiText(u"曲线设置") : (kind == "field" || kind == "contour") ? uiText(u"字段与色标") : uiText(u"对象参数");
     dialog->setWindowTitle(title + uiText(u" · ") + name);
-    dialog->setStyleSheet(centralWidget()->styleSheet()); dialog->resize(520,420);
+    dialog->setStyleSheet(centralWidget()->styleSheet()); dialog->resize(520, kind == "stream" || kind == "trace" ? 360 : 280);
     auto *layout = new QVBoxLayout(dialog);
+    layout->addWidget(sectionLabel(title, dialog));
     auto *context = new QLabel(uiText(u"当前对象：") + name, dialog); context->setWordWrap(true); layout->addWidget(context);
     auto *form = new QFormLayout;
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
@@ -771,6 +773,7 @@ void PostProcessWorkbenchWindow::showProbePanel() {
 }
 
 void PostProcessWorkbenchWindow::displayProbeResult(const QString &text) {
+    Q_ASSERT(QThread::currentThread() == thread());
     if (text.trimmed().isEmpty()) return;
     showProbePanel();
     probeResult_->setPlainText(text);

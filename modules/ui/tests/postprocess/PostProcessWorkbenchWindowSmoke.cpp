@@ -131,12 +131,14 @@ int main(int argc, char *argv[])
     pan->trigger(); CHECK(pan->isChecked());
     probe->trigger(); CHECK(probe->isChecked() && !pan->isChecked());
     CHECK(!window.findChild<QDockWidget *>("postProcessProbeDock"));
+    CHECK(window.findChild<QWidget *>("postProcessViewportHost")->cursor().shape() == Qt::CrossCursor);
     results->trigger(); flush();
     auto *probeDock = window.findChild<QDockWidget *>("postProcessProbeDock");
     CHECK(probeDock && probeDock->isVisible() && probe->isChecked());
     CHECK(capture(&window,"probe-results-empty"));
     probeDock->hide(); CHECK(probe->isChecked());
     select->trigger(); CHECK(select->isChecked() && !probe->isChecked());
+    CHECK(window.findChild<QWidget *>("postProcessViewportHost")->cursor().shape() == Qt::ArrowCursor);
     results->trigger(); CHECK(select->isChecked() && !probe->isChecked());
     probeDock->hide();
     // Presentation fixture only: no simulated picking or numerical computation.
