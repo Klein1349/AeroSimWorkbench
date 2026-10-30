@@ -27,25 +27,31 @@
 
 namespace aerosim {
 namespace {
+template <size_t N>
+QString uiText(const char16_t (&text)[N])
+{
+    return QString::fromUtf16(reinterpret_cast<const ushort *>(text), int(N) - 1);
+}
+
 QString taskStatus(TaskStatus status)
 {
     switch (status) {
-    case TaskStatus::Preparing: return QStringLiteral("准备中");
-    case TaskStatus::Running: return QStringLiteral("运行中");
-    case TaskStatus::Paused: return QStringLiteral("已暂停");
-    case TaskStatus::Finished: return QStringLiteral("已完成");
-    case TaskStatus::Failed: return QStringLiteral("失败");
-    case TaskStatus::Cancelled: return QStringLiteral("已取消");
-    default: return QStringLiteral("未知");
+    case TaskStatus::Preparing: return uiText(u"准备中");
+    case TaskStatus::Running: return uiText(u"运行中");
+    case TaskStatus::Paused: return uiText(u"已暂停");
+    case TaskStatus::Finished: return uiText(u"已完成");
+    case TaskStatus::Failed: return uiText(u"失败");
+    case TaskStatus::Cancelled: return uiText(u"已取消");
+    default: return uiText(u"未知");
     }
 }
 QString stepStatus(StepState state)
 {
     switch (state) {
-    case StepState::Pending: return QStringLiteral("待配置");
-    case StepState::NeedsValidation: return QStringLiteral("待校验");
-    case StepState::Complete: return QStringLiteral("已完成");
-    case StepState::Blocked: return QStringLiteral("被阻塞");
+    case StepState::Pending: return uiText(u"待配置");
+    case StepState::NeedsValidation: return uiText(u"待校验");
+    case StepState::Complete: return uiText(u"已完成");
+    case StepState::Blocked: return uiText(u"被阻塞");
     }
     return {};
 }
@@ -61,9 +67,9 @@ QLabel *emptyState(const QString &text, QWidget *parent)
 
 MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
 {
-    setObjectName(QStringLiteral("AeroSimMainWindow"));
-    setWindowTitle(QStringLiteral("AeroSimWorkbench · 仿真工作台（Mock 服务）"));
-    QFont workbenchFont(QStringLiteral("Microsoft YaHei UI"));
+    setObjectName(uiText(u"AeroSimMainWindow"));
+    setWindowTitle(uiText(u"AeroSimWorkbench · 仿真工作台（Mock 服务）"));
+    QFont workbenchFont(uiText(u"Microsoft YaHei UI"));
     workbenchFont.setPointSize(9);
     setFont(workbenchFont);
     resize(1440, 960);
@@ -71,11 +77,11 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
     setDockNestingEnabled(true);
     createWorkspace();
     createRibbon();
-    status_ = new QLabel(QStringLiteral("就绪  |  工程：未打开  |  网格：未载入  |  求解器：未接入  |  MPI：—"), this);
+    status_ = new QLabel(uiText(u"就绪  |  工程：未打开  |  网格：未载入  |  求解器：未接入  |  MPI：—"), this);
     statusBar()->addWidget(status_, 1);
-    statusBar()->addPermanentWidget(new QLabel(QStringLiteral("UI 框架 · Mock 服务"), this));
+    statusBar()->addPermanentWidget(new QLabel(uiText(u"UI 框架 · Mock 服务"), this));
     QTimer::singleShot(0, this, [this] {
-        setStyleSheet(styleSheet() + QStringLiteral(
+        setStyleSheet(styleSheet() + uiText(u
             "QDockWidget::title { background: #e9eef5; padding: 7px; color: #25364c; }"
             "QTreeWidget { border: 0; alternate-background-color: #f4f7fb; }"
             "QTreeWidget::item { padding: 5px 2px; }"
@@ -87,7 +93,7 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
             "QPushButton { padding: 6px 12px; }"));
     });
     restoreLayout();
-    appendMessage(QStringLiteral("主界面已就绪。工程树与参数为界面示例；尚未接入工程、配置、VTK 和真实求解服务。"));
+    appendMessage(uiText(u"主界面已就绪。工程树与参数为界面示例；尚未接入工程、配置、VTK 和真实求解服务。"));
 }
 
 void MainWindow::createRibbon()
@@ -107,57 +113,57 @@ void MainWindow::createRibbon()
     for (const auto &group : groups) {
         const QString title = QString::fromUtf8(group.title);
         auto *category = ribbonBar()->addCategoryPage(title);
-        auto *panel = category->addPanel(title + QStringLiteral("操作"));
+        auto *panel = category->addPanel(title + uiText(u"操作"));
         for (const QString &name : QString::fromUtf8(group.items).split('|')) {
             QStyle::StandardPixmap icon = QStyle::SP_FileDialogDetailedView;
-            if (name.contains(QStringLiteral("新建"))) icon = QStyle::SP_FileIcon;
-            else if (name.contains(QStringLiteral("打开")) || name.contains(QStringLiteral("导入"))) icon = QStyle::SP_DialogOpenButton;
-            else if (name.contains(QStringLiteral("保存")) || name.contains(QStringLiteral("导出"))) icon = QStyle::SP_DialogSaveButton;
-            else if (name == QStringLiteral("启动") || name == QStringLiteral("续算")) icon = QStyle::SP_MediaPlay;
-            else if (name == QStringLiteral("暂停")) icon = QStyle::SP_MediaPause;
-            else if (name == QStringLiteral("停止")) icon = QStyle::SP_MediaStop;
+            if (name.contains(uiText(u"新建"))) icon = QStyle::SP_FileIcon;
+            else if (name.contains(uiText(u"打开")) || name.contains(uiText(u"导入"))) icon = QStyle::SP_DialogOpenButton;
+            else if (name.contains(uiText(u"保存")) || name.contains(uiText(u"导出"))) icon = QStyle::SP_DialogSaveButton;
+            else if (name == uiText(u"启动") || name == uiText(u"续算")) icon = QStyle::SP_MediaPlay;
+            else if (name == uiText(u"暂停")) icon = QStyle::SP_MediaPause;
+            else if (name == uiText(u"停止")) icon = QStyle::SP_MediaStop;
             auto *action = new QAction(style()->standardIcon(icon), name, this);
             panel->addLargeAction(action);
             action->setEnabled(false);
-            action->setToolTip(name + QStringLiteral("：等待对应业务模块接入"));
-            if (name == QStringLiteral("后处理工作台")) {
-                action->setObjectName(QStringLiteral("openPostProcessAction"));
+            action->setToolTip(name + uiText(u"：等待对应业务模块接入"));
+            if (name == uiText(u"后处理工作台")) {
+                action->setObjectName(uiText(u"openPostProcessAction"));
                 action->setEnabled(true);
-                action->setToolTip(QStringLiteral("打开数据、场景、时间轴与可选 VTK 视口"));
+                action->setToolTip(uiText(u"打开数据、场景、时间轴与可选 VTK 视口"));
                 connect(action, &QAction::triggered, this, &MainWindow::openPostProcessRequested);
-            } else if (name == QStringLiteral("启动")) {
+            } else if (name == uiText(u"启动")) {
                 runAction_ = action;
-                action->setObjectName(QStringLiteral("runAction"));
+                action->setObjectName(uiText(u"runAction"));
                 connect(action, &QAction::triggered, this, &MainWindow::submitRun);
-            } else if (title == QStringLiteral("监控")) {
-                const int index = name == QStringLiteral("日志") ? 0 : name == QStringLiteral("计算状态") ? 1 : name == QStringLiteral("收敛曲线") ? 2 : 4;
+            } else if (title == uiText(u"监控")) {
+                const int index = name == uiText(u"日志") ? 0 : name == uiText(u"计算状态") ? 1 : name == uiText(u"收敛曲线") ? 2 : 4;
                 action->setEnabled(true);
-                action->setToolTip(QStringLiteral("打开") + name);
+                action->setToolTip(uiText(u"打开") + name);
                 connect(action, &QAction::triggered, this, [this, index] { showOutput(index); });
-            } else if (title == QStringLiteral("工具")) {
+            } else if (title == uiText(u"工具")) {
                 action->setEnabled(true);
                 action->setToolTip(name);
                 connect(action, &QAction::triggered, this, [this, name] {
-                    if (name == QStringLiteral("恢复默认布局")) restoreLayout();
-                    else if (name == QStringLiteral("工程导航")) projectDock_->show();
-                    else if (name == QStringLiteral("属性面板")) propertyDock_->show();
+                    if (name == uiText(u"恢复默认布局")) restoreLayout();
+                    else if (name == uiText(u"工程导航")) projectDock_->show();
+                    else if (name == uiText(u"属性面板")) propertyDock_->show();
                     else outputDock_->show();
                 });
-            } else if (title == QStringLiteral("帮助")) {
+            } else if (title == uiText(u"帮助")) {
                 action->setEnabled(true);
                 action->setToolTip(name);
                 connect(action, &QAction::triggered, this, [this] {
-                    appendMessage(QStringLiteral("使用说明：左侧选择示例对象，右侧编辑本地草稿；拖动面板可调整布局。工作流状态由服务提供。灰色功能等待业务模块接入，Mock 任务不执行真实求解。"));
+                    appendMessage(uiText(u"使用说明：左侧选择示例对象，右侧编辑本地草稿；拖动面板可调整布局。工作流状态由服务提供。灰色功能等待业务模块接入，Mock 任务不执行真实求解。"));
                     showOutput(0);
                 });
             } else {
                 const QHash<QString, QString> pages = {
-                    {QStringLiteral("边界条件"), "boundary"}, {QStringLiteral("大气参数"), "physics"},
-                    {QStringLiteral("求解器设置"), "solver"}, {QStringLiteral("并行设置"), "parallel"},
-                    {QStringLiteral("多状态配置"), "states"}, {QStringLiteral("网格变换"), "mesh"}};
+                    {uiText(u"边界条件"), "boundary"}, {uiText(u"大气参数"), "physics"},
+                    {uiText(u"求解器设置"), "solver"}, {uiText(u"并行设置"), "parallel"},
+                    {uiText(u"多状态配置"), "states"}, {uiText(u"网格变换"), "mesh"}};
                 if (pages.contains(name)) {
                     action->setEnabled(true);
-                    action->setToolTip(QStringLiteral("打开参数草稿（尚未持久化）"));
+                    action->setToolTip(uiText(u"打开参数草稿（尚未持久化）"));
                     connect(action, &QAction::triggered, this, [this, pages, name] { selectPage(pages.value(name)); });
                 }
             }
@@ -180,25 +186,25 @@ void MainWindow::createWorkspace()
     auto *central = new QWidget(this);
     auto *centerLayout = new QVBoxLayout(central);
     centerLayout->setContentsMargins(0, 0, 0, 0);
-    auto *viewToolbar = new QToolBar(QStringLiteral("视图控制"), central);
-    for (const QString &name : QStringLiteral("适应|放大|缩小|旋转|正视 X|侧视 Y|顶视 Z|表面|线框").split('|')) {
+    auto *viewToolbar = new QToolBar(uiText(u"视图控制"), central);
+    for (const QString &name : uiText(u"适应|放大|缩小|旋转|正视 X|侧视 Y|顶视 Z|表面|线框").split('|')) {
         auto *action = viewToolbar->addAction(name);
         action->setEnabled(false);
-        action->setToolTip(QStringLiteral("等待 VTK 视口及视图控制接口接入"));
+        action->setToolTip(uiText(u"等待 VTK 视口及视图控制接口接入"));
     }
     centerLayout->addWidget(viewToolbar);
-    auto *viewport = createSlot(WidgetSlot::Viewport, QStringLiteral("三维工作区\n\nVTK 8.2 视口接入位置\n导入与渲染模块尚未接入"));
-    viewport->setObjectName(QStringLiteral("viewportSlot"));
+    auto *viewport = createSlot(WidgetSlot::Viewport, uiText(u"三维工作区\n\nVTK 8.2 视口接入位置\n导入与渲染模块尚未接入"));
+    viewport->setObjectName(uiText(u"viewportSlot"));
     centerLayout->addWidget(viewport, 1);
     setCentralWidget(central);
 
-    projectDock_ = new QDockWidget(QStringLiteral("工程与工作流"), this);
-    projectDock_->setObjectName(QStringLiteral("projectDock"));
+    projectDock_ = new QDockWidget(uiText(u"工程与工作流"), this);
+    projectDock_->setObjectName(uiText(u"projectDock"));
     navigationTabs_ = new QTabWidget(projectDock_);
     projectTree_ = new QTreeWidget(navigationTabs_);
-    projectTree_->setObjectName(QStringLiteral("projectTree"));
+    projectTree_->setObjectName(uiText(u"projectTree"));
     projectTree_->setHeaderHidden(true);
-    auto *root = new QTreeWidgetItem(projectTree_, {QStringLiteral("界面示例（未打开工程）")});
+    auto *root = new QTreeWidgetItem(projectTree_, {uiText(u"界面示例（未打开工程）")});
     const QList<QStringList> nodes = {
         {"mesh", "网格 Mesh", "inlet|outlet|wall"},
         {"physics", "物理模型 Physics", "气体模型|流动模型|湍流模型"},
@@ -225,15 +231,15 @@ void MainWindow::createWorkspace()
         selectPage(page);
         emit navigationRequested(page, item->data(0, Qt::UserRole + 1).toString(), {});
     });
-    navigationTabs_->addTab(projectTree_, QStringLiteral("工程树"));
+    navigationTabs_->addTab(projectTree_, uiText(u"工程树"));
     auto *workflowPage = new QWidget(navigationTabs_);
     auto *workflowLayout = new QVBoxLayout(workflowPage);
-    suggestion_ = new QLabel(QStringLiteral("等待工作流服务"), workflowPage);
+    suggestion_ = new QLabel(uiText(u"等待工作流服务"), workflowPage);
     suggestion_->setWordWrap(true);
     workflowLayout->addWidget(suggestion_);
     workflowTree_ = new QTreeWidget(workflowPage);
-    workflowTree_->setObjectName(QStringLiteral("workflowTree"));
-    workflowTree_->setHeaderLabels({QStringLiteral("步骤 / 操作"), QStringLiteral("状态")});
+    workflowTree_->setObjectName(uiText(u"workflowTree"));
+    workflowTree_->setHeaderLabels({uiText(u"步骤 / 操作"), uiText(u"状态")});
     workflowTree_->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     workflowLayout->addWidget(workflowTree_);
     connect(workflowTree_, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *item) {
@@ -241,31 +247,31 @@ void MainWindow::createWorkspace()
         if (!page.isEmpty()) selectPage(page);
         emit navigationRequested(page, item->data(0, Qt::UserRole + 1).toString(), item->data(0, Qt::UserRole + 2).toString());
     });
-    navigationTabs_->addTab(workflowPage, QStringLiteral("工作流"));
+    navigationTabs_->addTab(workflowPage, uiText(u"工作流"));
     projectDock_->setWidget(navigationTabs_);
 
-    propertyDock_ = new QDockWidget(QStringLiteral("属性编辑器"), this);
-    propertyDock_->setObjectName(QStringLiteral("propertyDock"));
+    propertyDock_ = new QDockWidget(uiText(u"属性编辑器"), this);
+    propertyDock_->setObjectName(uiText(u"propertyDock"));
     auto *properties = new QWidget(propertyDock_);
     auto *propertyLayout = new QVBoxLayout(properties);
     propertyTitle_ = new QLabel(properties);
-    propertyTitle_->setObjectName(QStringLiteral("propertyTitle"));
+    propertyTitle_->setObjectName(uiText(u"propertyTitle"));
     propertyLayout->addWidget(propertyTitle_);
-    auto *notice = new QLabel(QStringLiteral("参数草稿示例 · 仅保存在当前窗口\n正式参数校验与工程保存待接入"), properties);
+    auto *notice = new QLabel(uiText(u"参数草稿示例 · 仅保存在当前窗口\n正式参数校验与工程保存待接入"), properties);
     notice->setWordWrap(true);
     propertyLayout->addWidget(notice);
     propertyForm_ = new QFormLayout;
     propertyForm_->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     propertyLayout->addLayout(propertyForm_);
     propertyLayout->addStretch();
-    auto *reset = new QPushButton(QStringLiteral("清除本页草稿"), properties);
+    auto *reset = new QPushButton(uiText(u"清除本页草稿"), properties);
     connect(reset, &QPushButton::clicked, this, [this] { drafts_.remove(currentPage_); selectPage(currentPage_); });
     propertyLayout->addWidget(reset);
     propertyDock_->setWidget(properties);
-    selectPage(QStringLiteral("mesh"));
+    selectPage(uiText(u"mesh"));
 
-    outputDock_ = new QDockWidget(QStringLiteral("输出与计算监控"), this);
-    outputDock_->setObjectName(QStringLiteral("outputDock"));
+    outputDock_ = new QDockWidget(uiText(u"输出与计算监控"), this);
+    outputDock_->setObjectName(uiText(u"outputDock"));
     outputTabs_ = new QTabWidget(outputDock_);
     log_ = new QPlainTextEdit(this);
     log_->setReadOnly(true);
@@ -276,7 +282,7 @@ void MainWindow::createWorkspace()
     delete oldLogItem->widget();
     delete oldLogItem;
     logLayout->addWidget(log_);
-    outputTabs_->addTab(logSlot, QStringLiteral("日志"));
+    outputTabs_->addTab(logSlot, uiText(u"日志"));
     auto *monitorSlot = createSlot(WidgetSlot::Monitor, {});
     auto *monitorLayout = slotLayouts_.value(static_cast<int>(WidgetSlot::Monitor));
     auto *oldMonitorItem = monitorLayout->takeAt(0);
@@ -284,17 +290,17 @@ void MainWindow::createWorkspace()
     delete oldMonitorItem;
     auto *monitor = new QWidget(monitorSlot);
     auto *monitorForm = new QFormLayout(monitor);
-    monitorStatus_ = new QLabel(QStringLiteral("尚无任务事件"), monitor);
-    monitorDetails_ = new QLabel(QStringLiteral("迭代：—    残差：—    CPU：—    内存：—    MPI：—"), monitor);
+    monitorStatus_ = new QLabel(uiText(u"尚无任务事件"), monitor);
+    monitorDetails_ = new QLabel(uiText(u"迭代：—    残差：—    CPU：—    内存：—    MPI：—"), monitor);
     progress_ = new QProgressBar(monitor);
     progress_->setRange(0, 100);
     progress_->setValue(0);
-    monitorForm->addRow(QStringLiteral("任务状态"), monitorStatus_);
-    monitorForm->addRow(QStringLiteral("计算指标"), monitorDetails_);
-    monitorForm->addRow(QStringLiteral("进度"), progress_);
+    monitorForm->addRow(uiText(u"任务状态"), monitorStatus_);
+    monitorForm->addRow(uiText(u"计算指标"), monitorDetails_);
+    monitorForm->addRow(uiText(u"进度"), progress_);
     monitorLayout->addWidget(monitor);
-    outputTabs_->addTab(monitorSlot, QStringLiteral("计算监控"));
-    outputTabs_->addTab(emptyState(QStringLiteral("收敛曲线\n等待残差采样数据与曲线组件接入"), outputTabs_), QStringLiteral("收敛曲线"));
+    outputTabs_->addTab(monitorSlot, uiText(u"计算监控"));
+    outputTabs_->addTab(emptyState(uiText(u"收敛曲线\n等待残差采样数据与曲线组件接入"), outputTabs_), uiText(u"收敛曲线"));
     auto *errorSlot = createSlot(WidgetSlot::Error, {});
     auto *errorLayout = slotLayouts_.value(static_cast<int>(WidgetSlot::Error));
     auto *oldErrorItem = errorLayout->takeAt(0);
@@ -304,13 +310,13 @@ void MainWindow::createWorkspace()
     errors_->setReadOnly(true);
     errors_->setMaximumBlockCount(1000);
     errorLayout->addWidget(errors_);
-    outputTabs_->addTab(errorSlot, QStringLiteral("错误信息"));
+    outputTabs_->addTab(errorSlot, uiText(u"错误信息"));
     taskTree_ = new QTreeWidget(outputTabs_);
-    taskTree_->setObjectName(QStringLiteral("taskTree"));
-    taskTree_->setHeaderLabels({QStringLiteral("任务 ID"), QStringLiteral("状态"), QStringLiteral("消息"), QStringLiteral("时间")});
+    taskTree_->setObjectName(uiText(u"taskTree"));
+    taskTree_->setHeaderLabels({uiText(u"任务 ID"), uiText(u"状态"), uiText(u"消息"), uiText(u"时间")});
     taskTree_->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     taskTree_->setAlternatingRowColors(true);
-    outputTabs_->addTab(taskTree_, QStringLiteral("任务列表"));
+    outputTabs_->addTab(taskTree_, uiText(u"任务列表"));
     outputDock_->setWidget(outputTabs_);
 }
 
@@ -337,26 +343,26 @@ void MainWindow::selectPage(const QString &pageId)
     };
     if (pageId == "boundary" || pageId == "physics") {
         auto *type = new QComboBox(this);
-        type->addItems({QStringLiteral("压力入口"), QStringLiteral("速度入口"), QStringLiteral("压力出口"), QStringLiteral("壁面")});
+        type->addItems({uiText(u"压力入口"), uiText(u"速度入口"), uiText(u"压力出口"), uiText(u"壁面")});
         type->setCurrentIndex(drafts_.value(pageId).value("type", 0).toInt());
-        propertyForm_->addRow(QStringLiteral("边界类型（示例）"), type);
+        propertyForm_->addRow(uiText(u"边界类型（示例）"), type);
         connect(type, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, pageId](int value) {
             drafts_[pageId].insert("type", value);
             emit parameterDraftChanged(pageId, drafts_.value(pageId));
         });
-        addNumber("pressure", QStringLiteral("压力"), 101325, " Pa");
-        addNumber("temperature", QStringLiteral("温度"), 300, " K");
+        addNumber("pressure", uiText(u"压力"), 101325, " Pa");
+        addNumber("temperature", uiText(u"温度"), 300, " K");
     } else if (pageId == "motion" || pageId == "mesh") {
-        if (pageId == "motion") addNumber("mass", QStringLiteral("质量"), 15.2, " kg");
-        for (const QString &axis : {QStringLiteral("X"), QStringLiteral("Y"), QStringLiteral("Z")})
-            addNumber(axis, QStringLiteral("位置 ") + axis, 0, " m");
+        if (pageId == "motion") addNumber("mass", uiText(u"质量"), 15.2, " kg");
+        for (const QString &axis : {uiText(u"X"), uiText(u"Y"), uiText(u"Z")})
+            addNumber(axis, uiText(u"位置 ") + axis, 0, " m");
     } else if (pageId == "solver") {
-        addNumber("iterations", QStringLiteral("最大迭代步"), 10000, {});
-        addNumber("timeStep", QStringLiteral("时间步长"), 0.001, " s");
+        addNumber("iterations", uiText(u"最大迭代步"), 10000, {});
+        addNumber("timeStep", uiText(u"时间步长"), 0.001, " s");
     } else if (pageId == "parallel") {
-        addNumber("processes", QStringLiteral("MPI 进程数"), 32, {});
+        addNumber("processes", uiText(u"MPI 进程数"), 32, {});
     } else {
-        auto *note = new QLabel(pageId == "results" ? QStringLiteral("尚无结果数据。结果匹配校验和显示由工作流及可视化模块提供。") : QStringLiteral("选择配置对象后由专业模块提供参数。"), this);
+        auto *note = new QLabel(pageId == "results" ? uiText(u"尚无结果数据。结果匹配校验和显示由工作流及可视化模块提供。") : uiText(u"选择配置对象后由专业模块提供参数。"), this);
         note->setWordWrap(true);
         propertyForm_->addRow(note);
     }
@@ -411,11 +417,11 @@ void MainWindow::bindServices(const ServiceBindings &services)
         // view()/requestRun() are synchronous contracts; do not call across threads.
         serviceConnections_.append(connect(workflow_, &QObject::destroyed, this, [this] {
             runAction_->setEnabled(false);
-            suggestion_->setText(QStringLiteral("工作流服务已断开"));
+            suggestion_->setText(uiText(u"工作流服务已断开"));
         }));
     } else {
         workflowTree_->clear();
-        suggestion_->setText(QStringLiteral("等待工作流服务"));
+        suggestion_->setText(uiText(u"等待工作流服务"));
     }
     if (tasks_) serviceConnections_.append(connect(tasks_, &ITaskService::taskEventOccurred, this,
         &MainWindow::displayTaskEvent, Qt::QueuedConnection));
@@ -445,18 +451,18 @@ void MainWindow::displayWorkflow(const WorkflowView &view)
         item->setData(0, Qt::UserRole, step.targetPageId);
     }
     for (const auto &action : view.actions) {
-        auto *item = new QTreeWidgetItem(workflowTree_, {action.actionId, action.enabled ? QStringLiteral("可用") : QStringLiteral("不可用")});
+        auto *item = new QTreeWidgetItem(workflowTree_, {action.actionId, action.enabled ? uiText(u"可用") : uiText(u"不可用")});
         item->setToolTip(0, action.reason);
         item->setData(0, Qt::UserRole, action.targetPageId);
         item->setData(0, Qt::UserRole + 1, action.objectId);
         item->setData(0, Qt::UserRole + 2, action.fieldKey);
         if (action.actionId == "run" && runAction_) {
             runAction_->setEnabled(action.enabled && hasRunContext_ && workflow_ && workflow_->thread() == thread());
-            runAction_->setToolTip(action.reason.isEmpty() ? QStringLiteral("向工作流服务请求运行") : action.reason);
+            runAction_->setToolTip(action.reason.isEmpty() ? uiText(u"向工作流服务请求运行") : action.reason);
         }
     }
     for (const auto &issue : view.issues) {
-        auto *item = new QTreeWidgetItem(workflowTree_, {issue.message, QStringLiteral("校验提示")});
+        auto *item = new QTreeWidgetItem(workflowTree_, {issue.message, uiText(u"校验提示")});
         item->setData(0, Qt::UserRole, issue.targetPageId);
         item->setData(0, Qt::UserRole + 1, issue.objectId);
         item->setData(0, Qt::UserRole + 2, issue.fieldKey);
@@ -467,7 +473,7 @@ void MainWindow::submitRun()
 {
     if (!workflow_ || workflow_->thread() != thread() || !hasRunContext_) return;
     const auto result = workflow_->requestRun(runRequest_);
-    appendMessage(result.allowed ? QStringLiteral("运行请求已提交，等待任务事件") : QStringLiteral("工作流拒绝运行请求"));
+    appendMessage(result.allowed ? uiText(u"运行请求已提交，等待任务事件") : uiText(u"工作流拒绝运行请求"));
     for (const auto &issue : result.issues) errors_->appendPlainText(issue.message);
     if (!result.allowed) showOutput(3);
 }
@@ -488,10 +494,10 @@ void MainWindow::displayTaskEvent(const TaskEvent &event)
     monitorStatus_->setText(event.taskId + " · " + taskStatus(event.status));
     if (event.progress.totalSteps > 0) {
         progress_->setValue(qBound(0, static_cast<int>(100.0 * event.progress.currentStep / event.progress.totalSteps), 100));
-        monitorDetails_->setText(QStringLiteral("迭代：%1 / %2    残差：%3").arg(event.progress.currentStep).arg(event.progress.totalSteps).arg(event.progress.residual));
+        monitorDetails_->setText(uiText(u"迭代：%1 / %2    残差：%3").arg(event.progress.currentStep).arg(event.progress.totalSteps).arg(event.progress.residual));
     } else {
         progress_->setValue(0);
-        monitorDetails_->setText(QStringLiteral("暂无迭代 / 残差数据；Mock 消息不代表真实计算"));
+        monitorDetails_->setText(uiText(u"暂无迭代 / 残差数据；Mock 消息不代表真实计算"));
     }
     appendMessage(event.taskId + " · " + event.message);
     if (event.type == TaskEventType::Failed || event.type == TaskEventType::Warning)
