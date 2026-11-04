@@ -1,5 +1,6 @@
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include <SARibbonBar.h>
+#include <SARibbonCategory.h>
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
@@ -47,9 +48,12 @@ int main(int argc, char *argv[])
     auto *results = action("postProcessProbeResultsAction");
     auto *select = action("postProcessSelectAction");
     auto *pan = action("postProcessPanAction");
-    auto *tasks = action("postProcessTasksAction");
-    CHECK(tree && layers && nav && content && style && parameters && probe && results && select && pan && tasks);
+    CHECK(tree && layers && nav && content && style && parameters && probe && results && select && pan);
     CHECK(content->count() == 2);
+    CHECK(!action("postProcessTasksAction"));
+    CHECK(!window.findChild<QDockWidget *>("postProcessMessageDock"));
+    CHECK(!action("postProcessExportAction") && !action("postProcessGeometryExportAction"));
+    CHECK(window.ribbonBar()->findChildren<SARibbonCategory *>().size() == 3);
     CHECK(!window.findChild<QWidget *>("postProcessInspectorTabs"));
     CHECK(!window.findChild<QDockWidget *>("postProcessProbeDock"));
     CHECK(QFile::exists(":/SARibbonTheme/resource/palettes/office2013-default.json"));
@@ -80,7 +84,7 @@ int main(int argc, char *argv[])
     play->click(); CHECK(playTimer->isActive());
     play->click(); CHECK(!playTimer->isActive());
     CHECK(action("postProcessContourAction")->isEnabled());
-    CHECK(action("postProcessExportAction")->isEnabled());
+    CHECK(action("postProcessImageExportAction")->isEnabled());
     CHECK(!action("postProcessConvertAction") && !action("postProcessExcelAction"));
     auto *host = window.findChild<QWidget *>("postProcessViewportHost");
     CHECK(host->property("backgroundBottom").value<QColor>()==QColor(98,93,90));
@@ -137,7 +141,7 @@ int main(int argc, char *argv[])
         CHECK(!action("postProcessSliceAction")->isEnabled());
         chooseObject(0); // A slice retains its source fields but has surface dimension.
         CHECK(action("postProcessIsoLineAction")->isEnabled() && !action("postProcessIsoAction")->isEnabled());
-        CHECK(action("postProcessGeometryExportAction")->isEnabled()); // Request only; no file is written.
+        CHECK(action("postProcessImageExportAction")->isEnabled()); // Request only; no file is written.
     }
     chooseZone(0); action("postProcessContourAction")->trigger(); flush();
     CHECK(nav->currentIndex()==2 && parameters->isEnabled());
@@ -185,15 +189,21 @@ int main(int argc, char *argv[])
     fileTable->item(0,1)->setText(QStringLiteral("1.5"));
     organization->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click(); flush();
     CHECK(requestedPaths.size()==2 && tree->topLevelItemCount()==6);
-    chooseZone(0); action("postProcessExportAction")->trigger(); flush();
-    auto *exportSetup = window.findChild<QDialog *>("postProcessExportSetupDialog"); CHECK(exportSetup);
-    CHECK(capture(exportSetup,"data-export-setup"));
-    exportSetup->findChild<QComboBox *>("postProcessExportFormat")->setCurrentIndex(1);
-    exportSetup->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click(); flush();
-    fileDialog = window.findChild<QFileDialog *>("postProcessExportDialog"); CHECK(fileDialog);
-    fileDialog->fileSelected(QStringLiteral("/example/output.cgns"));
-    CHECK(exportKind=="data" && exportPath=="/example/output.cgns");
-    flush();
+    chooseZone(0);
+    for (const QString &kind : {QStringLiteral("image"), QStringLiteral("animation")}) {
+        action(kind == "image" ? "postProcessImageExportAction" : "postProcessAnimationExportAction")->trigger(); flush();
+        auto *exportSetup = window.findChild<QDialog *>("postProcessExportSetupDialog"); CHECK(exportSetup);
+        CHECK(exportSetup->findChild<QSpinBox *>("postProcessExportWidth"));
+        CHECK(exportSetup->findChild<QSpinBox *>("postProcessExportHeight"));
+        CHECK(bool(exportSetup->findChild<QSpinBox *>("postProcessExportFps")) == (kind == "animation"));
+        CHECK(capture(exportSetup,kind + "-export-setup"));
+        exportSetup->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click(); flush();
+        fileDialog = window.findChild<QFileDialog *>("postProcessExportDialog"); CHECK(fileDialog);
+        const QString path = kind == "image" ? QStringLiteral("/example/output.png") : QStringLiteral("/example/animation");
+        fileDialog->fileSelected(path);
+        CHECK(exportKind==kind && exportPath==path);
+        flush();
+    }
     chooseObject(0); parameters->trigger(); flush();
     auto *applyDialog = window.findChild<QDialog *>("postProcessParameterDialog"); CHECK(applyDialog);
     auto *applyButton = applyDialog->findChild<QPushButton *>("postProcessApplyDraft");
@@ -326,15 +336,24 @@ int main(int argc, char *argv[])
     probeDock->hide(); results->trigger();
     CHECK(window.findChild<QTextEdit *>("postProcessProbeResult")->toPlainText().contains("node 7"));
     probeDock->hide();
-    tasks->trigger(); flush();
-    auto *taskDock = window.findChild<QDockWidget *>("postProcessMessageDock");
-    CHECK(taskDock && taskDock->isVisible() && capture(&window,"tasks")); taskDock->hide();
-
     for (const QSize size : {QSize(1120,680), QSize(1440,960)}) {
         window.resize(size);
-        for (int category=0; category<5; ++category) {
+        for (int category=0; category<3; ++category) {
             window.ribbonBar()->setCurrentIndex(category); nav->setCurrentIndex(category%3); flush();
             CHECK(window.size() == size);
+            if (category == 2) {
+                auto *panel = window.findChild<QWidget *>("postProcessExportPanel"); CHECK(panel);
+                QToolButton *imageButton = nullptr, *animationButton = nullptr;
+                for (auto *button : panel->findChildren<QToolButton *>()) {
+                    if (button->defaultAction() == action("postProcessImageExportAction")) imageButton = button;
+                    if (button->defaultAction() == action("postProcessAnimationExportAction")) animationButton = button;
+                }
+                CHECK(imageButton && animationButton && imageButton->isVisible() && animationButton->isVisible());
+                CHECK(imageButton->y() == animationButton->y());
+                CHECK(imageButton->height() == animationButton->height());
+                CHECK(imageButton->height() > panel->height()/2);
+                CHECK(imageButton->geometry().right() < animationButton->geometry().left());
+            }
             for (auto *button : window.findChildren<QToolButton *>()) {
                 if (button->isVisible() && button->objectName().startsWith("postProcess"))
                     CHECK(button->width() >= button->iconSize().width()+8 && button->height() >= button->iconSize().height()+8);

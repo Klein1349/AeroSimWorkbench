@@ -63,7 +63,6 @@ private:
     void openObjectParameters(bool colorOnly = false);
     void openSelectedSettings();
     void updateSelectionActions();
-    void showTaskPanel();
     void openImportDialog();
     void organizeImportedFiles(const QStringList &paths);
     void recordPendingImport(const QStringList &paths, const QString &mode, const QStringList &times);
@@ -112,8 +111,6 @@ private:
     QLabel *selectionSummary_ = nullptr;
     QTextEdit *probeResult_ = nullptr;
     QDockWidget *probeDock_ = nullptr;
-    QDockWidget *taskDock_ = nullptr;
-    QTextEdit *events_ = nullptr;
     QDockWidget *deepSeekHarnessDock_ = nullptr;
     ServiceBindings services_;
     bool bound_ = false;
