@@ -19,7 +19,9 @@ include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/SARibbonDependency.cmake")
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Svg)
 add_library(aerosim_ui STATIC
     resources/PostProcessIcons.qrc
-    src/MainWindow.cpp include/aerosim/ui/MainWindow.h
+    src/MainWindow.cpp include/aerosim/ui/MainWindow.h resources/RibbonIcons.qrc
+    src/MeshManagementPage.cpp include/aerosim/ui/MeshManagementPage.h
+    src/StartupLandingPage.cpp include/aerosim/ui/StartupLandingPage.h
     src/GoverningEquationsPanel.cpp include/aerosim/ui/GoverningEquationsPanel.h
     src/BoundaryConditionsPanel.cpp include/aerosim/ui/BoundaryConditionsPanel.h
     src/MeshMotionPanel.cpp include/aerosim/ui/MeshMotionPanel.h
@@ -43,4 +45,8 @@ if(AEROSIM_BUILD_TESTS)
     target_link_libraries(aerosim_ui_test PRIVATE aerosim_ui)
     add_test(NAME ui_window_integration COMMAND aerosim_ui_test)
     set_tests_properties(ui_window_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(aerosim_startup_landing_test tests/StartupLandingPageTest.cpp)
+    target_link_libraries(aerosim_startup_landing_test PRIVATE aerosim_ui)
+    add_test(NAME startup_landing_ui COMMAND aerosim_startup_landing_test)
+    set_tests_properties(startup_landing_ui PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
