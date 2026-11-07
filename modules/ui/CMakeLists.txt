@@ -20,6 +20,9 @@ find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Svg)
 add_library(aerosim_ui STATIC
     resources/PostProcessIcons.qrc
     src/MainWindow.cpp include/aerosim/ui/MainWindow.h
+    src/GoverningEquationsPanel.cpp include/aerosim/ui/GoverningEquationsPanel.h
+    src/BoundaryConditionsPanel.cpp include/aerosim/ui/BoundaryConditionsPanel.h
+    src/MeshMotionPanel.cpp include/aerosim/ui/MeshMotionPanel.h
     src/postprocess/PostProcessWorkbenchWindow.cpp
     include/aerosim/ui/postprocess/PostProcessWorkbenchWindow.h)
 set_target_properties(aerosim_ui PROPERTIES AUTORCC ON)

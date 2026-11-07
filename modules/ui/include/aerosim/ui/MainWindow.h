@@ -16,6 +16,9 @@ class QTreeWidget;
 class QVBoxLayout;
 class QFormLayout;
 class QDockWidget;
+class QScrollArea;
+class QStackedWidget;
+class QPushButton;
 
 namespace aerosim {
 
@@ -40,6 +43,8 @@ private:
     void createRibbon();
     void createWorkspace();
     void selectPage(const QString &pageId);
+    void showParameterPage();
+    void showViewport();
     void restoreLayout();
     void submitRun();
     void appendMessage(const QString &message);
@@ -63,6 +68,11 @@ private:
     QDockWidget *projectDock_ = nullptr;
     QDockWidget *propertyDock_ = nullptr;
     QDockWidget *outputDock_ = nullptr;
+    QStackedWidget *workspacePages_ = nullptr;
+    QWidget *parameterPage_ = nullptr;
+    QWidget *projectilePage_ = nullptr;
+    QPushButton *backToWorkbench_ = nullptr;
+    QScrollArea *propertyScroll_ = nullptr;
     QFormLayout *propertyForm_ = nullptr;
     QLabel *propertyTitle_ = nullptr;
     QLabel *suggestion_ = nullptr;

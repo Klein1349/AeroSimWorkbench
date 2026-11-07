@@ -1,4 +1,7 @@
 #include "aerosim/ui/MainWindow.h"
+#include "aerosim/ui/GoverningEquationsPanel.h"
+#include "aerosim/ui/BoundaryConditionsPanel.h"
+#include "aerosim/ui/MeshMotionPanel.h"
 
 #include <SARibbonBar.h>
 #include <SARibbonCategory.h>
@@ -11,11 +14,15 @@
 #include <QFormLayout>
 #include <QFont>
 #include <QHeaderView>
+#include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSignalBlocker>
+#include <QScrollArea>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
@@ -24,6 +31,13 @@
 #include <QToolBar>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+static QWidget *initializeMainWindowResources(QWidget *parent)
+{
+    Q_INIT_RESOURCE(PostProcessIcons);
+    Q_INIT_RESOURCE(SARibbonResource);
+    return parent;
+}
 
 namespace aerosim {
 namespace {
@@ -65,7 +79,7 @@ QLabel *emptyState(const QString &text, QWidget *parent)
 }
 }
 
-MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(parent)
+MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(initializeMainWindowResources(parent))
 {
     setObjectName(uiText(u"AeroSimMainWindow"));
     setWindowTitle(uiText(u"AeroSimWorkbench · 仿真工作台（Mock 服务）"));
@@ -146,7 +160,7 @@ void MainWindow::createRibbon()
                 connect(action, &QAction::triggered, this, [this, name] {
                     if (name == uiText(u"恢复默认布局")) restoreLayout();
                     else if (name == uiText(u"工程导航")) projectDock_->show();
-                    else if (name == uiText(u"属性面板")) propertyDock_->show();
+                    else if (name == uiText(u"属性面板")) selectPage(currentPage_);
                     else outputDock_->show();
                 });
             } else if (title == uiText(u"帮助")) {
@@ -158,7 +172,7 @@ void MainWindow::createRibbon()
                 });
             } else {
                 const QHash<QString, QString> pages = {
-                    {uiText(u"边界条件"), "boundary"}, {uiText(u"大气参数"), "physics"},
+                    {uiText(u"边界条件"), "boundary"}, {uiText(u"大气参数"), "atmosphere"},
                     {uiText(u"求解器设置"), "solver"}, {uiText(u"并行设置"), "parallel"},
                     {uiText(u"多状态配置"), "states"}, {uiText(u"网格变换"), "mesh"}};
                 if (pages.contains(name)) {
@@ -196,7 +210,18 @@ void MainWindow::createWorkspace()
     auto *viewport = createSlot(WidgetSlot::Viewport, uiText(u"三维工作区\n\nVTK 8.2 视口接入位置\n导入与渲染模块尚未接入"));
     viewport->setObjectName(uiText(u"viewportSlot"));
     centerLayout->addWidget(viewport, 1);
-    setCentralWidget(central);
+    workspacePages_ = new QStackedWidget(this);
+    workspacePages_->setObjectName(uiText(u"workspacePages"));
+    workspacePages_->addWidget(central);
+    parameterPage_ = new QWidget(workspacePages_);
+    parameterPage_->setObjectName(uiText(u"parameterSettingsPage"));
+    auto *parameterLayout = new QVBoxLayout(parameterPage_);
+    parameterLayout->setContentsMargins(0, 0, 0, 0);
+    workspacePages_->addWidget(parameterPage_);
+    projectilePage_ = new QWidget(workspacePages_);
+    projectilePage_->setObjectName(QStringLiteral("projectileManagementPage"));
+    workspacePages_->addWidget(projectilePage_);
+    setCentralWidget(workspacePages_);
 
     projectDock_ = new QDockWidget(uiText(u"工程与工作流"), this);
     projectDock_->setObjectName(uiText(u"projectDock"));
@@ -204,32 +229,67 @@ void MainWindow::createWorkspace()
     projectTree_ = new QTreeWidget(navigationTabs_);
     projectTree_->setObjectName(uiText(u"projectTree"));
     projectTree_->setHeaderHidden(true);
-    auto *root = new QTreeWidgetItem(projectTree_, {uiText(u"界面示例（未打开工程）")});
-    const QList<QStringList> nodes = {
-        {"mesh", "网格 Mesh", "inlet|outlet|wall"},
-        {"physics", "物理模型 Physics", "气体模型|流动模型|湍流模型"},
-        {"motion", "运动 Motion", "动网格|强迫运动|六自由度"},
-        {"boundary", "边界条件", "inlet|outlet|wall"},
-        {"solver", "求解器 Solver", "空间离散|时间离散|迭代控制"},
-        {"parallel", "并行计算", ""}, {"states", "状态 States", "状态配置示例"},
-        {"results", "结果 Results", "压力|温度|速度|切面|流线"}
+    projectTree_->setIndentation(18);
+    projectTree_->setIconSize(QSize(18, 18));
+    projectTree_->setToolTip(uiText(u"工程导航示例；业务配置与工程保存尚未接入"));
+    const auto addGroup = [this](const QString &title) {
+        auto *group = new QTreeWidgetItem(projectTree_, {title});
+        group->setExpanded(true);
+        return group;
     };
-    for (const auto &node : nodes) {
-        auto *item = new QTreeWidgetItem(root, {node[1]});
-        item->setData(0, Qt::UserRole, node[0]);
-        for (const QString &child : node[2].split('|', QString::SkipEmptyParts)) {
-            auto *leaf = new QTreeWidgetItem(item, {child});
-            leaf->setData(0, Qt::UserRole, node[0]);
-            leaf->setData(0, Qt::UserRole + 1, child);
-        }
-    }
-    root->setExpanded(true);
+    const auto addEntry = [](QTreeWidgetItem *group, const QString &title,
+                             const QString &page, const QString &icon) {
+        auto *item = new QTreeWidgetItem(group, {title});
+        item->setIcon(0, QIcon(QStringLiteral(":/aerosim/postprocess/") + icon + QStringLiteral(".svg")));
+        item->setData(0, Qt::UserRole, page);
+        item->setData(0, Qt::UserRole + 1, page);
+        return item;
+    };
+    auto *preprocess = addGroup(uiText(u"前处理"));
+    addEntry(preprocess, uiText(u"网格管理"), "mesh", "mesh");
+    addEntry(preprocess, uiText(u"抛弹管理"), "projectile-management", "projectile");
+    auto *parameters = addGroup(uiText(u"参数设置"));
+    addEntry(parameters, uiText(u"控制方程"), "physics", "formula");
+    addEntry(parameters, uiText(u"边界条件"), "boundary", "parameters");
+    addEntry(parameters, uiText(u"网格运动"), "motion", "rotate");
+    addEntry(parameters, uiText(u"求解方法"), "solver", "formula");
+    addEntry(parameters, uiText(u"参考量"), "reference", "parameters");
+    addEntry(parameters, uiText(u"输出控制"), "output", "export-config");
+    addEntry(parameters, uiText(u"初始化"), "initialization", "new-state");
+    addEntry(parameters, uiText(u"计算控制"), "calculation", "parameters");
+    auto *tasks = addGroup(uiText(u"计算任务"));
+    auto *singleTask = addEntry(tasks, uiText(u"单任务"), "single-task", "mesh");
+    auto *multiTask = addEntry(tasks, uiText(u"多任务"), "multi-task", "compare");
+    singleTask->setCheckState(0, Qt::Unchecked);
+    multiTask->setCheckState(0, Qt::Checked);
+    for (auto *item : {singleTask, multiTask})
+        item->setToolTip(0, uiText(u"任务模式界面草稿；尚未连接任务调度服务"));
+    connect(projectTree_, &QTreeWidget::itemChanged, this, [this, singleTask, multiTask](QTreeWidgetItem *item, int column) {
+        if (column != 0 || (item != singleTask && item != multiTask)) return;
+        const QSignalBlocker blocker(projectTree_);
+        auto *other = item == singleTask ? multiTask : singleTask;
+        other->setCheckState(0, item->checkState(0) == Qt::Checked ? Qt::Unchecked : Qt::Checked);
+    });
+    auto *intelligentProcessing = addGroup(uiText(u"数据智能处理"));
+    addEntry(intelligentProcessing, uiText(u"数据预处理"), "data-preparation", "parameters");
+    addEntry(intelligentProcessing, uiText(u"智能分析"), "intelligent-analysis", "harness");
+    auto *results = addGroup(uiText(u"结果处理"));
+    addEntry(results, uiText(u"流场后处理"), "results", "field");
     connect(projectTree_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem *item) {
         if (!item) return;
         const QString page = item->data(0, Qt::UserRole).toString();
         if (page.isEmpty()) return;
         selectPage(page);
         emit navigationRequested(page, item->data(0, Qt::UserRole + 1).toString(), {});
+    });
+    connect(projectTree_, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *item) {
+        if (item && item->data(0, Qt::UserRole).toString() == QStringLiteral("results"))
+            emit openPostProcessRequested();
+    });
+    connect(projectTree_, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *item) {
+        const QString page = item->data(0, Qt::UserRole).toString();
+        if (!page.isEmpty() && page == currentPage_ && workspacePages_->currentIndex() == 0)
+            selectPage(page);
     });
     navigationTabs_->addTab(projectTree_, uiText(u"工程树"));
     auto *workflowPage = new QWidget(navigationTabs_);
@@ -252,22 +312,39 @@ void MainWindow::createWorkspace()
 
     propertyDock_ = new QDockWidget(uiText(u"属性编辑器"), this);
     propertyDock_->setObjectName(uiText(u"propertyDock"));
-    auto *properties = new QWidget(propertyDock_);
+    propertyDock_->setMinimumWidth(310);
+    auto *propertyScroll = new QScrollArea(propertyDock_);
+    propertyScroll_ = propertyScroll;
+    propertyScroll->setWidgetResizable(true);
+    propertyScroll->setFrameShape(QFrame::NoFrame);
+    auto *properties = new QWidget(propertyScroll);
+    properties->setObjectName(uiText(u"propertyContent"));
+    properties->setStyleSheet(uiText(u"QWidget#propertyContent { background: #f5f7fb; }"));
     auto *propertyLayout = new QVBoxLayout(properties);
+    propertyLayout->setContentsMargins(16, 16, 16, 16);
+    propertyLayout->setSpacing(12);
     propertyTitle_ = new QLabel(properties);
     propertyTitle_->setObjectName(uiText(u"propertyTitle"));
     propertyLayout->addWidget(propertyTitle_);
-    auto *notice = new QLabel(uiText(u"参数草稿示例 · 仅保存在当前窗口\n正式参数校验与工程保存待接入"), properties);
-    notice->setWordWrap(true);
-    propertyLayout->addWidget(notice);
+    backToWorkbench_ = new QPushButton(uiText(u"返回三维工作区"), properties);
+    backToWorkbench_->setObjectName(uiText(u"backToWorkbench"));
+    backToWorkbench_->hide();
+    propertyLayout->addWidget(backToWorkbench_, 0, Qt::AlignLeft);
+    connect(backToWorkbench_, &QPushButton::clicked, this, &MainWindow::showViewport);
     propertyForm_ = new QFormLayout;
     propertyForm_->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     propertyLayout->addLayout(propertyForm_);
     propertyLayout->addStretch();
+    auto *notice = new QLabel(uiText(u"设置仅保存在当前窗口，尚未应用到求解器。"), properties);
+    notice->setWordWrap(true);
+    notice->setStyleSheet(uiText(u"color: #6b7c90; font-size: 11px;"));
+    propertyLayout->addWidget(notice);
     auto *reset = new QPushButton(uiText(u"清除本页草稿"), properties);
+    reset->setObjectName(uiText(u"resetPropertyDraft"));
     connect(reset, &QPushButton::clicked, this, [this] { drafts_.remove(currentPage_); selectPage(currentPage_); });
     propertyLayout->addWidget(reset);
-    propertyDock_->setWidget(properties);
+    propertyScroll->setWidget(properties);
+    propertyDock_->setWidget(propertyScroll);
     selectPage(uiText(u"mesh"));
 
     outputDock_ = new QDockWidget(uiText(u"输出与计算监控"), this);
@@ -324,9 +401,17 @@ void MainWindow::selectPage(const QString &pageId)
 {
     currentPage_ = pageId;
     while (propertyForm_->rowCount()) propertyForm_->removeRow(0);
-    const QHash<QString, QString> titles = {{"mesh", "网格与变换"}, {"physics", "物理模型 / 大气参数"},
-        {"motion", "运动参数"}, {"boundary", "边界条件"}, {"solver", "求解器设置"},
-        {"parallel", "并行设置"}, {"states", "工况状态"}, {"results", "结果与后处理"}};
+    if (pageId == QStringLiteral("projectile-management")) {
+        propertyDock_->hide();
+        workspacePages_->setCurrentWidget(projectilePage_);
+        return;
+    }
+    const QHash<QString, QString> titles = {{"mesh", "网格管理"}, {"physics", "控制方程"}, {"atmosphere", "大气参数"},
+        {"motion", "网格运动"}, {"boundary", "边界条件"}, {"solver", "求解方法"},
+        {"parallel", "并行设置"}, {"states", "工况状态"}, {"results", "流场后处理"},
+        {"reference", "参考量"}, {"output", "输出控制"}, {"initialization", "初始化"},
+        {"calculation", "计算控制"}, {"single-task", "单任务"}, {"multi-task", "多任务"},
+        {"data-preparation", "数据预处理"}, {"intelligent-analysis", "智能分析"}};
     propertyTitle_->setText(titles.value(pageId, pageId));
     const auto addNumber = [this, pageId](const QString &key, const QString &label, double value, const QString &unit) {
         auto *editor = new QDoubleSpinBox(this);
@@ -341,7 +426,21 @@ void MainWindow::selectPage(const QString &pageId)
             emit parameterDraftChanged(pageId, drafts_.value(pageId));
         });
     };
-    if (pageId == "boundary" || pageId == "physics") {
+    if (pageId == "physics") {
+        auto *panel = new GoverningEquationsPanel(drafts_.value(pageId), this);
+        connect(panel, &GoverningEquationsPanel::draftChanged, this, [this, pageId](const QVariantMap &draft) {
+            drafts_[pageId] = draft;
+            emit parameterDraftChanged(pageId, draft);
+        });
+        propertyForm_->addRow(panel);
+    } else if (pageId == "boundary") {
+        auto *panel = new BoundaryConditionsPanel(drafts_.value(pageId), this);
+        connect(panel, &BoundaryConditionsPanel::draftChanged, this, [this, pageId](const QVariantMap &draft) {
+            drafts_[pageId] = draft;
+            emit parameterDraftChanged(pageId, draft);
+        });
+        propertyForm_->addRow(panel);
+    } else if (pageId == "atmosphere") {
         auto *type = new QComboBox(this);
         type->addItems({uiText(u"压力入口"), uiText(u"速度入口"), uiText(u"压力出口"), uiText(u"壁面")});
         type->setCurrentIndex(drafts_.value(pageId).value("type", 0).toInt());
@@ -352,11 +451,17 @@ void MainWindow::selectPage(const QString &pageId)
         });
         addNumber("pressure", uiText(u"压力"), 101325, " Pa");
         addNumber("temperature", uiText(u"温度"), 300, " K");
-    } else if (pageId == "motion" || pageId == "mesh") {
-        if (pageId == "motion") addNumber("mass", uiText(u"质量"), 15.2, " kg");
+    } else if (pageId == "motion") {
+        auto *panel = new MeshMotionPanel(drafts_.value(pageId), this);
+        connect(panel, &MeshMotionPanel::draftChanged, this, [this, pageId](const QVariantMap &draft) {
+            drafts_[pageId] = draft;
+            emit parameterDraftChanged(pageId, draft);
+        });
+        propertyForm_->addRow(panel);
+    } else if (pageId == "mesh") {
         for (const QString &axis : {uiText(u"X"), uiText(u"Y"), uiText(u"Z")})
             addNumber(axis, uiText(u"位置 ") + axis, 0, " m");
-    } else if (pageId == "solver") {
+    } else if (pageId == "solver" || pageId == "calculation") {
         addNumber("iterations", uiText(u"最大迭代步"), 10000, {});
         addNumber("timeStep", uiText(u"时间步长"), 0.001, " s");
     } else if (pageId == "parallel") {
@@ -366,7 +471,32 @@ void MainWindow::selectPage(const QString &pageId)
         note->setWordWrap(true);
         propertyForm_->addRow(note);
     }
-    propertyDock_->show();
+    const QStringList parameterPages = {"physics", "boundary", "motion", "solver", "reference", "output", "initialization", "calculation"};
+    if (parameterPages.contains(pageId)) {
+        showParameterPage();
+    } else {
+        parameterPage_->layout()->removeWidget(propertyScroll_);
+        propertyDock_->setWidget(propertyScroll_);
+        workspacePages_->setCurrentIndex(0);
+        backToWorkbench_->hide();
+        propertyDock_->show();
+    }
+}
+
+void MainWindow::showParameterPage()
+{
+    propertyScroll_->setParent(parameterPage_);
+    parameterPage_->layout()->addWidget(propertyScroll_);
+    propertyScroll_->show();
+    backToWorkbench_->show();
+    propertyDock_->hide();
+    workspacePages_->setCurrentWidget(parameterPage_);
+}
+
+void MainWindow::showViewport()
+{
+    workspacePages_->setCurrentIndex(0);
+    propertyDock_->hide();
 }
 
 void MainWindow::restoreLayout()
@@ -381,8 +511,10 @@ void MainWindow::restoreLayout()
     setCorner(Qt::BottomLeftCorner, Qt::BottomDockWidgetArea);
     setCorner(Qt::BottomRightCorner, Qt::BottomDockWidgetArea);
     for (auto *dock : {projectDock_, propertyDock_, outputDock_}) dock->show();
-    resizeDocks({projectDock_, propertyDock_}, {250, 285}, Qt::Horizontal);
+    resizeDocks({projectDock_, propertyDock_}, {250, 360}, Qt::Horizontal);
     resizeDocks({outputDock_}, {210}, Qt::Vertical);
+    if (propertyScroll_->parentWidget() == parameterPage_ || workspacePages_->currentWidget() == projectilePage_)
+        propertyDock_->hide();
 }
 
 bool MainWindow::insertWidget(WidgetSlot slot, QWidget *widget)

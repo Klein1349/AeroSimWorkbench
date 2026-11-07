@@ -24,6 +24,7 @@
   <file alias="pan.svg">icons/pan.svg</file>
   <file alias="previous.svg">icons/previous.svg</file>
   <file alias="probe.svg">icons/probe.svg</file>
+  <file alias="projectile.svg">icons/projectile.svg</file>
   <file alias="right.svg">icons/right.svg</file>
   <file alias="rotate.svg">icons/rotate.svg</file>
   <file alias="select.svg">icons/select.svg</file>
