@@ -386,7 +386,13 @@ void PostProcessWorkbenchWindow::createActions() {
     auto *interactionHint = new QLabel(uiText(u"选择模式 · 左键选择 / 中键平移 / 滚轮缩放"), this);
     interactionHint->setObjectName(uiText(u"postProcessInteractionHint"));
     statusBar()->addPermanentWidget(interactionHint, 1);
-    const auto command = [this](const QString &key, const QString &message) { emit postProcessCommandRequested(key); appendMessage(message); };
+    const auto command = [this](const QString &key, const QString &message) {
+        if (boundaryMode_ && key=="toggleMesh" && boundaryNames_.contains(selectedId_)) {
+            styleDrafts_[selectedId_]["mesh"]=!styleDrafts_.value(selectedId_).value("mesh",true).toBool();
+            emitBoundaryStyle(selectedId_);
+        }
+        emit postProcessCommandRequested(key); appendMessage(message);
+    };
     connect(importAction, &QAction::triggered, this, &PostProcessWorkbenchWindow::openImportDialog);
     connect(exportAction, &QAction::triggered, this, [this] { openExportDialog(QStringLiteral("data")); });
     const auto setInteractionMode = [this, interactionHint](const QString &key, const QString &mode, const QString &hint) {
@@ -569,13 +575,15 @@ QWidget *PostProcessWorkbenchWindow::createDataPanel() {
 }
 
 void PostProcessWorkbenchWindow::openImportDialog() {
+    if (boundaryMode_ && boundaryBusy_) { appendMessage(uiText(u"正在导入，请等待完成或删除加载对象取消。")); return; }
     if (importDialog_) { importDialog_->raise(); importDialog_->activateWindow(); return; }
     auto *dialog = new QFileDialog(this, uiText(u"选择结果文件"));
     importDialog_ = dialog;
     dialog->setObjectName(QStringLiteral("postProcessImportDialog"));
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setFileMode(QFileDialog::ExistingFiles);
+    dialog->setFileMode(boundaryMode_ ? QFileDialog::ExistingFile : QFileDialog::ExistingFiles);
     dialog->setNameFilters({uiText(u"结果文件 (*.vtk *.vtu *.vts *.vtr *.vtp *.vtm *.cgns *.dat *.plt *.szplt)"), uiText(u"所有文件 (*)")});
+    if (boundaryMode_) dialog->setNameFilters({uiText(u"VTK 网格 (*.vtk *.vtu *.vti *.vtp)")});
     connect(dialog, &QFileDialog::filesSelected, this, [this](const QStringList &paths) {
         if (paths.size() > 1) organizeImportedFiles(paths);
         else if (!paths.isEmpty()) recordPendingImport(paths, QStringLiteral("independent"), QStringList());
@@ -585,6 +593,7 @@ void PostProcessWorkbenchWindow::openImportDialog() {
 
 void PostProcessWorkbenchWindow::recordPendingImport(const QStringList &paths, const QString &mode, const QStringList &times) {
     if (paths.isEmpty()) return;
+    if (boundaryMode_) { emit importFilesRequested(paths); return; }
     auto *pending = new QTreeWidgetItem(datasetTree_, QStringList(uiText(u"待接入的文件")));
     pending->setData(0, Qt::UserRole, QStringLiteral("pending"));
     pending->setData(0, Qt::UserRole+4, mode);
@@ -808,6 +817,7 @@ QWidget *PostProcessWorkbenchWindow::createObjectPanel() {
     auto *panel = new QWidget(this); auto *layout = new QVBoxLayout(panel); layout->setContentsMargins(8, 8, 8, 8);
     layout->addWidget(sectionLabel(uiText(u"对象与图层"), panel));
     auto *hint = new QLabel(uiText(u"对象属于当前 Frame。双击对象编辑参数，或通过“对象样式…”编辑外观；显隐和删除只影响选中对象。"), panel);
+    hint->setProperty("boundaryObjectHelp", true);
     hint->setObjectName(uiText(u"mutedText")); hint->setWordWrap(true); layout->addWidget(hint);
     auto *row = new QHBoxLayout;
     row->addWidget(sectionLabel(uiText(u"派生对象"), panel)); row->addStretch();
@@ -835,7 +845,10 @@ QWidget *PostProcessWorkbenchWindow::createObjectPanel() {
     connect(sceneList_, &QListWidget::itemClicked, this, [this] { updateSelectionDetails(); });
     auto *edit = new QToolButton(panel); edit->setDefaultAction(parameterAction_);
     edit->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); layout->addWidget(edit);
-    connect(sceneList_, &QListWidget::itemDoubleClicked, this, [this] { updateSelectionDetails(); openObjectParameters(); });
+    connect(sceneList_, &QListWidget::itemDoubleClicked, this, [this] {
+        updateSelectionDetails();
+        if (boundaryMode_) openObjectStyle(); else openObjectParameters();
+    });
     sceneList_->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(sceneList_, &QWidget::customContextMenuRequested, this, [this](const QPoint &point) {
         auto *item = sceneList_->itemAt(point); if (!item) return;
@@ -845,13 +858,24 @@ QWidget *PostProcessWorkbenchWindow::createObjectPanel() {
     });
     connect(visible, &QPushButton::clicked, this, [this] {
         auto *item = sceneList_->currentItem(); if (!item) return;
+        const auto id=item->data(Qt::UserRole+1).toString();
+        if (boundaryMode_ && boundaryNames_.contains(id)) {
+            const bool visible=!styleDrafts_.value(id).value("visible",true).toBool();
+            styleDrafts_[id]["visible"]=visible;
+            item->setText(boundaryNames_.value(id)+(visible?uiText(u" · 可见"):uiText(u" · 隐藏")));
+            emitBoundaryStyle(id); return;
+        }
         const bool isVisible = item->text().endsWith(uiText(u"可见"));
         item->setText(item->data(Qt::UserRole+2).toString() + uiText(u" · 草稿") + (isVisible ? uiText(u" · 隐藏") : uiText(u" · 可见")));
         styleDrafts_[item->data(Qt::UserRole+1).toString()]["visible"] = !isVisible;
         emit postProcessCommandRequested(QStringLiteral("setObjectVisibility"));
         appendMessage(isVisible ? uiText(u"已隐藏选中派生对象。") : uiText(u"已显示选中派生对象。"));
     });
-    connect(remove, &QPushButton::clicked, this, [this] { if (sceneList_->currentItem()) { const QString id = sceneList_->currentItem()->data(Qt::UserRole+1).toString(); styleDrafts_.remove(id); parameterDrafts_.remove(id); delete sceneList_->takeItem(sceneList_->currentRow()); emit postProcessCommandRequested(QStringLiteral("removeObject")); updateSelectionDetails(); appendMessage(uiText(u"已移除选中派生对象。")); } });
+    connect(remove, &QPushButton::clicked, this, [this] { if (sceneList_->currentItem()) { const QString id = sceneList_->currentItem()->data(Qt::UserRole+1).toString();
+        if (boundaryMode_ && boundaryNames_.contains(id)) {
+            emit boundaryRemoveRequested(id); removeBoundaryPresentation(id); return;
+        }
+        styleDrafts_.remove(id); parameterDrafts_.remove(id); delete sceneList_->takeItem(sceneList_->currentRow()); emit postProcessCommandRequested(QStringLiteral("removeObject")); updateSelectionDetails(); appendMessage(uiText(u"已移除选中派生对象。")); } });
     return panel;
 }
 
@@ -1041,10 +1065,18 @@ void PostProcessWorkbenchWindow::updateSelectionActions() {
         if (action && action->isEnabled()) action->setToolTip(uiText(u"选择导出目标并提交请求；导出服务尚未接入，不会生成文件。"));
     }
     enable("postProcessProbeAction",spatial,uiText(u"请先导入并选择可查询的网格或对象。"));
-    if (viewportHint_) viewportHint_->setText(spatial
+    if (viewportHint_ && !boundaryMode_) viewportHint_->setText(spatial
         ? uiText(u"界面示例 · %1 · %2 · %3").arg(selectedContext_.value("topology").toString(),selectedName_,selectedContext_.value("field").toString())
         : uiText(u"未选择空间数据"));
 
+    if(boundaryMode_) {
+        viewportHint_->setText(boundarySummaries_.value(selectedId_, uiText(u"导入 VTK 网格以显示拓扑边界。")));
+        for(const char *name:{"postProcessProbeAction","postProcessContourAction","postProcessSliceAction","postProcessIsoAction",
+            "postProcessIsoLineAction","postProcessStreamAction","postProcessTraceAction","postProcessColorAction",
+            "postProcessExportAction","postProcessGeometryExportAction","postProcessAnimationExportAction","postProcessImageExportAction"})
+            enable(name,false,uiText(u"当前接入边界显示；此功能尚未连接计算或导出服务。"));
+        parameterAction_->setEnabled(false);
+    }
 }
 
 void PostProcessWorkbenchWindow::openNewFeatureDialog(const QString &kind) {
@@ -1173,7 +1205,12 @@ void PostProcessWorkbenchWindow::addDerivedLayer(const QString &kind, const QStr
         });
     }
 }
-bool PostProcessWorkbenchWindow::insertWidget(WidgetSlot slot,QWidget *widget){if(slot!=WidgetSlot::Viewport||!widget||!viewportLayout_)return false;if(emptyViewport_){viewportLayout_->removeWidget(emptyViewport_);emptyViewport_->deleteLater();emptyViewport_=nullptr;}if(viewportLayout_->count()!=0)return false;viewportLayout_->addWidget(widget);return true;}
+bool PostProcessWorkbenchWindow::insertWidget(WidgetSlot slot,QWidget *widget) {
+    if(slot!=WidgetSlot::Viewport || !widget || !viewportLayout_ || QThread::currentThread()!=thread()
+        || widget->thread()!=thread() || (!emptyViewport_ && viewportLayout_->count()!=0)) return false;
+    if(emptyViewport_) {viewportLayout_->removeWidget(emptyViewport_);emptyViewport_->deleteLater();emptyViewport_=nullptr;}
+    viewportLayout_->addWidget(widget);return true;
+}
 void PostProcessWorkbenchWindow::bindServices(const ServiceBindings &services){if(bound_)return;services_=services;bound_=true;if(services_.tasks)connect(services_.tasks,&ITaskService::taskEventOccurred,this,[this](const TaskEvent &event){appendMessage(event.message);},Qt::QueuedConnection);}
 void PostProcessWorkbenchWindow::appendMessage(const QString &message){events_->append(message.toHtmlEscaped());statusBar()->showMessage(message,5000);}
 void PostProcessWorkbenchWindow::updateSelectionDetails() {
@@ -1213,6 +1250,7 @@ void PostProcessWorkbenchWindow::openObjectStyle() {
     auto *visible = new QCheckBox(uiText(u"在当前 Frame 中显示"), dialog);
     visible->setObjectName(QStringLiteral("objectStyleVisible"));
     visible->setChecked(draft.value("visible", true).toBool());
+    if (boundaryMode_) visible->setText(uiText(u"显示当前边界对象"));
     auto *mesh = new QCheckBox(uiText(u"显示网格 / 边线"), dialog);
     mesh->setObjectName(QStringLiteral("objectStyleMesh"));
     mesh->setChecked(draft.value("mesh", true).toBool());
@@ -1228,15 +1266,23 @@ void PostProcessWorkbenchWindow::openObjectStyle() {
     form->addRow(uiText(u"颜色"), color); form->addRow(uiText(u"不透明度"), opacity);
     layout->addLayout(form);
     auto *hint = new QLabel(uiText(u"当前保存的是此对象的界面草稿。场景服务接入后才会更新实际渲染。"), dialog);
+    if (boundaryMode_ && boundaryNames_.contains(id)) hint->setText(uiText(u"修改当前边界对象的实际显示属性。"));
     hint->setObjectName(QStringLiteral("mutedText")); hint->setWordWrap(true);
     layout->addWidget(hint); layout->addStretch();
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
-    buttons->button(QDialogButtonBox::Ok)->setText(uiText(u"保存草稿"));
+    buttons->button(QDialogButtonBox::Ok)->setText(boundaryMode_ && boundaryNames_.contains(id) ? uiText(u"应用") : uiText(u"保存草稿"));
     buttons->button(QDialogButtonBox::Cancel)->setText(uiText(u"取消")); layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
     connect(buttons, &QDialogButtonBox::accepted, dialog, [this, dialog, id, name, visible, mesh, color, opacity] {
+        if (boundaryMode_ && !boundaryNames_.contains(id)) { dialog->reject(); return; }
         styleDrafts_[id] = {{"visible", visible->isChecked()}, {"mesh", mesh->isChecked()},
                             {"color", color->currentIndex()}, {"opacity", opacity->value()}};
+        if (boundaryMode_ && boundaryNames_.contains(id)) {
+            emitBoundaryStyle(id);
+            for(int i=0;i<sceneList_->count();++i) if(sceneList_->item(i)->data(Qt::UserRole+1).toString()==id)
+                sceneList_->item(i)->setText(name+(visible->isChecked()?uiText(u" · 可见"):uiText(u" · 隐藏")));
+            appendMessage(uiText(u"已更新边界对象样式。")); dialog->accept(); return;
+        }
         for (int i = 0; i < sceneList_->count(); ++i) {
             auto *item = sceneList_->item(i);
             if (item->data(Qt::UserRole+1).toString() == id)
@@ -1417,6 +1463,71 @@ void PostProcessWorkbenchWindow::displayProbeResult(const QString &text) {
     if (text.trimmed().isEmpty()) return;
     showProbePanel();
     probeResult_->setPlainText(text);
+}
+
+void PostProcessWorkbenchWindow::enableBoundaryMode() {
+    if (boundaryMode_) return;
+    boundaryMode_=true; datasetTree_->clear(); sceneList_->clear(); styleDrafts_.clear(); parameterDrafts_.clear();
+    sessionContext_->setText(uiText(u"B-Rep 网格边界显示")); viewportHint_->setText(uiText(u"导入 VTK 网格，显示全部拓扑边界；保留原始体数据。"));
+    for (auto *label : navigationPanels_[2]->findChildren<QLabel *>())
+        if (label->property("boundaryObjectHelp").toBool())
+            label->setText(uiText(u"双击边界对象编辑外观；显隐和删除只影响选中对象。"));
+    timeSlider_->setEnabled(false);
+    findChild<QLabel *>("viewportOrientation")->hide();
+    findChild<QAction *>("postProcessRotateAction")->trigger();
+    findChild<QTimer *>("postProcessPlayTimer")->stop();
+    for (const char *name : {"postProcessFirstFrame", "postProcessPreviousFrame", "postProcessPlayFrame", "postProcessNextFrame", "postProcessLastFrame"})
+        findChild<QToolButton *>(name)->setEnabled(false);
+    timeLabel_->setText(uiText(u"单帧网格 · 无时间序列"));
+    applyBackground(backgroundBottom_, backgroundTop_, gradientBackground_);
+    for(const char *name:{"postProcessStructuredExampleAction","postProcessUnstructuredExampleAction",
+        "postProcessBoxSelectAction","postProcessSelectAction","postProcessPanAction","postProcessZoomAction"}) {
+        auto *action=findChild<QAction *>(name);
+        if(action) {action->setEnabled(false);action->setToolTip(uiText(u"边界视口使用左键旋转、中键平移、滚轮缩放。"));}
+    }
+    for(auto *toggle:navigationPanels_[0]->findChildren<QCheckBox *>()) {
+        toggle->setEnabled(false);toggle->setToolTip(uiText(u"请通过对象样式控制边界对象。"));
+    }
+    findChild<QPushButton *>("postProcessNewObjectButton")->setEnabled(false);
+    updateSelectionDetails();
+}
+void PostProcessWorkbenchWindow::beginBoundary(const QString &id,const QString &path) {
+    boundaryNames_[id]=QFileInfo(path).fileName();
+    boundarySummaries_[id]=uiText(u"正在后台读取并提取边界…");
+    auto *item=new QListWidgetItem(boundaryNames_[id]+uiText(u" · 加载中"),sceneList_);
+    item->setData(Qt::UserRole,QStringLiteral("pending"));item->setData(Qt::UserRole+1,id);item->setData(Qt::UserRole+2,boundaryNames_[id]);
+    sceneList_->setCurrentItem(item);showNavigationPanel(2);appendMessage(uiText(u"正在读取并提取边界：")+path);
+}
+void PostProcessWorkbenchWindow::finishBoundary(const QString &id,const QString &path,const QString &summary) {
+    if(!boundaryNames_.contains(id)) return;
+    boundarySummaries_[id]=summary;
+    const QVariantMap context={{"sourceId",id},{"dimension",2},{"components",0},{"frames",1}};
+    for(int i=0;i<sceneList_->count();++i) if(sceneList_->item(i)->data(Qt::UserRole+1).toString()==id) {
+        auto *item=sceneList_->item(i);item->setText(boundaryNames_[id]+uiText(u" · 可见"));
+        item->setData(Qt::UserRole,QStringLiteral("surface"));item->setData(Qt::UserRole+3,context);item->setToolTip(summary);
+    }
+    auto *node=new QTreeWidgetItem(datasetTree_,{boundaryNames_[id]});
+    node->setData(0,Qt::UserRole,QStringLiteral("surface"));node->setData(0,Qt::UserRole+1,id);node->setData(0,Qt::UserRole+3,context);node->setToolTip(0,path+"\n"+summary);
+    viewportHint_->setText(summary);updateSelectionDetails();emitBoundaryStyle(id);appendMessage(summary);
+}
+void PostProcessWorkbenchWindow::removeBoundaryPresentation(const QString &id) {
+    boundaryNames_.remove(id);boundarySummaries_.remove(id);styleDrafts_.remove(id);
+    for(int i=sceneList_->count()-1;i>=0;--i) if(sceneList_->item(i)->data(Qt::UserRole+1).toString()==id) delete sceneList_->takeItem(i);
+    for(int i=datasetTree_->topLevelItemCount()-1;i>=0;--i) if(datasetTree_->topLevelItem(i)->data(0,Qt::UserRole+1).toString()==id) delete datasetTree_->takeTopLevelItem(i);
+    updateSelectionDetails();viewportHint_->setText(uiText(u"边界对象数：%1").arg(boundaryNames_.size()));
+}
+void PostProcessWorkbenchWindow::failBoundary(const QString &id,const QString &message) {
+    if(!id.isEmpty()) removeBoundaryPresentation(id);
+    viewportHint_->setText(message);appendMessage(message);showTaskPanel();
+}
+void PostProcessWorkbenchWindow::setBoundaryBusy(bool busy) {
+    boundaryBusy_=busy;findChild<QAction *>("postProcessImportAction")->setEnabled(!busy);
+}
+void PostProcessWorkbenchWindow::emitBoundaryStyle(const QString &id) {
+    const auto s=styleDrafts_.value(id);
+    const QList<QColor> colors={QColor("#3b82c4"),QColor("#3b82c4"),QColor("#36a9a9"),QColor("#e58b2a"),QColor("#999999")};
+    emit boundaryStyleChanged(id,{{"visible",s.value("visible",true)}, {"mode",s.value("mesh",true).toBool()?2:0},
+        {"opacity",s.value("opacity",100)}, {"color",colors.value(s.value("color",0).toInt(),colors[0])}});
 }
 
 } // namespace aerosim

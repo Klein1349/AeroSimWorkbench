@@ -13,8 +13,7 @@ option(AEROSIM_BUILD_GUI "Build the SARibbon main window" ON)
 option(AEROSIM_BUILD_TESTS "Build and register skeleton smoke tests" ON)
 
 option(AEROSIM_BUILD_STACK_PROBE "Build the optional Qt/VTK/SARibbon compatibility probe" OFF)
-# Enables the visualization module skeleton. Concrete targets are added only
-# when a delivered submodule owns an actual implementation.
+# Optional VTK boundary extraction and native scene viewer.
 option(AEROSIM_BUILD_VISUALIZATION "Enable visualization/post-processing module targets" OFF)
 
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core)

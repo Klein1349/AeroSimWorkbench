@@ -12,10 +12,9 @@ if(AEROSIM_BUILD_GUI)
     add_executable(aerosim_gui WIN32 gui_main.cpp)
     target_link_libraries(aerosim_gui PRIVATE
         aerosim_application aerosim_mock aerosim_ui Qt5::Widgets)
-    # Keep the application-level injection point. The scene target is absent
-    # while visualization is only a skeleton, and is linked again as soon as
-    # the new scene module provides it.
+    # Inject the optional native boundary viewer into the existing UI host.
     if(TARGET aerosim_visualization_scene)
+        target_sources(aerosim_gui PRIVATE BoundaryViewerBinding.cpp)
         target_link_libraries(aerosim_gui PRIVATE aerosim_visualization_scene)
         target_compile_definitions(aerosim_gui PRIVATE AEROSIM_HAS_VTK_VIEWER=1)
     endif()
@@ -28,9 +27,19 @@ if(AEROSIM_BUILD_GUI)
         aerosim_application aerosim_mock aerosim_ui Qt5::Widgets)
     target_compile_definitions(aerosim_postprocess PRIVATE AEROSIM_POSTPROCESS_STANDALONE=1)
     if(TARGET aerosim_visualization_scene)
+        target_sources(aerosim_postprocess PRIVATE BoundaryViewerBinding.cpp)
         target_link_libraries(aerosim_postprocess PRIVATE aerosim_visualization_scene)
         target_compile_definitions(aerosim_postprocess PRIVATE AEROSIM_HAS_VTK_VIEWER=1)
     endif()
     set_target_properties(aerosim_postprocess PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/postprocess")
+    if(TARGET aerosim_visualization_scene AND AEROSIM_BUILD_TESTS)
+        add_executable(aerosim_boundary_gui_tests tests/BoundaryIntegrationTests.cpp BoundaryViewerBinding.cpp)
+        target_include_directories(aerosim_boundary_gui_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+        target_link_libraries(aerosim_boundary_gui_tests PRIVATE aerosim_ui aerosim_visualization_scene)
+        target_compile_definitions(aerosim_boundary_gui_tests PRIVATE
+            "AEROSIM_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/../tests/fixtures/postprocess\"")
+        add_test(NAME boundary_gui_integration COMMAND aerosim_boundary_gui_tests)
+        set_tests_properties(boundary_gui_integration PROPERTIES LABELS "native-opengl" TIMEOUT 90)
+    endif()
 endif()

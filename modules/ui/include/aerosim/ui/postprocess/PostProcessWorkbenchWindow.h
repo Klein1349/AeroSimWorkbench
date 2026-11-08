@@ -36,6 +36,11 @@ public:
     QWidget *windowWidget() override { return this; }
     bool insertWidget(WidgetSlot slot, QWidget *widget) override;
     void bindServices(const ServiceBindings &services) override;
+    void enableBoundaryMode();
+    void beginBoundary(const QString &id, const QString &path);
+    void finishBoundary(const QString &id, const QString &path, const QString &summary);
+    void failBoundary(const QString &id, const QString &message);
+    void setBoundaryBusy(bool busy);
 
 public slots:
     // GUI-thread presentation endpoint; no picking or numerical work is done here.
@@ -49,6 +54,8 @@ signals:
     void exportFileRequested(const QString &kind, const QString &path);
     // GUI-thread view preference; a future viewer adapter must apply it to VTK.
     void backgroundChanged(const QColor &bottom, const QColor &top, bool gradient);
+    void boundaryRemoveRequested(const QString &id);
+    void boundaryStyleChanged(const QString &id, const QVariantMap &style);
 
 private:
     QWidget *createDataPanel();
@@ -117,6 +124,12 @@ private:
     QDockWidget *deepSeekHarnessDock_ = nullptr;
     ServiceBindings services_;
     bool bound_ = false;
+    bool boundaryMode_ = false;
+    bool boundaryBusy_ = false;
+    QHash<QString, QString> boundaryNames_;
+    QHash<QString, QString> boundarySummaries_;
+    void emitBoundaryStyle(const QString &id);
+    void removeBoundaryPresentation(const QString &id);
 };
 
 } // namespace aerosim

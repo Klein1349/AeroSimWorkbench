@@ -1,5 +1,7 @@
 # 可视化与后处理模块
 
+已实现的首个功能是 **B-Rep 网格边界显示**：VTK 文件读取、异步边界提取、来源/字段保留，以及现有主窗口和后处理工作台中的真实三维显示。构建、支持范围与验证记录见 [BoundaryDisplay.md](BoundaryDisplay.md)，依赖见 [Dependencies.md](Dependencies.md)。下文其余后处理能力仍为规划，不表示已完成。
+
 `modules/visualization/` 是 AeroSimWorkbench 后处理的**真实数据、计算与渲染逻辑层**。它与 `modules/ui/` 中的 `PostProcessWorkbenchWindow` 共同组成一个后处理工作台，但本目录不创建窗口、不定义 Ribbon 布局，也不把 Qt Widget 作为服务接口的一部分。
 
 后处理的输入是上游已经产生的结果选择：结果集、Zone/组件、边界或表面、物理字段、点/单元、时间帧、监控记录或多工况集合。当前上游模块尚未完成时，可以由 Mock 提供等价的轻量选择上下文；Mock 只替换输入来源和任务生命周期，不能替代真实的结果读取、VTK 算法或数值验收。
@@ -65,7 +67,7 @@ analysis/   曲线、多状态、公式、表格、气动力/舵效与 AI；不�
 tests/      每个实际目标的读取、算法和 UI 接入测试
 ```
 
-建议的数据依赖是：`data → features → scene`；`analysis` 读取 `data` 与特征结果的轻量描述，但不依赖 `scene`。实际 CMake 目标只在对应子模块已有独立实现和测试后新增并接入根工程；当前目录是骨架，不应把尚未验证的草案伪装成已实现能力。
+建议的数据依赖是：`data → features → scene`；`analysis` 读取 `data` 与特征结果的轻量描述，但不依赖 `scene`。现有目标为 `aerosim_boundary` 和 `aerosim_visualization_scene`；其余目标在对应子模块完成独立实现与测试后接入，不应把尚未验证的草案写成已实现能力。
 
 ## UI 操作如何落到逻辑层
 

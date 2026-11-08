@@ -17,8 +17,18 @@ set "TARGET=%~1"
 if "%TARGET%"=="" set "TARGET=all"
 set "CONFIG=%~2"
 if "%CONFIG%"=="" set "CONFIG=Debug"
+rem Fresh test output directories need the Debug CRT as well as Qt DLLs.
+rem Use the active VS developer environment, never a machine-specific path.
+if /I "%CONFIG%"=="Debug" (
+    if exist "%VCToolsRedistDir%debug_nonredist\x64\Microsoft.VC141.DebugCRT" set "PATH=%VCToolsRedistDir%debug_nonredist\x64\Microsoft.VC141.DebugCRT;!PATH!"
+    if exist "%WindowsSdkDir%bin\%WindowsSDKVersion%x64\ucrt" set "PATH=%WindowsSdkDir%bin\%WindowsSDKVersion%x64\ucrt;!PATH!"
+)
 
 if /I "%AEROSIM_BUILD_STACK_PROBE%"=="ON" if not defined AEROSIM_VTK_DIR (
+    echo Set AEROSIM_VTK_DIR to the VTK 8.2.0 CMake package directory.
+    exit /b 2
+)
+if /I "%AEROSIM_BUILD_VISUALIZATION%"=="ON" if not defined AEROSIM_VTK_DIR (
     echo Set AEROSIM_VTK_DIR to the VTK 8.2.0 CMake package directory.
     exit /b 2
 )

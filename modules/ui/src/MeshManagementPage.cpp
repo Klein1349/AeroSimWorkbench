@@ -5,6 +5,8 @@
 #include <QDateTime>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -197,6 +199,16 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     addViewButton(cameraTools, toolbar, uiText(u"\u6b63\u89c6 X"), pending);
     addViewButton(cameraTools, toolbar, uiText(u"\u4fa7\u89c6 Y"), pending);
     addViewButton(cameraTools, toolbar, uiText(u"\u9876\u89c6 Z"), pending);
+    const QStringList cameraCommands = {"fit", "in", "out", "reset", "front", "right", "top"};
+    const auto cameraButtons = toolbar->findChildren<QToolButton *>();
+    for (int i=0; i<cameraCommands.size(); ++i) {
+        auto *button=cameraButtons.at(i);
+        button->setProperty("boundaryCommand", cameraCommands.at(i));
+        button->setObjectName(QStringLiteral("boundaryView_%1").arg(cameraCommands.at(i)));
+        connect(button, &QToolButton::clicked, this, [this, i, cameraCommands] {
+            if (boundaryMode_) emit boundaryViewRequested(cameraCommands.at(i));
+        });
+    }
     cameraTools->addStretch();
     toolbarLayout->addLayout(cameraTools);
     auto *displayTools = new QHBoxLayout;
@@ -290,6 +302,7 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         const int row = meshList_->indexOfTopLevelItem(item);
         if (row < 0 || row >= meshes_.size()) return;
         meshes_[row].visible = item->checkState(0) == Qt::Checked;
+        emitBoundaryStyle(row);
         if (row == meshList_->indexOfTopLevelItem(meshList_->currentItem())) refreshEditor();
         appendHistory((meshes_[row].visible ? uiText(u"\u663e\u793a ") : uiText(u"\u9690\u85cf ")) + meshes_[row].name);
     });
@@ -305,6 +318,7 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         const QVector<QColor> colors = {QColor("#3b82c4"), QColor("#e58b2a"), QColor("#4d9d69"), QColor("#8c63b8")};
         int index = colors.indexOf(meshes_[row].color);
         meshes_[row].color = colors[(index + 1) % colors.size()];
+        emitBoundaryStyle(row);
         refreshEditor();
         appendHistory(uiText(u"\u4fee\u6539 %1 \u663e\u793a\u989c\u8272\uff08Mock\uff09").arg(meshes_[row].name));
     });
@@ -314,8 +328,10 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     connect(wireframeButton, &QToolButton::clicked, this, [this] {
         displayModeEditor_->setCurrentText(uiText(u"\u7ebf\u6846"));
     });
+    axisButton->setObjectName(QStringLiteral("meshAxisButton"));
     connect(axisButton, &QToolButton::toggled, axisIndicator_, &QWidget::setVisible);
     connect(background, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, canvas, background](int index) {
+        if (boundaryMode_) { emit boundaryBackgroundRequested(index); return; }
         const QString color = index == 1 ? QStringLiteral("#273443") : index == 2
             ? QStringLiteral("qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #dce9f7,stop:1 #6f849b)")
             : QStringLiteral("#edf2f7");
@@ -350,6 +366,12 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
 
 void MeshManagementPage::addMesh()
 {
+    if (boundaryMode_) {
+        const auto path=QFileDialog::getOpenFileName(this, QString::fromUtf8("导入网格边界"), QString(),
+            QString::fromUtf8("VTK 网格 (*.vtk *.vtu *.vti *.vtp)"));
+        if (!path.isEmpty()) emit boundaryImportRequested(path);
+        return;
+    }
     if (meshes_.size() >= 10) return;
     MeshUiState state;
     state.name = QStringLiteral("Mesh_%1").arg(meshes_.size() + 1, 3, 10, QLatin1Char('0'));
@@ -374,6 +396,7 @@ void MeshManagementPage::removeCurrentMesh()
     const int row = meshList_->indexOfTopLevelItem(meshList_->currentItem());
     if (row < 0 || row >= meshes_.size()) return;
     const QString name = meshes_[row].name;
+    if (boundaryMode_) emit boundaryRemoveRequested(meshes_[row].id);
     meshes_.remove(row);
     delete meshList_->takeTopLevelItem(row);
     if (!meshes_.isEmpty()) meshList_->setCurrentItem(meshList_->topLevelItem(qMin(row, meshes_.size() - 1)));
@@ -403,6 +426,11 @@ void MeshManagementPage::refreshListItem(int row)
     item->setToolTip(0, meshes_[row].visible
         ? uiText(u"\u524d\u7aef\u72b6\u6001\uff1a\u53ef\u89c1\uff08\u672a\u8fde\u63a5 VTK \u5bf9\u8c61\uff09")
         : uiText(u"\u524d\u7aef\u72b6\u6001\uff1a\u9690\u85cf\uff08\u672a\u8fde\u63a5 VTK \u5bf9\u8c61\uff09"));
+    if (boundaryMode_) {
+        item->setData(0, Qt::UserRole, meshes_[row].id);
+        item->setText(0, meshes_[row].name + (meshes_[row].ready ? QString() : QString::fromUtf8(" · 加载中")));
+        item->setToolTip(0, meshes_[row].summary);
+    }
     updatingEditor_ = false;
 }
 
@@ -412,7 +440,7 @@ void MeshManagementPage::refreshEditor()
     const bool valid = row >= 0 && row < meshes_.size();
     const QVector<QWidget *> editors = {nameEditor_, visibleEditor_, displayModeEditor_, colorButton_,
                                         opacityEditor_, scaleEditor_, unitEditor_};
-    for (auto *widget : editors) widget->setEnabled(valid);
+    for (auto *widget : editors) widget->setEnabled(valid && meshes_[row].ready);
     removeMeshButton_->setEnabled(valid);
     updatingEditor_ = true;
     if (valid) {
@@ -434,6 +462,8 @@ void MeshManagementPage::refreshEditor()
         colorButton_->setText(uiText(u"\u65e0\u9009\u62e9"));
         viewerStatus_->setText(uiText(u"\u5c1a\u672a\u9009\u62e9\u7f51\u683c\u5bf9\u8c61 \u00b7 VTKViewer \u63d2\u69fd\u4fdd\u6301\u4e0d\u53d8"));
     }
+    if (boundaryMode_) viewerStatus_->setText(valid ? meshes_[row].summary
+        : QString::fromUtf8("请选择网格文件以显示边界。"));
     updatingEditor_ = false;
 }
 
@@ -451,6 +481,7 @@ void MeshManagementPage::updateCurrentMesh()
     state.opacity = opacityEditor_->value();
     state.scale = scaleEditor_->value();
     state.unit = unitEditor_->currentText();
+    emitBoundaryStyle(row);
     refreshListItem(row);
     refreshEditor();
     appendHistory(uiText(u"\u66f4\u65b0 %1 \u663e\u793a\u5c5e\u6027\uff08Mock\uff09").arg(state.name));
@@ -458,6 +489,12 @@ void MeshManagementPage::updateCurrentMesh()
 
 void MeshManagementPage::updateCount()
 {
+    if (boundaryMode_) {
+        meshCount_->setText(QString::fromUtf8("%1 个").arg(meshes_.size()));
+        addMeshButton_->setEnabled(!boundaryBusy_);
+        addMeshButton_->setToolTip(QString::fromUtf8("读取网格并提取全部拓扑边界面"));
+        return;
+    }
     meshCount_->setText(uiText(u"%1 / 10 \u4e2a").arg(meshes_.size()));
     addMeshButton_->setEnabled(meshes_.size() < 10);
     addMeshButton_->setToolTip(meshes_.size() < 10
@@ -467,7 +504,12 @@ void MeshManagementPage::updateCount()
 
 void MeshManagementPage::appendHistory(const QString &message)
 {
-    historyList_->addItem(QStringLiteral("[%1] %2").arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")), message));
+    QString displayMessage=message;
+    if (boundaryMode_) {
+        displayMessage.remove(QString::fromUtf8("（Mock）"));
+        displayMessage.remove(QString::fromUtf8("（仅影响当前界面）"));
+    }
+    historyList_->addItem(QStringLiteral("[%1] %2").arg(QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss")), displayMessage));
     historyList_->scrollToBottom();
 }
 
@@ -517,6 +559,79 @@ void MeshManagementPage::restoreDefaultLayout()
     mainSplitter_->setSizes({290, 850});
     expandedHistoryHeight_ = 145;
     setHistoryCollapsed(true);
+}
+
+void MeshManagementPage::enableBoundaryMode()
+{
+    if (boundaryMode_) return;
+    boundaryMode_=true;
+    { QSignalBlocker block(meshList_); meshList_->clear(); meshes_.clear(); }
+    historyList_->clear();
+    findChild<QLabel *>("meshCountLabel")->setText(QString::fromUtf8("B-Rep · 网格边界显示"));
+    findChild<QGroupBox *>("meshDisplayProperties")->setTitle(QString::fromUtf8("显示属性"));
+    visibleEditor_->setText(QString::fromUtf8("可见"));
+    colorButton_->setToolTip(QString::fromUtf8("切换当前对象颜色"));
+    auto *opacityRow=opacityEditor_->parentWidget();
+    if (auto *form=qobject_cast<QFormLayout *>(opacityRow->parentWidget()->layout())) {
+        if (auto *label=qobject_cast<QLabel *>(form->labelForField(opacityRow)))
+            label->setText(QString::fromUtf8("不透明度"));
+    }
+    scaleEditor_->setToolTip(QString::fromUtf8("仅缩放显示，不修改原始网格坐标"));
+    unitEditor_->setToolTip(QString::fromUtf8("单位标记，不执行坐标或物理量换算"));
+    axisIndicator_->hide(); findChild<QToolButton *>("meshAxisButton")->setEnabled(false);
+    for (auto *button:findChildren<QToolButton *>()) {
+        if (button->toolTip().contains(QStringLiteral("Mock")))
+            button->setToolTip(QString::fromUtf8("修改当前对象的显示模式"));
+        const auto cmd=button->property("boundaryCommand").toString();
+        if (!cmd.isEmpty()) {button->setEnabled(true);button->setToolTip(QString::fromUtf8("调整三维视图"));}
+        if(cmd=="front") button->setText(QString::fromUtf8("正视（−Y）"));
+        if(cmd=="right") button->setText(QString::fromUtf8("侧视（+X）"));
+    }
+    auto *background=findChild<QComboBox *>("meshBackgroundMode");
+    background->setItemText(2,QString::fromUtf8("渐变背景")); background->setToolTip(QString::fromUtf8("设置三维视口背景"));
+    emit boundaryBackgroundRequested(background->currentIndex());
+    viewerStatus_->setWordWrap(true);
+    refreshEditor(); updateCount();
+    viewerStatus_->setText(QString::fromUtf8("请选择 VTK 网格文件；显示全部拓扑边界，原体数据保留用于分析。"));
+}
+void MeshManagementPage::beginBoundary(const QString &id,const QString &path)
+{
+    MeshUiState state; state.id=id; state.ready=false; state.name=QFileInfo(path).fileName();
+    state.summary=QString::fromUtf8("正在后台读取并提取边界…");
+    state.displayMode=displayModeEditor_->itemText(2); state.color=QColor("#3b82c4"); state.unit="m";
+    meshes_.append(state);
+    QTreeWidgetItem *item=nullptr;
+    {
+        // Building a checkable item emits itemChanged before its initial check
+        // state is assigned. Do not interpret that as a user hiding the mesh.
+        QSignalBlocker block(meshList_);
+        item=new QTreeWidgetItem(meshList_);
+        item->setFlags(item->flags()|Qt::ItemIsUserCheckable);
+        refreshListItem(meshes_.size()-1);
+    }
+    meshList_->setCurrentItem(item); refreshEditor(); updateCount();
+}
+void MeshManagementPage::finishBoundary(const QString &id,const QString &summary)
+{
+    for(int i=0;i<meshes_.size();++i) if(meshes_[i].id==id) {
+        meshes_[i].ready=true; meshes_[i].summary=summary;
+        refreshListItem(i); refreshEditor(); emitBoundaryStyle(i); appendHistory(summary); return;
+    }
+}
+void MeshManagementPage::failBoundary(const QString &id,const QString &message)
+{
+    for(int i=0;i<meshes_.size();++i) if(meshes_[i].id==id) {
+        meshes_.remove(i); delete meshList_->takeTopLevelItem(i); break;
+    }
+    refreshEditor(); updateCount(); viewerStatus_->setText(message); appendHistory(message);
+}
+void MeshManagementPage::setBoundaryBusy(bool busy) {boundaryBusy_=busy;updateCount();}
+void MeshManagementPage::emitBoundaryStyle(int row)
+{
+    if(!boundaryMode_ || row<0 || row>=meshes_.size() || !meshes_[row].ready) return;
+    const auto &s=meshes_[row];
+    emit boundaryStyleChanged(s.id,{{"visible",s.visible},{"color",s.color},{"opacity",s.opacity},
+        {"scale",s.scale},{"mode",displayModeEditor_->findText(s.displayMode)}});
 }
 
 } // namespace aerosim

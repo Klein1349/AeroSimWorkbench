@@ -7,6 +7,7 @@
 #include <QPixmap>
 
 #ifdef AEROSIM_HAS_VTK_VIEWER
+#include "BoundaryViewerBinding.h"
 #include "aerosim/visualization/scene/VtkSceneViewer.h"
 #include <QSurfaceFormat>
 #include <QVTKOpenGLNativeWidget.h>
@@ -78,24 +79,17 @@ int main(int argc, char *argv[])
     });
 #endif
 #ifdef AEROSIM_HAS_VTK_VIEWER
-    // The workbench remains usable without a native OpenGL surface.  This is
-    // also the safe default on remote desktop sessions where VTK's native
-    // widget may not be backed by the expected graphics driver.
-    const bool enableVtkViewer = qEnvironmentVariableIntValue("AEROSIM_ENABLE_VTK_VIEWER") == 1;
+    // Compiled viewers are enabled by default; smoke tests and explicit opt-out
+    // retain the existing UI-only path on machines without native OpenGL.
+    const bool enableVtkViewer = qgetenv("AEROSIM_ENABLE_VTK_VIEWER") != "0";
     if (!smoke && enableVtkViewer) {
-        auto *viewer = new aerosim::visualization::VtkSceneViewer;
-        if (!postprocess.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
-            delete viewer;
+        if (!aerosim::installBoundaryViewer(postprocess)) {
             QTextStream(stderr) << "Failed to insert VTK viewer\n";
             return 4;
         }
-        QObject::connect(&postprocess, &aerosim::PostProcessWorkbenchWindow::viewRequested, viewer,
-                         [viewer](const QString &orientation) {
-            if (orientation == QStringLiteral("reset"))
-                viewer->resetCamera();
-            else
-                viewer->setCameraOrientation(orientation);
-        });
+#ifndef AEROSIM_POSTPROCESS_STANDALONE
+        if (!aerosim::installBoundaryViewer(window)) return 4;
+#endif
     }
 #endif
 #ifdef AEROSIM_POSTPROCESS_STANDALONE

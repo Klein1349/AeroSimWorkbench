@@ -29,9 +29,23 @@ public:
     QVariantMap layoutState() const;
     void restoreLayoutState(const QVariantMap &state);
     void restoreDefaultLayout();
+    void enableBoundaryMode();
+    void beginBoundary(const QString &id, const QString &path);
+    void finishBoundary(const QString &id, const QString &summary);
+    void failBoundary(const QString &id, const QString &message);
+    void setBoundaryBusy(bool busy);
+signals:
+    void boundaryImportRequested(const QString &path);
+    void boundaryRemoveRequested(const QString &id);
+    void boundaryStyleChanged(const QString &id, const QVariantMap &style);
+    void boundaryViewRequested(const QString &command);
+    void boundaryBackgroundRequested(int mode);
 
 private:
     struct MeshUiState {
+        QString id;
+        QString summary;
+        bool ready = true;
         QString name;
         bool visible = true;
         QString displayMode;
@@ -50,6 +64,9 @@ private:
     void updateCount();
     void appendHistory(const QString &message);
     void setHistoryCollapsed(bool collapsed);
+    void emitBoundaryStyle(int row);
+    bool boundaryMode_ = false;
+    bool boundaryBusy_ = false;
 
     QVector<MeshUiState> meshes_;
     QTreeWidget *meshList_ = nullptr;

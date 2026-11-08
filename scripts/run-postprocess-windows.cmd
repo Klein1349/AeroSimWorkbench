@@ -10,6 +10,9 @@ if not defined AEROSIM_BUILD_DIR set "AEROSIM_BUILD_DIR=%CD%\build-windows"
 
 if not defined AEROSIM_QT_ROOT set "AEROSIM_QT_ROOT=C:\Qt\5.12.12\msvc2017_64"
 if not defined AEROSIM_SARIBBON_SOURCE_DIR set "AEROSIM_SARIBBON_SOURCE_DIR=C:\Users\huangzb\SARibbon"
+rem The nested build script has its own setlocal; retain VTK DLL lookup here
+rem for the launched boundary viewer as well.
+if defined AEROSIM_VTK_BIN set "PATH=%AEROSIM_VTK_BIN%;%PATH%"
 
 if not exist "%AEROSIM_QT_ROOT%\bin\windeployqt.exe" (
     echo [ERROR] Qt Debug deployment tool was not found: %AEROSIM_QT_ROOT%
