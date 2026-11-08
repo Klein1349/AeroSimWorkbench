@@ -129,6 +129,26 @@ this; for Qt tools and capture paths, use an ASCII dependency path or temporary
 target-machine acceptance on the project's designated Windows host has not
 been performed.
 
+## Independent re-verification (2026-11-08, branch `postprocess/brep-verification`)
+
+The implementation was re-verified from a clean checkout of this branch
+(`4a48c40`, based on `origin/main` `35c3bab`) in two fresh build directories:
+
+- `build-verify-core`: geometry/service target only (`AEROSIM_BUILD_GUI=OFF`),
+  configure + Debug build + `boundary_geometry` CTest **1/1 passed**.
+- `build-verify-full`: full application with `AEROSIM_BUILD_VISUALIZATION=ON`,
+  `scripts\build-windows.cmd all Debug`, **17/17 CTests passed** including the
+  native-OpenGL `boundary_gui_integration` test. The first CTest run failed 14
+  tests with `0xc0000135 STATUS_DLL_NOT_FOUND` because a fresh build tree has no
+  Qt/VTK/Debug CRT DLLs beside its executables; deploying the already-verified
+  DLL/plugin set resolved all failures. This is an environment prerequisite, not
+  a code defect.
+
+Logs are kept outside the repository in `开发工具\brep-verify-*-20261108.log`.
+This re-verification does not replace target-machine acceptance, a real large
+mesh A/B/C performance comparison, or an agreed definition of the "90%"
+reduction metric.
+
 ## Constitution compliance
 
 Dependency direction and UI-only presentation responsibilities are preserved.
