@@ -47,7 +47,7 @@ signals:
 
 private:
     void createRibbon();
-    void applyWindowTheme(const QString &id);
+    void applyWindowTheme();
     void createWorkspace();
     void selectPage(const QString &pageId);
     void switchNavigationForCategory(int index);

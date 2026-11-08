@@ -1,10 +1,11 @@
 #include "aerosim/ui/MeshMotionPanel.h"
+#include "aerosim/ui/ForcedMotionDialog.h"
+#include "aerosim/ui/FixedAxisMotionDialog.h"
+#include "aerosim/ui/SixDofMotionDialog.h"
 
 #include <QCheckBox>
 #include <QComboBox>
-#include <QDoubleSpinBox>
 #include <QFormLayout>
-#include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
@@ -26,14 +27,8 @@ MeshMotionPanel::MeshMotionPanel(const QVariantMap &draft, QWidget *parent)
     : QWidget(parent), draft_(draft), bodies_(draft.value("bodies").toList())
 {
     setObjectName(QStringLiteral("meshMotionPanel"));
-    setStyleSheet(QStringLiteral(
-        "QWidget#meshMotionPanel QTableWidget { background: white; border: 1px solid #d7e1ed; border-radius: 5px; }"
-        "QWidget#meshMotionPanel QHeaderView::section { background: #eaf0f7; color: #234d7a; padding: 8px; border: 0; }"
-        "QWidget#meshMotionPanel QGroupBox { background: white; border: 1px solid #d7e1ed; border-radius: 6px;"
-        " margin-top: 12px; padding: 18px 14px 12px; color: #234d7a; }"
-        "QWidget#meshMotionPanel QGroupBox::title { subcontrol-origin: margin; left: 14px; padding: 0 5px; }"
-        "QWidget#meshMotionPanel QLineEdit, QWidget#meshMotionPanel QComboBox,"
-        "QWidget#meshMotionPanel QAbstractSpinBox { min-height: 28px; }"));
+    setProperty("parameterPanel", true);
+    setAttribute(Qt::WA_StyledBackground, true);
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
@@ -64,48 +59,23 @@ MeshMotionPanel::MeshMotionPanel(const QVariantMap &draft, QWidget *parent)
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->setEnabled(enabled_->isChecked());
     layout->addWidget(table_);
-    parameters_ = new QGroupBox(uiText(u"运动参数"), this);
-    parameters_->setObjectName(QStringLiteral("motionParameters"));
-    auto *form = new QFormLayout(parameters_);
-    parameterHint_ = new QLabel(parameters_);
-    parameterHint_->setWordWrap(true);
-    form->addRow(parameterHint_);
-    for (int axis = 0; axis < 3; ++axis) {
-        auto *component = new QDoubleSpinBox(parameters_);
-        components_[axis] = component;
-        component->setObjectName(QStringLiteral("motionComponent%1").arg(axis));
-        component->setDecimals(6);
-        component->setRange(-1e9, 1e9);
-        const QString axisName = QString(QChar('X' + axis));
-        form->addRow(axisName, component);
-        connect(component, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, axis](double value) {
-            if (selectedRow_ < 0) return;
-            const QString key = bodies_.at(selectedRow_).toMap().value("type").toString() == "rotation" ? "angularVelocity" : "velocity";
-            auto values = bodies_.at(selectedRow_).toMap().value(key).toList();
-            values[axis] = value;
-            updateBody(selectedRow_, key, values);
-        });
-    }
-    layout->addWidget(parameters_);
     auto *hint = new QLabel(uiText(u"运动体和参数为本地配置草稿；指定运动体填写网格或对象名称，真实对象绑定与动网格求解尚未接入。"), this);
     hint->setWordWrap(true);
-    hint->setStyleSheet(QStringLiteral("color: #6b7c90;"));
+    hint->setProperty("parameterHint", true);
     layout->addWidget(hint);
     // Populate without emitting a user edit during page construction.
     while (bodies_.size() < count_->value()) {
         const int index = bodies_.size() + 1;
         bodies_.append(QVariantMap{{"name", QStringLiteral("motion_body_%1").arg(index)}, {"target", ""},
-            {"type", "translation"}, {"velocity", QVariantList{0., 0., 0.}}, {"angularVelocity", QVariantList{0., 0., 0.}}});
+            {"type", "forced"}});
     }
     rebuildTable();
     connect(enabled_, &QCheckBox::toggled, this, [this](bool enabled) {
         count_->setEnabled(enabled);
         table_->setEnabled(enabled);
-        parameters_->setEnabled(enabled);
         publish();
     });
     connect(count_, QOverload<int>::of(&QSpinBox::valueChanged), this, &MeshMotionPanel::resizeBodies);
-    connect(table_, &QTableWidget::currentCellChanged, this, [this](int row) { selectBody(row); });
 }
 
 void MeshMotionPanel::resizeBodies(int count)
@@ -113,7 +83,7 @@ void MeshMotionPanel::resizeBodies(int count)
     // Keep inactive bodies so reducing and restoring the count does not lose edits.
     while (bodies_.size() < count) {
         bodies_.append(QVariantMap{{"name", QStringLiteral("motion_body_%1").arg(bodies_.size() + 1)}, {"target", ""},
-            {"type", "translation"}, {"velocity", QVariantList{0., 0., 0.}}, {"angularVelocity", QVariantList{0., 0., 0.}}});
+            {"type", "forced"}});
     }
     rebuildTable();
     publish();
@@ -137,40 +107,41 @@ void MeshMotionPanel::rebuildTable()
         }
         auto *type = new QComboBox(table_);
         type->setObjectName(QStringLiteral("motionBody%1_type").arg(row));
-        type->addItem(uiText(u"平移"), QStringLiteral("translation"));
-        type->addItem(uiText(u"旋转"), QStringLiteral("rotation"));
-        type->setCurrentIndex(type->findData(body.value("type")));
+        type->addItem(uiText(u"强迫运动"), QStringLiteral("forced"));
+        type->addItem(uiText(u"定轴转动"), QStringLiteral("fixed-axis"));
+        type->addItem(uiText(u"六自由度运动"), QStringLiteral("six-dof"));
+        type->addItem(uiText(u"旋转抛置"), QStringLiteral("rotation-release"));
+        const int typeIndex = type->findData(body.value("type"));
+        type->setCurrentIndex(qMax(0, typeIndex));
+        if (typeIndex < 0) {
+            auto updatedBody = body;
+            updatedBody["type"] = type->currentData();
+            bodies_[row] = updatedBody;
+        }
         table_->setCellWidget(row, 2, type);
         connect(type, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, row, type] {
             updateBody(row, "type", type->currentData());
-            selectBody(row);
         });
         auto *settings = new QPushButton(uiText(u"设置参数"), table_);
         settings->setObjectName(QStringLiteral("motionBody%1_settings").arg(row));
         table_->setCellWidget(row, 3, settings);
         connect(settings, &QPushButton::clicked, this, [this, row] {
             table_->setCurrentCell(row, 3);
-            selectBody(row);
+            if (bodies_.at(row).toMap().value("type") == "forced") {
+                ForcedMotionDialog dialog(bodies_.at(row).toMap().value("forcedMotion").toMap(), this);
+                if (dialog.exec() == QDialog::Accepted) updateBody(row, "forcedMotion", dialog.parameters());
+            } else if (bodies_.at(row).toMap().value("type") == "fixed-axis") {
+                FixedAxisMotionDialog dialog(bodies_.at(row).toMap().value("fixedAxisMotion").toMap(), this);
+                if (dialog.exec() == QDialog::Accepted) updateBody(row, "fixedAxisMotion", dialog.parameters());
+            } else if (bodies_.at(row).toMap().value("type") == "six-dof") {
+                SixDofMotionDialog dialog(bodies_.at(row).toMap().value("sixDofMotion").toMap(), this);
+                if (dialog.exec() == QDialog::Accepted) updateBody(row, "sixDofMotion", dialog.parameters());
+            } else if (bodies_.at(row).toMap().value("type") == "rotation-release") {
+                SixDofMotionDialog dialog(bodies_.at(row).toMap().value("rotationReleaseMotion").toMap(), this,
+                                          SixDofMotionDialog::Mode::RotationRelease);
+                if (dialog.exec() == QDialog::Accepted) updateBody(row, "rotationReleaseMotion", dialog.parameters());
+            }
         });
-    }
-    selectBody(-1);
-}
-
-void MeshMotionPanel::selectBody(int row)
-{
-    selectedRow_ = row >= 0 && row < count_->value() ? row : -1;
-    parameters_->setVisible(selectedRow_ >= 0);
-    parameters_->setEnabled(enabled_->isChecked());
-    if (selectedRow_ < 0) return;
-    const auto body = bodies_.at(row).toMap();
-    const bool rotation = body.value("type").toString() == "rotation";
-    parameters_->setTitle(uiText(u"运动参数 · ") + body.value("name").toString());
-    parameterHint_->setText(rotation ? uiText(u"绕全局原点的角速度分量（右手定则）") : uiText(u"全局坐标系中的平移速度分量"));
-    const auto values = body.value(rotation ? "angularVelocity" : "velocity").toList();
-    for (int axis = 0; axis < 3; ++axis) {
-        const QSignalBlocker blocker(components_[axis]);
-        components_[axis]->setSuffix(rotation ? QStringLiteral(" rad/s") : QStringLiteral(" m/s"));
-        components_[axis]->setValue(values.value(axis, 0.).toDouble());
     }
 }
 

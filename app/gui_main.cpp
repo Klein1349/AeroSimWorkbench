@@ -57,14 +57,14 @@ int main(int argc, char *argv[])
                      &window, [&landing, &window](const QString &) {
         landing.setReturnAvailable(true);
         landing.hide();
-        window.show();
+        window.showMaximized();
         window.raise();
         window.activateWindow();
     });
     QObject::connect(&landing, &aerosim::StartupLandingPage::returnToWorkbenchRequested,
                      &window, [&landing, &window] {
         landing.hide();
-        window.show();
+        window.showMaximized();
         window.raise();
         window.activateWindow();
     });
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
                      &landing, [&landing, &window] {
         window.hide();
         landing.setReturnAvailable(true);
-        landing.show();
+        landing.showMaximized();
         landing.raise();
         landing.activateWindow();
     });
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         : app.arguments().contains(QStringLiteral("--workbench"))
             ? static_cast<QWidget *>(&window) : static_cast<QWidget *>(&landing);
 #endif
-    initialWindow->show();
+    initialWindow->showMaximized();
 
     const int screenshotIndex = app.arguments().indexOf(QStringLiteral("--screenshot"));
     if (screenshotIndex >= 0) {

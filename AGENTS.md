@@ -18,6 +18,7 @@
 - 已验证的开发基线为 C++14、Qt 5.12.12、Windows VS2017 v141 x64 **Debug**、CMake 3.18.2；正式 VTK C++ 版本为 8.2.0，现有安装仅提供 Debug 导出；SARibbon 开发基线为 2.9.3。nlohmann/json 版本及日志库选择尚未定案。不要擅自升级、混用 ABI/32 位库或将个人绝对路径写入 CMake；依赖由实际使用它的目标声明。
 - 正式模块应能独立构建和自测，再接入顶层构建。Windows 使用 `scripts/build-windows.cmd <target|all> Debug`，全量构建后运行 CTest；无界面构建可设 `AEROSIM_BUILD_GUI=OFF`。缺少匹配依赖时如实报告；Linux/macOS 全栈与 Windows VTK Release 尚未验证。
 - `mocks/` 只验证装配和异步消息，不代表真实求解、数据读取或后处理验收。正式后处理只采用 C++、Qt 5.12.12 和 VTK 8.2.0；保留已有公共接口及与后处理原型无关的通用脚本执行能力。
+- 主窗口当前固定使用默认浅色模式（Office 蓝色标题栏、浅色工作区），主题切换暂时锁定。后续界面视觉检查只检查默认浅色模式，不再重复检查深色模式。
 
 ## 按任务选择文档
 

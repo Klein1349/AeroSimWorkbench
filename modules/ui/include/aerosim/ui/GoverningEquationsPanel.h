@@ -16,7 +16,12 @@ signals:
 
 private:
     void updateDraft(const QString &key, const QVariant &value);
+    void refreshControls();
     QVariantMap draft_;
+    QWidget *viscousFlowChoices_ = nullptr;
+    QWidget *inviscidNote_ = nullptr;
+    QWidget *turbulenceSettings_ = nullptr;
+    QWidget *rarefiedSettings_ = nullptr;
 };
 
 } // namespace aerosim

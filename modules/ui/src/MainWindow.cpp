@@ -2,11 +2,17 @@
 #include "aerosim/ui/GoverningEquationsPanel.h"
 #include "aerosim/ui/BoundaryConditionsPanel.h"
 #include "aerosim/ui/MeshMotionPanel.h"
+#include "aerosim/ui/ReferenceValuesPanel.h"
+#include "aerosim/ui/CalculationControlPanel.h"
+#include "aerosim/ui/SolutionMethodPanel.h"
+#include "aerosim/ui/OutputControlPanel.h"
+#include "aerosim/ui/InitializationPanel.h"
 #include "aerosim/ui/MeshManagementPage.h"
 
 #include <SARibbonBar.h>
 #include <SARibbonCategory.h>
 #include <SARibbonPanel.h>
+#include <SARibbonToolButton.h>
 #include <QAbstractButton>
 #include <QAction>
 #include <QActionGroup>
@@ -46,6 +52,7 @@
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QThread>
+#include <QToolButton>
 #include <QTimer>
 #include <QResource>
 #include <QScrollArea>
@@ -166,7 +173,8 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(initializeRibbonRes
     statusBar()->addPermanentWidget(new QLabel(uiText(u"UI \u6846\u67b6 \u00b7 Mock \u670d\u52a1"), this));
     QTimer::singleShot(0, this, [this] {
         QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
-        applyWindowTheme(settings.value(QStringLiteral("theme"), QStringLiteral("office-blue")).toString());
+        settings.setValue(QStringLiteral("theme"), QStringLiteral("office-blue"));
+        applyWindowTheme();
     });
     restoreLayout();
     // Apply the integrated mesh page's compact dock arrangement only after
@@ -336,8 +344,8 @@ void MainWindow::createRibbon()
         {"transform", uiText(u"\u7f51\u683c\u8fd0\u52a8"), true, "parameter:mesh-motion"}});
     addGroup(parameters, "solverSettingsGroup", uiText(u"\u6c42\u89e3\u914d\u7f6e"), {
         {"settings", uiText(u"\u6c42\u89e3\u65b9\u6cd5"), true, "parameter:solution-method"},
-        {"atmosphere", uiText(u"\u53c2\u8003\u91cf"), false, "parameter:reference-values"},
-        {"output", uiText(u"\u8f93\u51fa\u63a7\u5236"), false, "parameter:output-control"},
+        {"atmosphere", uiText(u"\u53c2\u8003\u91cf"), true, "parameter:reference-values"},
+        {"output", uiText(u"\u8f93\u51fa\u63a7\u5236"), true, "parameter:output-control"},
         {"initialize", uiText(u"\u521d\u59cb\u5316"), true, "parameter:initialization"}});
 
     auto *calculation = ribbonBar()->addCategoryPage(uiText(u"\u8ba1\u7b97"));
@@ -367,9 +375,11 @@ void MainWindow::createRibbon()
     help->setObjectName(QStringLiteral("helpCategory"));
     auto *appearance = help->addPanel(uiText(u"\u5916\u89c2\u8bbe\u7f6e"));
     appearance->setObjectName(QStringLiteral("appearanceGroup"));
-    auto *menu = new QMenu(uiText(u"\u5207\u6362\u76ae\u80a4"), this);
+    auto *menu = new QMenu(uiText(u"浅色模式（已固定）"), this);
     menu->setObjectName(QStringLiteral("themeMenu"));
     menu->setIcon(QIcon(QStringLiteral(":/aerosim/ribbon/skin.svg")));
+    menu->setEnabled(false);
+    menu->menuAction()->setToolTip(uiText(u"当前固定使用默认浅色模式，主题切换暂不可用。"));
     auto *group = new QActionGroup(this);
     group->setExclusive(true);
     struct ThemeItem { const char *id; QString label; };
@@ -380,12 +390,9 @@ void MainWindow::createRibbon()
         action->setObjectName(QStringLiteral("theme-") + id);
         action->setData(id);
         action->setCheckable(true);
+        action->setEnabled(false);
+        action->setChecked(id == QStringLiteral("office-blue"));
         group->addAction(action);
-        connect(action, &QAction::triggered, this, [this, id] {
-            applyWindowTheme(id);
-            QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
-            settings.setValue(QStringLiteral("theme"), id);
-        });
     }
     appearance->addLargeMenu(menu);
     addGroup(help, "layoutToolsGroup", uiText(u"\u754c\u9762\u5e03\u5c40"), {
@@ -402,22 +409,15 @@ void MainWindow::createRibbon()
             this, &MainWindow::switchNavigationForCategory);
 }
 
-void MainWindow::applyWindowTheme(const QString &requestedId)
+void MainWindow::applyWindowTheme()
 {
-    QString id = requestedId;
-    SARibbonTheme theme = SARibbonTheme::RibbonThemeOffice2016Blue;
-    if (id == "office-light") theme = SARibbonTheme::RibbonThemeOffice2013;
-    else if (id == "dark") theme = SARibbonTheme::RibbonThemeDark;
-    else if (id == "dark-gray") theme = SARibbonTheme::RibbonThemeDark2;
-    else id = QStringLiteral("office-blue");
+    const QString id = QStringLiteral("office-blue");
     if (property("windowThemeId").toString() == id) return;
-    const bool dark = id == "dark" || id == "dark-gray";
-    const bool officeBlue = id == "office-blue";
-    const QString bg = dark ? (id == "dark" ? "#20242b" : "#353535") : "#f4f7fb";
-    const QString base = dark ? "#292e36" : "#ffffff";
-    const QString text = dark ? "#e6eaf0" : "#25364c";
-    const QString border = dark ? "#59616d" : "#dce2eb";
-    const QString selected = dark ? "#355a80" : "#dceafd";
+    const QString bg = QStringLiteral("#f4f7fb");
+    const QString base = QStringLiteral("#ffffff");
+    const QString text = QStringLiteral("#25364c");
+    const QString border = QStringLiteral("#dce2eb");
+    const QString selected = QStringLiteral("#dceafd");
     QPalette colors = palette();
     colors.setColor(QPalette::Window, QColor(bg));
     colors.setColor(QPalette::Base, QColor(base));
@@ -428,17 +428,15 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
     colors.setColor(QPalette::ButtonText, QColor(text));
     colors.setColor(QPalette::Highlight, QColor(selected));
     colors.setColor(QPalette::HighlightedText, QColor(text));
-    colors.setColor(QPalette::Disabled, QPalette::Text, QColor(dark ? "#9ca5b0" : "#808080"));
-    colors.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(dark ? "#9ca5b0" : "#808080"));
+    colors.setColor(QPalette::Disabled, QPalette::Text, QColor("#808080"));
+    colors.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#808080"));
     setPalette(colors);
-    // SARibbon replaces its QSS on every call. Append workspace styling once,
-    // avoiding accumulated overrides when the user switches themes repeatedly.
-    setRibbonTheme(theme);
+    // Keep the default light workspace and Word-style blue title bar fixed.
+    setRibbonTheme(SARibbonTheme::RibbonThemeOffice2016Blue);
     const QColor wordBlue(QStringLiteral("#2b579a"));
-    ribbonBar()->setWindowTitleBackgroundBrush(
-        officeBlue ? QBrush(wordBlue) : QBrush(Qt::NoBrush));
-    ribbonBar()->setWindowTitleTextColor(officeBlue ? QColor(Qt::white) : QColor());
-    const QString wordChrome = officeBlue ? QStringLiteral(
+    ribbonBar()->setWindowTitleBackgroundBrush(QBrush(wordBlue));
+    ribbonBar()->setWindowTitleTextColor(QColor(Qt::white));
+    const QString wordChrome = QStringLiteral(
         "SARibbonBar { background-color: #2b579a; color: white; border-color: #2b579a; }"
         "SARibbonApplicationWidget { background-color: #2b579a; color: white; }"
         "SARibbonTabBar { background-color: transparent; }"
@@ -452,7 +450,7 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
         "SARibbonToolButton:pressed, SARibbonToolButton:checked { background: #c8ddf5; border: 1px solid #8fb5df; }"
         "SARibbonPanel > SARibbonButtonGroupWidget { background: #f4f7fb; border-color: #dce2eb; }"
         "SARibbonSystemButtonBar QToolButton { color: white; background: transparent; }"
-        "SARibbonSystemButtonBar QToolButton:hover { background: #3f6fb2; }") : QString();
+        "SARibbonSystemButtonBar QToolButton:hover { background: #3f6fb2; }");
     setStyleSheet(styleSheet() + QStringLiteral(
         "QMainWindow#AeroSimMainWindow, QDockWidget, QDockWidget QWidget, QStatusBar QLabel { background: %1; color: %3; }"
         "QMenu { background: %2; color: %3; border: 1px solid %4; }"
@@ -476,12 +474,80 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
         "QPushButton { background: %1; color: %3; border: 1px solid %4; padding: 6px 12px; }"
         "QPushButton:hover { background: %5; }").arg(bg, base, text, border, selected)
         + wordChrome);
+    // Embedded parameter pages share the active theme, including the scroll
+    // viewport. Child panels must not override these colors independently.
+    setStyleSheet(styleSheet() + QStringLiteral(
+        "QWidget[parameterEditor=\"true\"], QWidget[parameterSurface=\"true\"], QWidget[parameterPanel=\"true\"] { background: %1; color: %3; }"
+        "QWidget[parameterEditor=\"true\"] QLabel { background: transparent; color: %3; font-weight: normal; }"
+        "QWidget[parameterEditor=\"true\"] QLabel[parameterHint=\"true\"] { color: %6; }"
+        "QWidget[parameterEditor=\"true\"] QLabel#parameterHeading { font-size: 18px; font-weight: 600; }"
+        "QWidget[parameterEditor=\"true\"] QScrollArea { background: %1; border: 0; }"
+        "QWidget[parameterEditor=\"true\"] QScrollBar:vertical { background: %1; width: 10px; margin: 0; }"
+        "QWidget[parameterEditor=\"true\"] QScrollBar::handle:vertical { background: %4; min-height: 28px; border-radius: 4px; }"
+        "QWidget[parameterEditor=\"true\"] QScrollBar::add-line:vertical, QWidget[parameterEditor=\"true\"] QScrollBar::sub-line:vertical { height: 0; }"
+        "QWidget[parameterEditor=\"true\"] QScrollBar::add-page:vertical, QWidget[parameterEditor=\"true\"] QScrollBar::sub-page:vertical { background: %1; }"
+        "QWidget[parameterEditor=\"true\"] QGroupBox { background: %2; color: %3; border: 1px solid %4; border-radius: 6px; margin-top: 12px; padding: 20px 16px 16px; font-weight: 600; }"
+        "QWidget[parameterEditor=\"true\"] QGroupBox::title { subcontrol-origin: margin; left: 16px; padding: 0 5px; color: %3; }"
+        "QWidget[parameterEditor=\"true\"] QRadioButton, QWidget[parameterEditor=\"true\"] QCheckBox { background: transparent; color: %3; spacing: 8px; min-height: 26px; font-weight: normal; }"
+        "QWidget[parameterEditor=\"true\"] QLineEdit, QWidget[parameterEditor=\"true\"] QComboBox, QWidget[parameterEditor=\"true\"] QAbstractSpinBox { background: %2; color: %3; border: 1px solid %4; border-radius: 4px; min-height: 28px; padding: 4px 8px; font-weight: normal; selection-background-color: %5; }"
+        "QWidget[parameterEditor=\"true\"] QLineEdit:focus, QWidget[parameterEditor=\"true\"] QComboBox:focus, QWidget[parameterEditor=\"true\"] QAbstractSpinBox:focus { border-color: #638fc6; }"
+        "QWidget[parameterEditor=\"true\"] QLineEdit:disabled, QWidget[parameterEditor=\"true\"] QComboBox:disabled, QWidget[parameterEditor=\"true\"] QAbstractSpinBox:disabled { background: %1; color: %6; }"
+        "QWidget[parameterEditor=\"true\"] QTreeWidget, QWidget[parameterEditor=\"true\"] QTableWidget { background: %2; alternate-background-color: %1; color: %3; border: 1px solid %4; border-radius: 5px; }"
+        "QWidget[parameterEditor=\"true\"] QTreeWidget::item { padding: 7px 8px; }"
+        "QWidget[parameterEditor=\"true\"] QHeaderView::section { background: %1; color: %3; padding: 8px; border: 0; border-bottom: 1px solid %4; }"
+        "QWidget[parameterEditor=\"true\"] QPushButton { border-radius: 4px; }"
+        "QWidget[parameterEditor=\"true\"] QPushButton#applyBoundary { background: #2563b6; border-color: #2563b6; color: white; padding: 7px 24px; }"
+        "QWidget[parameterEditor=\"true\"] QPushButton#applyBoundary:disabled { background: %1; color: %6; border-color: %4; }")
+        .arg(bg, base, text, border, selected, QStringLiteral("#61748a")));
+    setStyleSheet(styleSheet() + QStringLiteral(
+        "QWidget#parameterEditor_control-equations QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_reference-values QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_calculation-control QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_solution-method QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_solution-method QAbstractSpinBox, QWidget#parameterEditor_solution-method QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_output-control QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_output-control QAbstractSpinBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_initialization QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_initialization QAbstractSpinBox, QWidget#parameterEditor_initialization QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_boundary-conditions QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_boundary-conditions QAbstractSpinBox, QWidget#parameterEditor_boundary-conditions QComboBox, QWidget#parameterEditor_boundary-conditions QLineEdit { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_calculation-control QAbstractSpinBox, QWidget#parameterEditor_calculation-control QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_reference-values QAbstractSpinBox, QWidget#parameterEditor_reference-values QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_control-equations QAbstractSpinBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
+        "QWidget#parameterEditor_control-equations QRadioButton, QWidget#parameterEditor_control-equations QCheckBox { min-height: 28px; }"));
     const QString editorStyle = QStringLiteral(
         "QPlainTextEdit { background: %1; color: %2; border: 1px solid %3; }")
         .arg(base, text, border);
     for (auto *editor : findChildren<QPlainTextEdit *>()) {
         editor->setPalette(colors);
         editor->setStyleSheet(editorStyle);
+    }
+    // Recompute ribbon geometry after applying the theme: its cached metrics
+    // otherwise keep the compact startup sizes and split Chinese captions.
+    QFont chromeFont = QApplication::font();
+    ribbonBar()->setFont(chromeFont);
+    ribbonBar()->setEnableWordWrap(false);
+    const QFontMetrics chromeMetrics(chromeFont);
+    const int lineHeight = chromeMetrics.lineSpacing();
+    ribbonBar()->setPanelTitleHeight(lineHeight + 2);
+    ribbonBar()->setCategoryHeight(qMax(86, lineHeight * 3 + 20));
+    for (auto *button : ribbonBar()->findChildren<SARibbonToolButton *>()) {
+        button->setFont(chromeFont);
+        button->setEnableWordWrap(false);
+        button->setLargeIconSize(QSize(28, 28));
+        button->setSmallIconSize(QSize(16, 16));
+        if (button->buttonType() == SARibbonToolButton::LargeButton) {
+            // Reserve the entire single-line caption; SARibbon otherwise limits
+            // the suggested width by its button aspect ratio.
+            const int captionWidth = chromeMetrics.horizontalAdvance(button->text()) + 24;
+            button->setMinimumWidth(qMax(76, captionWidth));
+        }
+        button->invalidateSizeHint();
+    }
+    ribbonBar()->updateRibbonGeometry();
+    if (auto *title = projectDock_->titleBarWidget()) {
+        title->setFont(chromeFont);
+        title->setMinimumHeight(qMax(34, lineHeight + 14));
     }
     setProperty("windowThemeId", id);
     if (auto *menu = findChild<QMenu *>(QStringLiteral("themeMenu")))
@@ -693,6 +759,31 @@ void MainWindow::createWorkspace()
     projectDock_ = new QDockWidget(uiText(u"\u5de5\u4f5c\u533a\u6811"), this);
     projectDock_->setObjectName(QStringLiteral("projectDock"));
     projectDock_->setMinimumWidth(220);
+    auto *treeTitleBar = new QWidget(projectDock_);
+    treeTitleBar->setObjectName(QStringLiteral("workspaceTreeTitleBar"));
+    auto *treeTitleLayout = new QHBoxLayout(treeTitleBar);
+    treeTitleLayout->setContentsMargins(10, 3, 4, 3);
+    treeTitleLayout->setSpacing(4);
+    auto *treeTitle = new QLabel(projectDock_->windowTitle(), treeTitleBar);
+    treeTitle->setAttribute(Qt::WA_TransparentForMouseEvents);
+    treeTitleLayout->addWidget(treeTitle, 1);
+    auto *floatTree = new QToolButton(treeTitleBar);
+    floatTree->setObjectName(QStringLiteral("floatWorkspaceTree"));
+    floatTree->setIcon(style()->standardIcon(QStyle::SP_TitleBarNormalButton));
+    floatTree->setToolTip(uiText(u"浮动 / 停靠工作区树"));
+    auto *closeTree = new QToolButton(treeTitleBar);
+    closeTree->setObjectName(QStringLiteral("closeWorkspaceTree"));
+    closeTree->setIcon(style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+    closeTree->setToolTip(uiText(u"隐藏工作区树"));
+    for (auto *button : {floatTree, closeTree}) {
+        button->setAutoRaise(true);
+        button->setFixedSize(28, 28);
+        button->setIconSize(QSize(16, 16));
+        treeTitleLayout->addWidget(button);
+    }
+    connect(floatTree, &QToolButton::clicked, this, [this] { projectDock_->setFloating(!projectDock_->isFloating()); });
+    connect(closeTree, &QToolButton::clicked, projectDock_, &QDockWidget::hide);
+    projectDock_->setTitleBarWidget(treeTitleBar);
     projectTree_ = new QTreeWidget(projectDock_);
     projectTree_->setObjectName(QStringLiteral("workspaceTree"));
     projectTree_->setHeaderHidden(true);
@@ -1166,6 +1257,8 @@ void MainWindow::showWorkspacePage(const QString &pageId)
         setMeshWorkspaceActive(target == viewportPage_);
         if (pageId.startsWith(QStringLiteral("parameter-")) || pageId == QStringLiteral("projectile-management"))
             propertyDock_->hide();
+        if (pageId.startsWith(QStringLiteral("parameter-")))
+            resizeDocks({projectDock_}, {260}, Qt::Horizontal);
     }
 }
 
@@ -1222,16 +1315,25 @@ void MainWindow::showParameterDialog(const QString &pageId, const QString &title
     showWorkspacePage(QStringLiteral("parameters"));
     const QString workspaceId = QStringLiteral("parameter-") + pageId;
     if (workspacePages_.contains(workspaceId)) {
+        if (pageId == "solution-method") {
+            auto *panel = workspacePages_.value(workspaceId)->findChild<SolutionMethodPanel *>();
+            if (panel) panel->setUnsteady(drafts_.value("physics").value("calculationType", "steady") == "unsteady");
+        }
         showWorkspacePage(workspaceId);
         return;
     }
     auto *dialog = new QWidget(workspaceStack_);
     dialog->setObjectName(QStringLiteral("parameterEditor_") + pageId);
+    dialog->setProperty("parameterEditor", true);
+    dialog->setAttribute(Qt::WA_StyledBackground, true);
     workspaceStack_->addWidget(dialog);
     workspacePages_.insert(workspaceId, dialog);
     workspacePageModules_.insert(workspaceId, QStringLiteral("module-parameters"));
     auto *layout = new QVBoxLayout(dialog);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(12);
     auto *heading = new QLabel(title, dialog);
+    heading->setObjectName(QStringLiteral("parameterHeading"));
     QFont headingFont = heading->font();
     headingFont.setPointSize(headingFont.pointSize() + 2);
     headingFont.setBold(true);
@@ -1239,11 +1341,21 @@ void MainWindow::showParameterDialog(const QString &pageId, const QString &title
     layout->addWidget(heading);
     auto *note = new QLabel(uiText(u"\u524d\u7aef\u914d\u7f6e\u5360\u4f4d\uff1a\u5f53\u524d\u4e0d\u6267\u884c\u4e1a\u52a1\u6821\u9a8c\u3001\u6301\u4e45\u5316\u6216\u6c42\u89e3\u5668\u66f4\u65b0\u3002"), dialog);
     note->setWordWrap(true);
+    note->setProperty("parameterHint", true);
     layout->addWidget(note);
     auto *scroll = new QScrollArea(dialog);
+    scroll->setObjectName(QStringLiteral("parameterScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
     scroll->setWidgetResizable(true);
+    scroll->viewport()->setProperty("parameterSurface", true);
+    scroll->viewport()->setAttribute(Qt::WA_StyledBackground, true);
     auto *content = new QWidget(scroll);
+    content->setObjectName(QStringLiteral("parameterContent"));
+    content->setProperty("parameterSurface", true);
+    content->setAttribute(Qt::WA_StyledBackground, true);
     auto *contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(16);
     auto *group = new QGroupBox(title + uiText(u"\u9009\u9879"), content);
     auto *form = new QFormLayout(group);
     const auto addChoice = [form, group](const QString &label, const QStringList &choices) {
@@ -1281,18 +1393,39 @@ void MainWindow::showParameterDialog(const QString &pageId, const QString &title
         });
         bindPanel(panel);
     } else if (pageId == QStringLiteral("calculation-control")) {
-        addValue(uiText(u"最大迭代步"), 10000, {});
-        addValue(uiText(u"时间步长"), 0.001, QStringLiteral(" s"));
+        auto *panel = new CalculationControlPanel(drafts_.value(draftKey), content);
+        connect(panel, &CalculationControlPanel::draftChanged, this, [this, draftKey](const QVariantMap &draft) {
+            drafts_[draftKey] = draft; emit parameterDraftChanged(draftKey, draft);
+        });
+        bindPanel(panel);
     } else if (pageId == QStringLiteral("solution-method")) {
-        addChoice(uiText(u"\u7a7a\u95f4\u79bb\u6563"), {uiText(u"\u4e8c\u9636\u8fce\u98ce"), uiText(u"\u4e2d\u5fc3\u683c\u5f0f\uff08\u5360\u4f4d\uff09")});
-        addChoice(uiText(u"\u65f6\u95f4\u79bb\u6563"), {uiText(u"\u9690\u5f0f"), uiText(u"\u663e\u5f0f")});
-        addValue(uiText(u"\u6700\u5927\u8fed\u4ee3\u6b65"), 10000, {});
+        auto *panel = new SolutionMethodPanel(drafts_.value(draftKey), content);
+        panel->setUnsteady(drafts_.value("physics").value("calculationType", "steady") == "unsteady");
+        connect(panel, &SolutionMethodPanel::draftChanged, this, [this, draftKey](const QVariantMap &draft) {
+            drafts_[draftKey] = draft; emit parameterDraftChanged(draftKey, draft);
+        });
+        connect(this, &MainWindow::parameterDraftChanged, panel, [panel](const QString &key, const QVariantMap &draft) {
+            if (key == "physics") panel->setUnsteady(draft.value("calculationType", "steady") == "unsteady");
+        });
+        bindPanel(panel);
     } else if (pageId == QStringLiteral("reference-values")) {
-        addValue(uiText(u"\u53c2\u8003\u957f\u5ea6"), 1.0, QStringLiteral(" m"));
-        addValue(uiText(u"\u53c2\u8003\u9762\u79ef"), 1.0, QStringLiteral(" m\u00b2"));
+        auto *panel = new ReferenceValuesPanel(drafts_.value(draftKey), content);
+        connect(panel, &ReferenceValuesPanel::draftChanged, this, [this, draftKey](const QVariantMap &draft) {
+            drafts_[draftKey] = draft; emit parameterDraftChanged(draftKey, draft);
+        });
+        bindPanel(panel);
     } else if (pageId == QStringLiteral("output-control")) {
-        addValue(uiText(u"\u6587\u4ef6\u8f93\u51fa\u95f4\u9694"), 100, {});
-        addChoice(uiText(u"\u8f93\u51fa\u7cbe\u5ea6"), {uiText(u"\u5355\u7cbe\u5ea6"), uiText(u"\u53cc\u7cbe\u5ea6")});
+        auto *panel = new OutputControlPanel(drafts_.value(draftKey), content);
+        connect(panel, &OutputControlPanel::draftChanged, this, [this, draftKey](const QVariantMap &draft) { drafts_[draftKey] = draft; emit parameterDraftChanged(draftKey, draft); });
+        bindPanel(panel);
+    } else if (pageId == "initialization") {
+        auto *panel = new InitializationPanel(drafts_.value(draftKey), content);
+        panel->setSources(drafts_.value("boundary"), drafts_.value("reference-values"));
+        connect(panel, &InitializationPanel::draftChanged, this, [this, draftKey](const QVariantMap &draft) { drafts_[draftKey]=draft; emit parameterDraftChanged(draftKey,draft); });
+        connect(this, &MainWindow::parameterDraftChanged, panel, [this,panel](const QString &key,const QVariantMap &) {
+            if(key=="boundary" || key=="reference-values") panel->setSources(drafts_.value("boundary"),drafts_.value("reference-values"));
+        });
+        bindPanel(panel);
     } else {
         addChoice(uiText(u"\u521d\u59cb\u5316\u65b9\u5f0f"), {uiText(u"\u81ea\u7531\u6d41\u521d\u59cb\u5316"), uiText(u"\u4ece\u7ed3\u679c\u6062\u590d\uff08\u5360\u4f4d\uff09")});
         addValue(uiText(u"\u521d\u59cb\u6e29\u5ea6"), 300, QStringLiteral(" K"));
@@ -1304,7 +1437,9 @@ void MainWindow::showParameterDialog(const QString &pageId, const QString &title
     layout->addWidget(scroll, 1);
     auto *back = new QPushButton(uiText(u"返回三维工作区"), dialog);
     connect(back, &QPushButton::clicked, this, [this] { showWorkspacePage(QStringLiteral("viewport")); });
-    layout->addWidget(back, 0, Qt::AlignLeft);
+    auto *footer = new QHBoxLayout;
+    footer->addWidget(back);
+    footer->addStretch();
     auto *reset = new QPushButton(uiText(u"清除本页草稿"), dialog);
     reset->setObjectName(QStringLiteral("resetParameterDraft"));
     connect(reset, &QPushButton::clicked, this, [this, pageId, draftKey, title, workspaceId, dialog] {
@@ -1314,7 +1449,8 @@ void MainWindow::showParameterDialog(const QString &pageId, const QString &title
         dialog->deleteLater();
         showParameterDialog(pageId, title);
     });
-    layout->addWidget(reset);
+    footer->addWidget(reset);
+    layout->addLayout(footer);
     showWorkspacePage(workspaceId);
 }
 
@@ -1354,6 +1490,7 @@ void MainWindow::selectPage(const QString &pageId)
         {"state-extraction", uiText(u"\u72b6\u6001\u63d0\u53d6")}, {"single-calculation", uiText(u"\u5355\u6b21\u8ba1\u7b97")},
         {"batch-calculation", uiText(u"\u6279\u91cf\u8ba1\u7b97")}};
     const QHash<QString, QString> parameterTitles = {
+        {"calculation-control", uiText(u"计算控制")},
         {"control-equations", uiText(u"\u63a7\u5236\u65b9\u7a0b")}, {"boundary-conditions", uiText(u"\u8fb9\u754c\u6761\u4ef6")},
         {"mesh-motion", uiText(u"\u7f51\u683c\u8fd0\u52a8")}, {"solution-method", uiText(u"\u6c42\u89e3\u65b9\u6cd5")},
         {"reference-values", uiText(u"\u53c2\u8003\u91cf")}, {"output-control", uiText(u"\u8f93\u51fa\u63a7\u5236")},
