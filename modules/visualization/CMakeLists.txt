@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    project(AeroSimVisualization LANGUAGES NONE)
+    project(AeroSimVisualization LANGUAGES CXX)
+    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    enable_testing()
 endif()
-
-# This module is intentionally a skeleton. Add a CMake target only when a
-# submodule has an independently buildable implementation and test.
+add_subdirectory(data)
+if(AEROSIM_BUILD_GUI)
+    add_subdirectory(scene)
+endif()

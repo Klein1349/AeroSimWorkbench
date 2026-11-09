@@ -7,6 +7,10 @@ rem either variable before invoking this script.
 cd /d "%~dp0.."
 
 if not defined AEROSIM_BUILD_DIR set "AEROSIM_BUILD_DIR=%CD%\build-windows"
+rem Visualization dependencies are supplied by the caller; keep them on the
+rem launched process PATH as well as in the build subprocess.
+if defined AEROSIM_VTK_BIN set "PATH=%AEROSIM_VTK_BIN%;%PATH%"
+if defined AEROSIM_CGNS_ROOT set "PATH=%AEROSIM_CGNS_ROOT%\bin;%PATH%"
 
 if not defined AEROSIM_QT_ROOT set "AEROSIM_QT_ROOT=C:\Qt\5.12.12\msvc2017_64"
 if not defined AEROSIM_SARIBBON_SOURCE_DIR set "AEROSIM_SARIBBON_SOURCE_DIR=C:\Users\huangzb\SARibbon"

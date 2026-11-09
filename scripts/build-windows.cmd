@@ -17,6 +17,7 @@ set "PATH=%AEROSIM_QT_ROOT%\bin;%PATH%"
 rem Deployed GUI directories may only contain qwindowsd; CTest also needs offscreen.
 set "QT_QPA_PLATFORM_PLUGIN_PATH=%AEROSIM_QT_ROOT%\plugins\platforms"
 if defined AEROSIM_VTK_BIN set "PATH=%AEROSIM_VTK_BIN%;%PATH%"
+if defined AEROSIM_CGNS_ROOT set "PATH=%AEROSIM_CGNS_ROOT%\bin;%PATH%"
 set "TARGET=%~1"
 if "%TARGET%"=="" set "TARGET=all"
 set "CONFIG=%~2"
@@ -32,6 +33,7 @@ cmake -S "%ROOT%" -B "%AEROSIM_BUILD_DIR%" -G "Visual Studio 15 2017 Win64" ^
     "-DAEROSIM_BUILD_VISUALIZATION=%AEROSIM_BUILD_VISUALIZATION%" ^
     "-DAEROSIM_BUILD_STACK_PROBE=%AEROSIM_BUILD_STACK_PROBE%" ^
     "-DVTK_DIR=%AEROSIM_VTK_DIR%" ^
+    "-DAEROSIM_CGNS_ROOT=%AEROSIM_CGNS_ROOT%" ^
     "-DSARIBBON_SOURCE_DIR=%AEROSIM_SARIBBON_SOURCE_DIR%"
 if errorlevel 1 exit /b %errorlevel%
 
