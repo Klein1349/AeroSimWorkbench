@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
         }, Qt::QueuedConnection);
         QTimer::singleShot(0, &app, [&controller] {
             aerosim::RunRequest request;
+            request.scope.projectId = QStringLiteral("mock-project");
             request.scope.caseId = QStringLiteral("mock-case");
             request.inputSnapshot.snapshotId = QStringLiteral("mock-snapshot");
             controller.workflow()->requestRun(request);

@@ -19,6 +19,8 @@ include("${CMAKE_CURRENT_LIST_DIR}/../../cmake/SARibbonDependency.cmake")
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Svg)
 add_library(aerosim_ui STATIC
     resources/PostProcessIcons.qrc
+    src/CalculationTaskPage.cpp include/aerosim/ui/CalculationTaskPage.h
+    src/CalculationTaskInputDialog.cpp include/aerosim/ui/CalculationTaskInputDialog.h
     src/MainWindow.cpp include/aerosim/ui/MainWindow.h resources/RibbonIcons.qrc
     src/MeshManagementPage.cpp include/aerosim/ui/MeshManagementPage.h
     src/StartupLandingPage.cpp include/aerosim/ui/StartupLandingPage.h
