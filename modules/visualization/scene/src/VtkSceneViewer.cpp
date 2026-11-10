@@ -20,12 +20,15 @@
 #include <QVTKOpenGLNativeWidget.h>
 #include <vtkActor.h>
 #include <vtkCamera.h>
+#include <vtkCell.h>
+#include <vtkDataSet.h>
 #include <vtkDataArray.h>
 #include <vtkDataSetMapper.h>
 #include <vtkGenericOpenGLRenderWindow.h>
 #include <vtkInteractorStyleTrackballCamera.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
+#include <vtkPoints.h>
 #include <vtkCellData.h>
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
@@ -34,6 +37,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkAutoInit.h>
 #include <vector>
+#include <cmath>
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
 
@@ -85,9 +89,44 @@ public:
             display.active=region.dimension==3; display.actor->SetVisibility(display.active && visibility.value(dataset.id,true)); renderer->AddActor(display.actor); displays.append(display);
         }
     }
+    // Pick a useful view only when a surface is nearly edge-on. Surface area
+    // projected along each direction also handles thin, curved boundary patches.
+    bool orientEdgeOnRegion(vtkDataSet *data) {
+        auto *camera=renderer->GetActiveCamera(); double direction[3]; camera->GetDirectionOfProjection(direction);
+        double projected[3]={0,0,0}, current=0;
+        for(vtkIdType ci=0;ci<data->GetNumberOfCells();++ci) {
+            vtkCell *cell=data->GetCell(ci); if(cell->GetCellDimension()!=2 || cell->GetNumberOfPoints()<3) continue;
+            double p0[3]; cell->GetPoints()->GetPoint(0,p0);
+            for(vtkIdType i=1;i+1<cell->GetNumberOfPoints();++i) {
+                double p1[3],p2[3]; cell->GetPoints()->GetPoint(i,p1); cell->GetPoints()->GetPoint(i+1,p2);
+                const double a[3]={p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2]};
+                const double b[3]={p2[0]-p0[0],p2[1]-p0[1],p2[2]-p0[2]};
+                const double n[3]={a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]};
+                for(int k=0;k<3;++k) projected[k]+=std::abs(n[k]);
+                current+=std::abs(n[0]*direction[0]+n[1]*direction[1]+n[2]*direction[2]);
+            }
+        }
+        int axis=0; if(projected[1]>projected[axis]) axis=1; if(projected[2]>projected[axis]) axis=2;
+        if(projected[axis]<=0) return false;
+        const double *bounds=data->GetBounds();
+        const double spans[3]={bounds[1]-bounds[0],bounds[3]-bounds[2],bounds[5]-bounds[4]};
+        const double longest=std::max(spans[0],std::max(spans[1],spans[2]));
+        const double shortest=std::min(spans[0],std::min(spans[1],spans[2]));
+        const bool thin=longest>0 && shortest>longest*1e-10 && shortest<longest*0.002;
+        if(current>=projected[axis]*0.25) return thin;
+        double focal[3]; camera->GetFocalPoint(focal); double position[3]={focal[0],focal[1],focal[2]};
+        const double distance=camera->GetDistance()>0 ? camera->GetDistance() : 1.0;
+        position[axis]+=direction[axis]>0 ? -distance : distance; camera->SetPosition(position);
+        if(axis==1) camera->SetViewUp(0,0,1); else camera->SetViewUp(0,1,0);
+        camera->OrthogonalizeViewUp();
+        return thin;
+    }
     void select(const QString &datasetId,const QString &regionId,const QString &field,const QString &association) {
         for(const auto &dataset:datasets) if(dataset.id==datasetId) for(const auto &region:dataset.data.regions) if(region.id==regionId) {
+            const bool thin=region.dimension==2 && orientEdgeOnRegion(region.data);
             for(auto &display:displays) if(display.dataset==datasetId && display.region==regionId) {
+                display.actor->GetProperty()->SetEdgeVisibility(thin);
+                if(thin) { display.actor->GetProperty()->SetEdgeColor(.1,.12,.16); display.actor->GetProperty()->SetLineWidth(3); }
                 if(!field.isEmpty()) {
                     const QByteArray name=field.toUtf8();
                     vtkDataArray *array=association=="cell" ? region.data->GetCellData()->GetArray(name.constData()) : region.data->GetPointData()->GetArray(name.constData());

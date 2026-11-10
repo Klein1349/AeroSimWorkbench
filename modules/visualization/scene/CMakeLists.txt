@@ -6,4 +6,6 @@ target_link_libraries(aerosim_visualization_scene PUBLIC aerosim_visualization_d
 if(AEROSIM_BUILD_TESTS)
     add_executable(aerosim_cgns_workbench_test ../tests/CgnsWorkbenchTest.cpp)
     target_link_libraries(aerosim_cgns_workbench_test PRIVATE aerosim_visualization_scene)
+    add_executable(aerosim_cgns_region_render_test ../tests/CgnsRegionRenderTest.cpp)
+    target_link_libraries(aerosim_cgns_region_render_test PRIVATE aerosim_visualization_scene)
 endif()
