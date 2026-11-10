@@ -6,4 +6,4 @@
 
 `aerosim_cgns_adapter_test <M6 flowfield.cgns>` 使用真实样例核对网格、边界、字段及错误路径，不把它当作全部格式验收。已经接入后处理数据树和 VTK 视口；另有自动生成小型 CGNS 夹具的 `cgns_fixture_import` 测试。派生对象计算仍未接入。
 
-启用 GUI 时，设置 `AEROSIM_BUILD_VISUALIZATION=ON`、`AEROSIM_VTK_DIR`、`AEROSIM_VTK_BIN` 和 `AEROSIM_CGNS_ROOT`，再运行 `scripts/run-postprocess-windows.cmd`。构建与运行都使用匹配的 Debug 依赖，CGNS 的 HDF5 必须与 VTK 所用版本及构建方式兼容。
+Windows 后处理运行和构建使用现有的 `scripts/run-postprocess-windows.cmd` 和 `scripts/build-windows.cmd aerosim_postprocess Debug`。依赖路径可放在不提交的 `aerosim-windows.local.cmd` 中，或通过环境变量提供：`AEROSIM_QT_ROOT`、`AEROSIM_SARIBBON_SOURCE_DIR`、`AEROSIM_VTK_DIR`、`AEROSIM_VTK_BIN` 和 `AEROSIM_CGNS_ROOT`。运行脚本会启用可视化；其他目标未显式指定该选项时保留 CMake 缓存。构建与运行都使用匹配的 Debug 依赖，CGNS 的 HDF5 必须与 VTK 所用版本及构建方式兼容。

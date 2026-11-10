@@ -6,6 +6,10 @@ rem Defaults match the validated Windows Debug environment; callers may override
 rem either variable before invoking this script.
 cd /d "%~dp0.."
 
+rem Load optional machine-local dependency paths before configuring PATH.
+if exist "%CD%\aerosim-windows.local.cmd" call "%CD%\aerosim-windows.local.cmd"
+set "AEROSIM_BUILD_VISUALIZATION=ON"
+
 if not defined AEROSIM_BUILD_DIR set "AEROSIM_BUILD_DIR=%CD%\build-windows"
 rem Visualization dependencies are supplied by the caller; keep them on the
 rem launched process PATH as well as in the build subprocess.
