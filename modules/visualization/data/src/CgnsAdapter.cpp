@@ -11,6 +11,7 @@
 #include <vtkPoints.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkStructuredGrid.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <vector>
@@ -68,8 +69,19 @@ public:
                 QVector<RegionData> surfaces;
                 QVector<QVector<cgsize_t>> surfacePointIds;
                 int sections=0; if (cg_nsections(file.id,b,z,&sections) != CG_OK) { result.error=reason(QStringLiteral("CGNS sections")); return result; }
-                cgsize_t nextVolumeElement = 1;
+                // Element sections need not be stored in element-number order.
+                // Process by range so cell-centered arrays retain their CGNS ordering.
+                std::vector<std::pair<cgsize_t,int>> sectionOrder;
                 for(int n=1;n<=sections;++n) {
+                    char name[33]={}; CGNS_ENUMT(ElementType_t) type; cgsize_t first=0,last=0; int boundary=0,parent=0;
+                    if(cg_section_read(file.id,b,z,n,name,&type,&first,&last,&boundary,&parent)!=CG_OK) { result.error=reason(QStringLiteral("CGNS section")); return result; }
+                    if(first<1 || last<first) { result.error=QStringLiteral("Invalid CGNS element section range"); return result; }
+                    sectionOrder.emplace_back(first,n);
+                }
+                std::sort(sectionOrder.begin(),sectionOrder.end());
+                cgsize_t nextVolumeElement = 1;
+                for(const auto &entry:sectionOrder) {
+                    const int n=entry.second;
                     char name[33]={}; CGNS_ENUMT(ElementType_t) type; cgsize_t first=0,last=0; int boundary=0,parent=0;
                     if(cg_section_read(file.id,b,z,n,name,&type,&first,&last,&boundary,&parent)!=CG_OK) { result.error=reason(QStringLiteral("CGNS section")); return result; }
                     int cellType=vtkType(type), nodes=0; if(cellType<0 || cg_npe(type,&nodes)!=CG_OK || nodes<=0) { result.error=QStringLiteral("Unsupported CGNS element section: ")+QString::fromLocal8Bit(name); return result; }
