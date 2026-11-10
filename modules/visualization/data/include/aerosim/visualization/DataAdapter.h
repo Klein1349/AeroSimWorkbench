@@ -21,6 +21,7 @@ struct RegionData {
     QString name;
     QString id;
     int dimension = 0;
+    QString kind; // volume, boundary, or unclassified element section
     QVector<FieldInfo> fields;
     vtkSmartPointer<vtkDataSet> data;
 };

@@ -1102,16 +1102,17 @@ void PostProcessWorkbenchWindow::presentImportedData(const QVariantList &dataset
             item->setData(0,Qt::UserRole,region.value("dimension").toInt()==3 ? QStringLiteral("volume") : QStringLiteral("surface"));
             item->setData(0,Qt::UserRole+1,dataset.value("id").toString()+QStringLiteral("/")+region.value("id").toString()); item->setData(0,Qt::UserRole+3,context);
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable); item->setCheckState(0,region.value("dimension").toInt()==3 ? Qt::Checked : Qt::Unchecked);
-            auto *fields=new QTreeWidgetItem(item,QStringList(uiText(u"可用字段"))); fields->setData(0,Qt::UserRole,QStringLiteral("group"));
+            const QString kind=region.value("kind").toString();
+            item->setToolTip(0,kind==QStringLiteral("volume") ? uiText(u"体区域") : kind==QStringLiteral("boundary") ? uiText(u"边界区域") : uiText(u"未归入已识别边界的单元段"));
             for (const QVariant &fv:region.value("fields").toList()) {
                 const auto f=fv.toMap(); const QString assoc=f.value("association").toString();
                 auto fc=context; fc["field"]=f.value("name"); fc["association"]=assoc; fc["components"]=f.value("components"); fc["hasRange"]=f.value("hasRange"); fc["minimum"]=f.value("minimum"); fc["maximum"]=f.value("maximum");
-                auto *field=new QTreeWidgetItem(fields,QStringList(f.value("name").toString()+ (assoc=="point" ? uiText(u" · 节点") : uiText(u" · 单元"))));
+                auto *field=new QTreeWidgetItem(item,QStringList(f.value("name").toString()+ (assoc=="point" ? uiText(u" · 节点") : uiText(u" · 单元"))));
                 const QString rangeText=f.value("hasRange").toBool() ? QStringLiteral("%1 ~ %2").arg(f.value("minimum").toDouble(),0,'g',6).arg(f.value("maximum").toDouble(),0,'g',6) : uiText(u"未知");
                 field->setToolTip(0,uiText(u"位置：%1\n分量：%2\n范围：%3\n单位：未知").arg(assoc=="point" ? uiText(u"节点") : uiText(u"单元")).arg(f.value("components").toInt()).arg(rangeText));
                 field->setData(0,Qt::UserRole,QStringLiteral("field")); field->setData(0,Qt::UserRole+1,dataset.value("id").toString()+QStringLiteral("/")+region.value("id").toString()+QStringLiteral("/")+assoc+QStringLiteral("/")+f.value("name").toString()); field->setData(0,Qt::UserRole+3,fc);
             }
-            item->setExpanded(true); fields->setExpanded(false); if(!first) first=item;
+            item->setExpanded(false); if(!first) first=item;
         }
         root->setExpanded(true);
     }

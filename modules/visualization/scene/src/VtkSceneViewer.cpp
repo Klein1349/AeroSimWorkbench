@@ -180,7 +180,7 @@ void VtkSceneViewer::bindWorkbench(PostProcessWorkbenchWindow *workbench) {
                 LoadedDataset loaded; loaded.id=QUuid::createUuid().toString(); loaded.data=data; impl_->datasets.append(loaded); impl_->addDataset(loaded);
                 QVariantMap dataset; dataset["id"]=loaded.id; dataset["path"]=data.path; dataset["name"]=QFileInfo(data.path).fileName(); QVariantList regions;
                 for(const auto &region:data.regions) {
-                    QVariantMap rm; rm["id"]=region.id; rm["name"]=region.name; rm["dimension"]=region.dimension; QVariantList fields;
+                    QVariantMap rm; rm["id"]=region.id; rm["name"]=region.name; rm["dimension"]=region.dimension; rm["kind"]=region.kind; QVariantList fields;
                     for(const auto &field:region.fields) { QVariantMap f; f["name"]=field.name; f["association"]=field.association; f["components"]=field.components; f["hasRange"]=field.hasRange; f["minimum"]=field.minimum; f["maximum"]=field.maximum; fields.append(f); }
                     rm["fields"]=fields; regions.append(rm);
                 }

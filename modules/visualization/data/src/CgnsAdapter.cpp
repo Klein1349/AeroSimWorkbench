@@ -6,6 +6,7 @@
 #include <cgnslib.h>
 #include <vtkCellType.h>
 #include <vtkCellData.h>
+#include <vtkCell.h>
 #include <vtkDoubleArray.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
@@ -15,6 +16,7 @@
 #include <array>
 #include <cmath>
 #include <vector>
+#include <unordered_set>
 
 namespace aerosim { namespace visualization {
 namespace {
@@ -68,6 +70,7 @@ public:
                 auto volume = vtkSmartPointer<vtkUnstructuredGrid>::New(); volume->SetPoints(points);
                 QVector<RegionData> surfaces;
                 QVector<QVector<cgsize_t>> surfacePointIds;
+                QVector<cgsize_t> surfaceFirst;
                 int sections=0; if (cg_nsections(file.id,b,z,&sections) != CG_OK) { result.error=reason(QStringLiteral("CGNS sections")); return result; }
                 // Element sections need not be stored in element-number order.
                 // Process by range so cell-centered arrays retain their CGNS ordering.
@@ -110,9 +113,66 @@ public:
                         } else ids[k]=static_cast<vtkIdType>(id-1); }
                         grid->InsertNextCell(cellType,nodes,ids.data());
                     }
-                    if(isBoundary) { RegionData region; region.name=QString::fromLocal8Bit(name); region.id=QStringLiteral("%1/%2/%3").arg(b).arg(z).arg(n); region.dimension=dimension(type); region.data=grid; surfaces.append(region); surfacePointIds.append(sourcePointIds); }
+                    if(isBoundary) { RegionData region; region.name=QString::fromLocal8Bit(name); region.id=QStringLiteral("%1/%2/%3").arg(b).arg(z).arg(n); region.dimension=dimension(type); region.kind=QStringLiteral("section"); region.data=grid; surfaces.append(region); surfacePointIds.append(sourcePointIds); surfaceFirst.append(first); }
                 }
-                RegionData region; region.name=QString::fromLocal8Bit(zoneName); region.id=QStringLiteral("%1/%2").arg(b).arg(z); region.dimension=cellDim; region.data=volume;
+                // Resolve face-centred ZoneBC element ranges/lists against element sections.
+                // Keep unmatched sections explicitly marked as sections, never invent a BC.
+                const auto sectionsData=surfaces;
+                const auto sectionPointIds=surfacePointIds;
+                QVector<QVector<bool>> used;
+                for(const auto &part:sectionsData) used.append(QVector<bool>(static_cast<int>(part.data->GetNumberOfCells()),false));
+                surfaces.clear(); surfacePointIds.clear();
+                auto makeRegion = [&](const QString &name,const QString &id,const QString &kind,
+                                      const QVector<QVector<vtkIdType>> &selected) {
+                    auto grid=vtkSmartPointer<vtkUnstructuredGrid>::New();
+                    auto boundaryPoints=vtkSmartPointer<vtkPoints>::New(); boundaryPoints->SetDataTypeToDouble(); grid->SetPoints(boundaryPoints);
+                    std::vector<vtkIdType> localIds(static_cast<size_t>(count),-1); QVector<cgsize_t> sourcePointIds;
+                    int regionDimension=2;
+                    for(int si=0;si<selected.size();++si) for(vtkIdType ci:selected[si]) {
+                        vtkCell *cell=sectionsData[si].data->GetCell(ci); regionDimension=sectionsData[si].dimension;
+                        std::vector<vtkIdType> ids(static_cast<size_t>(cell->GetNumberOfPoints()));
+                        for(vtkIdType pi=0;pi<cell->GetNumberOfPoints();++pi) {
+                            const cgsize_t source=sectionPointIds[si][static_cast<int>(cell->GetPointId(pi))];
+                            auto &local=localIds[static_cast<size_t>(source)];
+                            if(local<0) { local=boundaryPoints->InsertNextPoint(xyz[0][source],xyz[1][source],xyz[2][source]); sourcePointIds.append(source); }
+                            ids[static_cast<size_t>(pi)]=local;
+                        }
+                        grid->InsertNextCell(cell->GetCellType(),static_cast<vtkIdType>(ids.size()),ids.data());
+                    }
+                    if(grid->GetNumberOfCells()==0) return;
+                    RegionData part; part.name=name; part.id=id; part.kind=kind; part.dimension=regionDimension; part.data=grid;
+                    surfaces.append(part); surfacePointIds.append(sourcePointIds);
+                };
+                int bcs=0; if(cg_nbocos(file.id,b,z,&bcs)!=CG_OK) { result.error=reason(QStringLiteral("CGNS boundary conditions")); return result; }
+                for(int bc=1;bc<=bcs;++bc) {
+                    char name[33]={}; CGNS_ENUMT(BCType_t) bcType; CGNS_ENUMT(PointSetType_t) setType; CGNS_ENUMT(DataType_t) normalType;
+                    cgsize_t npoints=0, normalSize=0; int normalIndex[3]={}, ndatasets=0;
+                    if(cg_boco_info(file.id,b,z,bc,name,&bcType,&setType,&npoints,normalIndex,&normalSize,&normalType,&ndatasets)!=CG_OK) { result.error=reason(QStringLiteral("CGNS boundary metadata")); return result; }
+                    CGNS_ENUMT(GridLocation_t) location=CGNS_ENUMV(Vertex);
+                    if(cg_boco_gridlocation_read(file.id,b,z,bc,&location)!=CG_OK) { result.error=reason(QStringLiteral("CGNS boundary location")); return result; }
+                    const bool range=setType==CGNS_ENUMV(PointRange) || setType==CGNS_ENUMV(ElementRange);
+                    const bool list=setType==CGNS_ENUMV(PointList) || setType==CGNS_ENUMV(ElementList);
+                    if((location!=CGNS_ENUMV(FaceCenter) && setType!=CGNS_ENUMV(ElementRange) && setType!=CGNS_ENUMV(ElementList)) || (!range && !list) || npoints<=0 || (range && npoints!=2)) continue;
+                    std::vector<cgsize_t> indices(static_cast<size_t>(npoints)); std::vector<double> normals(static_cast<size_t>(normalSize));
+                    if(cg_boco_read(file.id,b,z,bc,indices.data(),normals.empty()?nullptr:normals.data())!=CG_OK) { result.error=reason(QStringLiteral("CGNS boundary indices")); return result; }
+                    std::unordered_set<cgsize_t> indexSet; if(list) indexSet.insert(indices.begin(),indices.end());
+                    const cgsize_t first=range?std::min(indices[0],indices[1]):0, last=range?std::max(indices[0],indices[1]):0;
+                    QVector<QVector<vtkIdType>> selected(sectionsData.size());
+                    for(int si=0;si<sectionsData.size();++si) {
+                        if(sectionsData[si].dimension!=2) continue;
+                        for(vtkIdType ci=0;ci<sectionsData[si].data->GetNumberOfCells();++ci) {
+                            const cgsize_t element=surfaceFirst[si]+static_cast<cgsize_t>(ci);
+                            if((range && element>=first && element<=last) || (list && indexSet.count(element))) { selected[si].append(ci); used[si][static_cast<int>(ci)]=true; }
+                        }
+                    }
+                    makeRegion(QString::fromLocal8Bit(name),QStringLiteral("%1/%2/bc/%3").arg(b).arg(z).arg(bc),QStringLiteral("boundary"),selected);
+                }
+                for(int si=0;si<sectionsData.size();++si) {
+                    QVector<QVector<vtkIdType>> selected(sectionsData.size());
+                    for(vtkIdType ci=0;ci<sectionsData[si].data->GetNumberOfCells();++ci) if(!used[si][static_cast<int>(ci)]) selected[si].append(ci);
+                    makeRegion(sectionsData[si].name,sectionsData[si].id,QStringLiteral("section"),selected);
+                }
+                RegionData region; region.name=QString::fromLocal8Bit(zoneName); region.id=QStringLiteral("%1/%2").arg(b).arg(z); region.dimension=cellDim; region.kind=QStringLiteral("volume"); region.data=volume;
                 int solutions=0; if(cg_nsols(file.id,b,z,&solutions)!=CG_OK) { result.error=reason(QStringLiteral("CGNS solutions")); return result; }
                 if(solutions>1) { result.error=QStringLiteral("Multiple CGNS solutions / time steps are not yet supported"); return result; }
                 for(int sol=1;sol<=solutions;++sol) {

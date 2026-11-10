@@ -26,7 +26,11 @@ int main(int argc,char **argv) {
     CG(cg_coord_write(file,base,zone,CGNS_ENUMV(RealDouble),"CoordinateZ",z,&coord));
     const cgsize_t tetra[4]={1,2,3,4},triangle[3]={1,2,3};
     CG(cg_section_write(file,base,zone,"volume",CGNS_ENUMV(TETRA_4),1,1,0,tetra,&section));
-    CG(cg_section_write(file,base,zone,"wall",CGNS_ENUMV(TRI_3),2,2,0,triangle,&section));
+    CG(cg_section_write(file,base,zone,"wall_a",CGNS_ENUMV(TRI_3),2,2,0,triangle,&section));
+    CG(cg_section_write(file,base,zone,"wall_b",CGNS_ENUMV(TRI_3),3,3,0,triangle,&section));
+    const cgsize_t wallRange[2]={2,3}; int bc=0;
+    CG(cg_boco_write(file,base,zone,"wall",CGNS_ENUMV(BCWall),CGNS_ENUMV(PointRange),2,wallRange,&bc));
+    CG(cg_boco_gridlocation_write(file,base,zone,bc,CGNS_ENUMV(FaceCenter)));
     CG(cg_sol_write(file,base,zone,"Flow",CGNS_ENUMV(Vertex),&solution));
     CG(cg_field_write(file,base,zone,solution,CGNS_ENUMV(RealDouble),"Pressure",p,&field));
     CG(cg_close(file));
@@ -37,8 +41,9 @@ int main(int argc,char **argv) {
     CHECK(result.ok() && result.dataset.regions.size()==2);
     const auto &volume=result.dataset.regions[0]; const auto &wall=result.dataset.regions[1];
     CHECK(volume.dimension==3 && volume.data->GetNumberOfPoints()==4 && volume.data->GetNumberOfCells()==1);
-    CHECK(wall.dimension==2 && wall.data->GetNumberOfPoints()==3 && wall.data->GetNumberOfCells()==1);
+    CHECK(wall.dimension==2 && wall.data->GetNumberOfPoints()==3 && wall.data->GetNumberOfCells()==2);
     CHECK(volume.fields.size()==1 && wall.fields.size()==1);
+    CHECK(wall.name==QStringLiteral("wall") && wall.kind==QStringLiteral("boundary"));
     CHECK(volume.fields[0].association==QStringLiteral("point") && wall.fields[0].hasRange);
     CHECK(std::abs(wall.fields[0].minimum-1)<1e-9 && std::abs(wall.fields[0].maximum-3)<1e-9);
     CHECK(wall.data->GetPointData()->GetArray("Pressure")->GetNumberOfTuples()==3);
@@ -72,6 +77,12 @@ int main(int argc,char **argv) {
         CHECK(mesh.dataset.regions[0].data->GetNumberOfPoints()==107973);
         CHECK(mesh.dataset.regions[0].data->GetNumberOfCells()==257817);
         CHECK(mesh.dataset.regions[0].fields.isEmpty());
+        CHECK(mesh.dataset.regions.size()==6);
+        bool symmetry=false;
+        for(const auto &part:mesh.dataset.regions) if(part.name==QStringLiteral("symmetry")) {
+            symmetry=true; CHECK(part.kind==QStringLiteral("boundary") && part.data->GetNumberOfCells()==4913);
+        }
+        CHECK(symmetry);
     }
     return 0;
 }

@@ -15,7 +15,8 @@
 #include <QComboBox>
 #include <QMessageBox>
 int main(int argc,char **argv) {
-    if(argc!=2) return 2;
+    if(argc!=2 && argc!=3) return 2;
+    const bool meshOnly=argc==3 && QString::fromLocal8Bit(argv[2])==QStringLiteral("--mesh");
     QSurfaceFormat::setDefaultFormat(QVTKOpenGLNativeWidget::defaultFormat());
     QApplication app(argc,argv);
     aerosim::PostProcessWorkbenchWindow window;
@@ -63,11 +64,17 @@ int main(int argc,char **argv) {
             if(id1==id2) { qCritical()<<"Append reuses dataset id"; app.exit(15); return; }
             phase=2; submit(path+QStringLiteral("-missing.cgns"),1); return;
         }
-        if(dataset->childCount()!=7) { qCritical()<<"Unexpected region count"<<dataset->childCount(); app.exit(6); return; }
+        if(dataset->childCount()!=(meshOnly?6:7)) { qCritical()<<"Unexpected region count"<<dataset->childCount(); app.exit(6); return; }
         QTreeWidgetItem *zone=nullptr;
         for(int i=0;i<dataset->childCount();++i) if(dataset->child(i)->text(0).contains(QStringLiteral("wing_up"))) zone=dataset->child(i);
         if(!zone) { qCritical()<<"Wing region missing"; app.exit(9); return; }
-        auto *fields=zone->child(0); QTreeWidgetItem *pressure=nullptr;
+        if(meshOnly) {
+            if(zone->childCount()!=0) { qCritical()<<"Mesh-only region has fields"; app.exit(16); return; }
+            tree->setCurrentItem(zone);
+            if(zone->checkState(0)!=Qt::Checked) { app.exit(17); return; }
+            qInfo()<<"Mesh boundaries and empty fields passed"; app.exit(0); return;
+        }
+        auto *fields=zone; QTreeWidgetItem *pressure=nullptr;
         for(int i=0;i<fields->childCount();++i) if(fields->child(i)->data(0,Qt::UserRole+3).toMap().value("field")==QStringLiteral("p_dim")) pressure=fields->child(i);
         if(!pressure || pressure->data(0,Qt::UserRole+3).toMap().value("association")!=QStringLiteral("point")) { qCritical()<<"Pressure field missing"; app.exit(7); return; }
         tree->setCurrentItem(pressure);
