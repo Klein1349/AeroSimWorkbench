@@ -33,6 +33,16 @@ if defined AEROSIM_BUILD_VISUALIZATION set "VISUALIZATION_ARG=-DAEROSIM_BUILD_VI
 if defined AEROSIM_VTK_DIR set VTK_ARG="-DVTK_DIR=%AEROSIM_VTK_DIR%"
 if defined AEROSIM_CGNS_ROOT set CGNS_ARG="-DAEROSIM_CGNS_ROOT=%AEROSIM_CGNS_ROOT%"
 
+rem Windows cannot relink an EXE while it is running. Only close the
+rem postprocess instance from this build when the requested target needs it.
+if /I "%TARGET%"=="all" goto stop_postprocess_for_build
+if /I "%TARGET%"=="aerosim_postprocess" goto stop_postprocess_for_build
+goto postprocess_build_ready
+:stop_postprocess_for_build
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0stop-postprocess-instance.ps1" "%AEROSIM_BUILD_DIR%\postprocess\Debug\aerosim_postprocess.exe"
+if errorlevel 1 exit /b %errorlevel%
+:postprocess_build_ready
+
 if /I "%AEROSIM_BUILD_STACK_PROBE%"=="ON" if not defined AEROSIM_VTK_DIR (
     echo Set AEROSIM_VTK_DIR to the VTK 8.2.0 CMake package directory.
     exit /b 2
