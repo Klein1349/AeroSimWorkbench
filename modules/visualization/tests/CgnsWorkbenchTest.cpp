@@ -14,6 +14,11 @@
 #include <QFileInfo>
 #include <QComboBox>
 #include <QMessageBox>
+#include <vtkActor.h>
+#include <vtkActorCollection.h>
+#include <vtkRenderer.h>
+#include <vtkRendererCollection.h>
+#include <vtkGenericOpenGLRenderWindow.h>
 int main(int argc,char **argv) {
     if(argc!=2 && argc!=3) return 2;
     const bool meshOnly=argc==3 && QString::fromLocal8Bit(argv[2])==QStringLiteral("--mesh");
@@ -65,6 +70,28 @@ int main(int argc,char **argv) {
             phase=2; submit(path+QStringLiteral("-missing.cgns"),1); return;
         }
         if(dataset->childCount()!=(meshOnly?6:7)) { qCritical()<<"Unexpected region count"<<dataset->childCount(); app.exit(6); return; }
+        auto *vtkWidget=viewer->findChild<QVTKOpenGLNativeWidget *>();
+        auto *renderer=vtkWidget ? vtkWidget->GetRenderWindow()->GetRenderers()->GetFirstRenderer() : nullptr;
+        if(!renderer) { qCritical()<<"Missing renderer"; app.exit(18); return; }
+        auto *actors=renderer->GetActors();
+        const auto countVisible=[actors] {
+            int count=0; actors->InitTraversal();
+            while(auto *actor=actors->GetNextActor()) if(actor->GetVisibility()) ++count;
+            return count;
+        };
+        for(int i=0;i<dataset->childCount();++i) if(dataset->child(i)->checkState(0)!=Qt::Checked) { qCritical()<<"Region initially unchecked"; app.exit(19); return; }
+        if(countVisible()!=dataset->childCount()) { qCritical()<<"Region actors initially hidden"<<countVisible(); app.exit(20); return; }
+        auto *firstRegion=dataset->child(0);
+        firstRegion->setCheckState(0,Qt::Unchecked);
+        if(countVisible()!=dataset->childCount()-1) { qCritical()<<"Unchecking region did not hide actor"; app.exit(21); return; }
+        tree->setCurrentItem(firstRegion);
+        if(firstRegion->checkState(0)!=Qt::Unchecked || countVisible()!=dataset->childCount()-1) { qCritical()<<"Selecting a hidden region changed visibility"; app.exit(25); return; }
+        dataset->setCheckState(0,Qt::Unchecked);
+        if(countVisible()!=0) { qCritical()<<"Unchecking dataset did not hide actors"; app.exit(22); return; }
+        dataset->setCheckState(0,Qt::Checked);
+        if(countVisible()!=dataset->childCount()-1 || firstRegion->checkState(0)!=Qt::Unchecked) { qCritical()<<"Dataset toggle did not preserve region state"; app.exit(23); return; }
+        firstRegion->setCheckState(0,Qt::Checked);
+        if(countVisible()!=dataset->childCount()) { qCritical()<<"Checking region did not restore actor"; app.exit(24); return; }
         QTreeWidgetItem *zone=nullptr;
         for(int i=0;i<dataset->childCount();++i) if(dataset->child(i)->text(0).contains(QStringLiteral("wing_up"))) zone=dataset->child(i);
         if(!zone) { qCritical()<<"Wing region missing"; app.exit(9); return; }
@@ -78,7 +105,8 @@ int main(int argc,char **argv) {
         for(int i=0;i<fields->childCount();++i) if(fields->child(i)->data(0,Qt::UserRole+3).toMap().value("field")==QStringLiteral("p_dim")) pressure=fields->child(i);
         if(!pressure || pressure->data(0,Qt::UserRole+3).toMap().value("association")!=QStringLiteral("point")) { qCritical()<<"Pressure field missing"; app.exit(7); return; }
         tree->setCurrentItem(pressure);
-        if(dataset->child(0)->checkState(0)!=Qt::Unchecked || zone->checkState(0)!=Qt::Checked) { qCritical()<<"Region visibility did not follow selection"; app.exit(10); return; }
+        if(dataset->child(0)->checkState(0)!=Qt::Checked || zone->checkState(0)!=Qt::Checked || countVisible()!=dataset->childCount()) { qCritical()<<"Selecting a field changed region visibility"; app.exit(10); return; }
+        for(int i=0;i<dataset->childCount();++i) if(dataset->child(i)!=zone) dataset->child(i)->setCheckState(0,Qt::Unchecked);
         phase=-1;
         QTimer::singleShot(800,&app,[&] {
             const QString image=qEnvironmentVariable("AEROSIM_CGNS_CAPTURE");

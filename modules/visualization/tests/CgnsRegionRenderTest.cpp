@@ -47,7 +47,9 @@ int main(int argc,char **argv) {
         if(dataset->data(0,Qt::UserRole).toString()!=QStringLiteral("dataset")) return;
         if(dataset->childCount()!=7) {qCritical()<<"Unexpected regions"<<dataset->childCount(); app.exit(9); return;}
         if(region>=dataset->childCount()) {app.exit(failed?10:0); return;}
-        auto *item=dataset->child(region++); tree->scrollToItem(item); const QRect rect=tree->visualItemRect(item);
+        auto *item=dataset->child(region++);
+        for(int i=0;i<dataset->childCount();++i) dataset->child(i)->setCheckState(0,Qt::Unchecked);
+        tree->scrollToItem(item); const QRect rect=tree->visualItemRect(item);
         const QPoint point=rect.topLeft()+QPoint(9,rect.height()/2);
         QMouseEvent down(QEvent::MouseButtonPress,point,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
         QMouseEvent up(QEvent::MouseButtonRelease,point,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);

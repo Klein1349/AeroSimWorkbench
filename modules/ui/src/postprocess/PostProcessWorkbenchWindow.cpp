@@ -1055,17 +1055,6 @@ void PostProcessWorkbenchWindow::updateDataSelection(QTreeWidgetItem *item, int)
         timeSlider_->setValue(item->parent()->indexOfChild(item));
     updateSelectionActions();
     if (!selectedContext_.value("regionId").toString().isEmpty()) {
-        QTreeWidgetItem *regionItem=item;
-        while (regionItem && regionItem->data(0,Qt::UserRole).toString()!=QStringLiteral("volume") && regionItem->data(0,Qt::UserRole).toString()!=QStringLiteral("surface")) regionItem=regionItem->parent();
-        if(regionItem && regionItem->parent()) {
-            auto *root=regionItem->parent();
-            if(root->checkState(0)!=Qt::Checked) root->setCheckState(0,Qt::Checked);
-            for(int i=0;i<root->childCount();++i) {
-                auto *candidate=root->child(i);
-                const auto desired=candidate==regionItem ? Qt::Checked : Qt::Unchecked;
-                if(candidate->checkState(0)!=desired) candidate->setCheckState(0,desired);
-            }
-        }
         emit dataSelectionChanged(selectedContext_.value("sourceId").toString(), selectedContext_.value("regionId").toString(), selectedContext_.value("field").toString(), selectedContext_.value("association").toString());
     }
 }
@@ -1088,6 +1077,7 @@ void PostProcessWorkbenchWindow::presentImportedData(const QVariantList &dataset
     for (const QVariant &value : datasets) {
         const QVariantMap dataset=value.toMap();
         auto *root=new QTreeWidgetItem(datasetTree_,QStringList(dataset.value("name").toString()));
+        if(!first) first=root;
         root->setData(0,Qt::UserRole,QStringLiteral("dataset")); root->setToolTip(0,dataset.value("path").toString());
         QVariantMap rootContext; rootContext["sourceId"]=dataset.value("id"); root->setData(0,Qt::UserRole+3,rootContext);
         root->setFlags(root->flags() | Qt::ItemIsUserCheckable); root->setCheckState(0,Qt::Checked);
@@ -1101,7 +1091,7 @@ void PostProcessWorkbenchWindow::presentImportedData(const QVariantList &dataset
             auto *item=new QTreeWidgetItem(root,QStringList(region.value("name").toString()));
             item->setData(0,Qt::UserRole,region.value("dimension").toInt()==3 ? QStringLiteral("volume") : QStringLiteral("surface"));
             item->setData(0,Qt::UserRole+1,dataset.value("id").toString()+QStringLiteral("/")+region.value("id").toString()); item->setData(0,Qt::UserRole+3,context);
-            item->setFlags(item->flags() | Qt::ItemIsUserCheckable); item->setCheckState(0,region.value("dimension").toInt()==3 ? Qt::Checked : Qt::Unchecked);
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable); item->setCheckState(0,Qt::Checked);
             const QString kind=region.value("kind").toString();
             item->setToolTip(0,kind==QStringLiteral("volume") ? uiText(u"体区域") : kind==QStringLiteral("boundary") ? uiText(u"边界区域") : uiText(u"未归入已识别边界的单元段"));
             for (const QVariant &fv:region.value("fields").toList()) {
@@ -1112,7 +1102,7 @@ void PostProcessWorkbenchWindow::presentImportedData(const QVariantList &dataset
                 field->setToolTip(0,uiText(u"位置：%1\n分量：%2\n范围：%3\n单位：未知").arg(assoc=="point" ? uiText(u"节点") : uiText(u"单元")).arg(f.value("components").toInt()).arg(rangeText));
                 field->setData(0,Qt::UserRole,QStringLiteral("field")); field->setData(0,Qt::UserRole+1,dataset.value("id").toString()+QStringLiteral("/")+region.value("id").toString()+QStringLiteral("/")+assoc+QStringLiteral("/")+f.value("name").toString()); field->setData(0,Qt::UserRole+3,fc);
             }
-            item->setExpanded(false); if(!first) first=item;
+            item->setExpanded(false);
         }
         root->setExpanded(true);
     }

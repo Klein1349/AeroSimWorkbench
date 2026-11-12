@@ -86,7 +86,7 @@ public:
             Display display; display.dataset=dataset.id; display.region=region.id;
             display.mapper=vtkSmartPointer<vtkDataSetMapper>::New(); display.mapper->SetInputData(region.data); display.mapper->ScalarVisibilityOff();
             display.actor=vtkSmartPointer<vtkActor>::New(); display.actor->SetMapper(display.mapper); display.actor->GetProperty()->SetColor(.72,.78,.84);
-            display.active=region.dimension==3; display.actor->SetVisibility(display.active && visibility.value(dataset.id,true)); renderer->AddActor(display.actor); displays.append(display);
+            display.active=true; display.actor->SetVisibility(visibility.value(dataset.id,true)); renderer->AddActor(display.actor); displays.append(display);
         }
     }
     // Pick a useful view only when a surface is nearly edge-on. Surface area
@@ -123,8 +123,9 @@ public:
     }
     void select(const QString &datasetId,const QString &regionId,const QString &field,const QString &association) {
         for(const auto &dataset:datasets) if(dataset.id==datasetId) for(const auto &region:dataset.data.regions) if(region.id==regionId) {
-            const bool thin=region.dimension==2 && orientEdgeOnRegion(region.data);
             for(auto &display:displays) if(display.dataset==datasetId && display.region==regionId) {
+                const bool visible=display.actor->GetVisibility()!=0;
+                const bool thin=visible && region.dimension==2 && orientEdgeOnRegion(region.data);
                 display.actor->GetProperty()->SetEdgeVisibility(thin);
                 if(thin) { display.actor->GetProperty()->SetEdgeColor(.1,.12,.16); display.actor->GetProperty()->SetLineWidth(3); }
                 if(!field.isEmpty()) {
@@ -144,10 +145,13 @@ public:
                         }
                         painter.end(); legendName->setText(field); legendMax->setText(QString::number(range[1],'g',6));
                         legendColors->setPixmap(bar); legendMin->setText(QString::number(range[0],'g',6));
-                        legend->adjustSize(); legend->move(qMax(0,owner->width()-legend->width()-14),qMax(0,owner->height()-legend->height()-14)); legend->show(); legend->raise();
+                        legend->adjustSize(); legend->move(qMax(0,owner->width()-legend->width()-14),qMax(0,owner->height()-legend->height()-14));
+                        legendDataset=datasetId; legendRegion=regionId;
+                        if(visible) { legend->show(); legend->raise(); } else legend->hide();
                     } else { display.mapper->ScalarVisibilityOff(); legend->hide(); }
                 } else { display.mapper->ScalarVisibilityOff(); legend->hide(); }
-            } renderer->ResetCamera(region.data->GetBounds()); renderer->ResetCameraClippingRange(); render(); return;
+                if(visible) { renderer->ResetCamera(region.data->GetBounds()); renderer->ResetCameraClippingRange(); }
+            } render(); return;
         }
     }
     VtkSceneViewer *owner; QVTKOpenGLNativeWidget *widget=nullptr;
@@ -155,6 +159,7 @@ public:
     vtkSmartPointer<vtkRenderer> renderer;
     vtkSmartPointer<WorkbenchInteractorStyle> style;
     QFrame *legend=nullptr;
+    QString legendDataset, legendRegion;
     QLabel *legendName=nullptr; QLabel *legendMax=nullptr; QLabel *legendColors=nullptr; QLabel *legendMin=nullptr;
     QVector<LoadedDataset> datasets;
     QVector<Display> displays;
@@ -189,11 +194,12 @@ void VtkSceneViewer::bindWorkbench(PostProcessWorkbenchWindow *workbench) {
     });
     connect(workbench,&PostProcessWorkbenchWindow::datasetVisibilityChanged,this,[this](const QString &dataset,bool visible) {
         impl_->visibility[dataset]=visible;
-        if(!visible) impl_->legend->hide();
+        if(!visible && impl_->legendDataset==dataset) impl_->legend->hide();
         for(auto &display:impl_->displays) if(display.dataset==dataset) display.actor->SetVisibility(visible && display.active);
         impl_->render();
     });
     connect(workbench,&PostProcessWorkbenchWindow::regionVisibilityChanged,this,[this](const QString &dataset,const QString &region,bool visible) {
+        if(!visible && impl_->legendDataset==dataset && impl_->legendRegion==region) impl_->legend->hide();
         for(auto &display:impl_->displays) if(display.dataset==dataset && display.region==region) { display.active=visible; display.actor->SetVisibility(visible && impl_->visibility.value(dataset,true)); }
         impl_->render();
     });
