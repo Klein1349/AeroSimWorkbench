@@ -562,10 +562,6 @@ void MainWindow::createWorkspace()
     auto *meshPage = new MeshManagementPage(viewport, workspaceStack_);
     viewportPage_ = meshPage;
     workspaceStack_->addWidget(meshPage);
-    // The replicated mesh workspace offers a 后处理 tab that opens the same
-    // standalone post-process workbench as the Ribbon entry.
-    connect(meshPage, &MeshManagementPage::postProcessRequested,
-            this, &MainWindow::openPostProcessRequested);
     // Unified trajectory settings page. The former trajectory leaf pages are
     // consolidated here; the page keeps all of its state in the window and no
     // longer depends on the deleted navigation entries.

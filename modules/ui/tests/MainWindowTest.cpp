@@ -18,6 +18,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QToolBar>
 #include <QDockWidget>
 #include <QDialog>
 #include <QDoubleSpinBox>
@@ -63,6 +64,18 @@ int main(int argc, char **argv)
     {
         aerosim::MeshManagementPage page(new QWidget);
         page.enableBoundaryMode();
+        auto *toolbar = page.findChild<QToolBar *>("meshViewerToolbar");
+        if (!check(toolbar && toolbar->isMovable() && toolbar->allowedAreas() == Qt::AllToolBarAreas,
+                   "Mesh toolbar must allow four-edge docking")) return 94;
+        for (const auto area : {Qt::LeftToolBarArea, Qt::TopToolBarArea,
+                                Qt::BottomToolBarArea, Qt::RightToolBarArea}) {
+            page.restoreLayoutState({{QStringLiteral("meshToolbarArea"), int(area)}});
+            const auto orientation = (area == Qt::LeftToolBarArea || area == Qt::RightToolBarArea)
+                ? Qt::Vertical : Qt::Horizontal;
+            if (!check(page.layoutState().value(QStringLiteral("meshToolbarArea")).toInt() == int(area)
+                       && toolbar->orientation() == orientation,
+                       "Restoring a mesh toolbar edge must update its orientation")) return 95;
+        }
         auto *axis = page.findChild<QWidget *>("axisIndicator");
         if (!check(axis && !axis->testAttribute(Qt::WA_TransparentForMouseEvents),
                    "The orientation control must receive mouse events")) return 91;
@@ -89,6 +102,63 @@ int main(int argc, char **argv)
         mouse(QEvent::MouseButtonRelease, QPoint(44 + offset, 46), Qt::LeftButton, Qt::NoButton);
         if (!check(view.isEmpty() && drag == QPoint(offset, 2),
                    "Dragging the orientation control must orbit without snapping")) return 93;
+
+        page.beginBoundary(QStringLiteral("cube"), QStringLiteral("Cube.vtk"));
+        page.finishBoundary(QStringLiteral("cube"), QStringLiteral("Cube summary"));
+        page.beginBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder.vtu"));
+        page.finishBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"));
+        page.beginBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere.vtp"));
+        page.finishBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere summary"));
+        auto *meshList = page.findChild<QTableWidget *>("meshTable");
+        auto *removeMesh = page.findChild<QPushButton *>("deleteMeshButton");
+        auto *meshName = page.findChild<QLineEdit *>("meshNameEditor");
+        if (!check(meshList && removeMesh && meshName, "Mesh removal controls are missing")) return 96;
+        meshList->setCurrentCell(0, 1);
+        removeMesh->click();
+        if (!check(meshList->rowCount() == 2 && meshList->currentRow() == 0
+                   && meshList->item(0, 1)->text() == QStringLiteral("Cylinder.vtu")
+                   && meshName->text() == QStringLiteral("Cylinder.vtu"),
+                   "Removing a mesh must refresh the properties of the selected remaining mesh")) return 97;
+
+        QString rotationTarget;
+        QVector3D rotationAxis;
+        QPoint meshDrag;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryAxisRotationRequested, &page,
+                         [&](const QString &id, const QVector3D &direction) {
+            rotationTarget = id;
+            rotationAxis = direction;
+        });
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryDragRotationRequested, &page,
+                         [&](const QString &id, int dx, int dy) {
+            rotationTarget = id;
+            meshDrag += QPoint(dx, dy);
+        });
+        view.clear();
+        drag = QPoint();
+        page.selectBoundary(QStringLiteral("sphere"));
+        if (!check(meshName->text() == QStringLiteral("Sphere.vtp"),
+                   "A picked boundary must select its table row and properties")) return 98;
+        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
+        if (!check(view.isEmpty() && rotationTarget == QStringLiteral("sphere")
+                   && rotationAxis == QVector3D(1, 0, 0),
+                   "Clicking X must rotate only the picked mesh")) return 99;
+
+        meshList->setCurrentCell(0, 1);
+        mouse(QEvent::MouseButtonPress, QPoint(44, 44), Qt::LeftButton, Qt::LeftButton);
+        page.selectBoundary(QStringLiteral("sphere"));
+        mouse(QEvent::MouseMove, QPoint(44 + offset, 46), Qt::NoButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(44 + offset, 46), Qt::LeftButton, Qt::NoButton);
+        if (!check(drag.isNull() && rotationTarget == QStringLiteral("cylinder")
+                   && meshDrag == QPoint(offset, 2),
+                   "A direction-ball drag must keep the original mesh target")) return 100;
+
+        page.selectBoundary(QString());
+        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
+        if (!check(meshList->currentRow() == -1 && meshName->text().isEmpty()
+                   && view == QStringLiteral("right"),
+                   "Clearing selection must return the direction ball to camera control")) return 101;
     }
     // ASCII source with explicit UTF-16 expectations detects compiler/code-page corruption.
     const auto text = [](const char16_t *value) {
@@ -166,7 +236,8 @@ int main(int argc, char **argv)
                && meshTable->columnCount() == 3
                && meshCount && meshCount->text().contains("3 / 10")
                && importMesh && deleteMesh && scaleEditor && historyTabs && history && historyCollapse
-               && workspaceTabs && workspaceTabs->count() == 3
+               && workspaceTabs && workspaceTabs->count() == 1
+               && workspaceTabs->tabText(0) == text(u"\u7f51\u683c\u89c6\u56fe")
                && window.findChild<QSplitter *>("meshWorkspaceMainSplitter")
                && window.findChild<QSplitter *>("meshSettingsSplitter")
                && window.findChild<QWidget *>("viewportSlot")
@@ -321,13 +392,14 @@ int main(int argc, char **argv)
     app.processEvents();
     auto *projectDock = window.findChild<QDockWidget *>("projectDock");
     auto *propertyDock = window.findChild<QDockWidget *>("propertyDock");
-    if (!check(window.dockWidgetArea(projectDock) == Qt::LeftDockWidgetArea
+    if (!check(projectDock && propertyDock
+               && window.dockWidgetArea(projectDock) == Qt::LeftDockWidgetArea
                && window.dockWidgetArea(propertyDock) == Qt::LeftDockWidgetArea
-               && projectDock->geometry().left() < propertyDock->geometry().left()
+               && propertyDock->isHidden()
                && !propertyDock->isFloating()
                && !(propertyDock->features() & QDockWidget::DockWidgetClosable)
-               && projectDock->minimumWidth() >= 220 && propertyDock->minimumWidth() >= 300,
-               "Default layout must place navigation before properties on the left")) return 42;
+               && projectDock->minimumWidth() >= 220 && propertyDock->minimumWidth() >= 180,
+               "Mesh workspace must retain the left docks and hide shared properties")) return 42;
     auto *outputDock = window.findChild<QDockWidget *>("outputDock");
     auto *outputTable = window.findChild<QTableWidget *>("outputLogTable");
     auto *levelFilter = window.findChild<QComboBox *>("logLevelFilter");
@@ -514,8 +586,9 @@ int main(int argc, char **argv)
     app.processEvents();
     if (!check(workspace->currentWidget()->objectName() == "trajectorySettingsPage",
                "Trajectory settings node did not open its unified page")) return 43;
-    if (!check(!propertyDock->isHidden(),
-               "Non-mesh workspace did not restore the shared property panel")) return 65;
+    if (!check(propertyDock->isVisible()
+               && projectDock->geometry().left() < propertyDock->geometry().left(),
+               "Non-mesh workspace must restore shared properties to the right of navigation")) return 65;
     projectTree->setCurrentItem(preprocessNode->child(0));
     app.processEvents();
     if (!check(workspace->currentWidget() == meshPage && meshTable->rowCount() == 9

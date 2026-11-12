@@ -27,7 +27,7 @@ bool installMeshViewer(MainWindow &window)
 
     auto *service = new BoundaryLoadService(viewer);
     QObject::connect(page, &MeshManagementPage::boundaryImportRequested,
-                     service, &BoundaryLoadService::load);
+                     service, &BoundaryLoadService::loadFiles);
     QObject::connect(page, &MeshManagementPage::boundaryRemoveRequested,
                      service, &BoundaryLoadService::remove);
     QObject::connect(page, &MeshManagementPage::boundaryRemoveRequested,
@@ -38,13 +38,19 @@ bool installMeshViewer(MainWindow &window)
                      viewer, &VtkSceneViewer::setCameraOrientation);
     QObject::connect(page, &MeshManagementPage::boundaryOrbitRequested,
                      viewer, &VtkSceneViewer::orbitCamera);
+    QObject::connect(page, &MeshManagementPage::boundaryAxisRotationRequested,
+                     viewer, &VtkSceneViewer::rotateObjectAroundAxis);
+    QObject::connect(page, &MeshManagementPage::boundaryDragRotationRequested,
+                     viewer, &VtkSceneViewer::rotateObjectByDrag);
+    QObject::connect(viewer, &VtkSceneViewer::boundaryPicked,
+                     page, &MeshManagementPage::selectBoundary);
     QObject::connect(viewer, &VtkSceneViewer::cameraOrientationChanged,
                      page, &MeshManagementPage::setBoundaryCameraOrientation);
     QObject::connect(page, &MeshManagementPage::boundaryBackgroundRequested, viewer, [viewer](int mode) {
         const QColor top = mode == 1 ? QColor("#2f3b49")
-                           : mode == 2 ? QColor("#565c77") : QColor("#8491f7");
+                           : mode == 2 ? QColor("#565c77") : QColor("#b8a9e3");
         const QColor bottom = mode == 1 ? QColor("#4a5a6d")
-                              : mode == 2 ? QColor("#ffffff") : QColor("#fbfbfd");
+                              : mode == 2 ? QColor("#ffffff") : QColor("#f8f5fc");
         viewer->setBackground(bottom, top, true);
     });
     QObject::connect(service, &BoundaryLoadService::started,
