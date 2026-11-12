@@ -11,6 +11,7 @@ endif()
 
 option(AEROSIM_BUILD_GUI "Build the SARibbon main window" ON)
 option(AEROSIM_BUILD_TESTS "Build and register skeleton smoke tests" ON)
+option(AEROSIM_BUILD_MESH_VIEWER "Build the VTK preprocessing mesh viewport" OFF)
 
 option(AEROSIM_BUILD_STACK_PROBE "Build the optional Qt/VTK/SARibbon compatibility probe" OFF)
 # Visualization is on by default: the monitor page gets its real curve widget
@@ -43,6 +44,10 @@ add_subdirectory(mocks/services)
 # placeholder and the abstract MonitorCurveWidget injection point.
 if(AEROSIM_BUILD_VISUALIZATION)
     add_subdirectory(modules/visualization)
+endif()
+
+if(AEROSIM_BUILD_GUI AND AEROSIM_BUILD_MESH_VIEWER)
+    add_subdirectory(modules/visualization/scene)
 endif()
 
 if(AEROSIM_BUILD_GUI)

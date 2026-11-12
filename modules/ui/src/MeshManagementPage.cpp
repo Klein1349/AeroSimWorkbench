@@ -2,6 +2,7 @@
 
 #include <QAction>
 #include <QActionGroup>
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -21,6 +22,7 @@
 #include <QListWidget>
 #include <QIcon>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QPlainTextEdit>
@@ -28,6 +30,7 @@
 #include <QPushButton>
 #include <QQuaternion>
 #include <QRadioButton>
+#include <QResizeEvent>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSlider>
@@ -42,6 +45,8 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <functional>
+#include <utility>
 
 namespace aerosim {
 namespace {
@@ -152,10 +157,21 @@ QString meshCanvasBackground(int mode)
 // first leaves the facing axis labelled when it overlaps the opposite end.
 class AxisTriad final : public QWidget {
 public:
-    explicit AxisTriad(QWidget *parent = nullptr) : QWidget(parent)
+    AxisTriad(QWidget *parent, std::function<void(int, int)> orbit,
+              std::function<void(const QString &)> snap)
+        : QWidget(parent), orbit_(std::move(orbit)), snap_(std::move(snap))
     {
+        setObjectName(QStringLiteral("axisIndicator"));
+        setFixedSize(88, 88);
         setAttribute(Qt::WA_TransparentForMouseEvents);
-        setAccessibleName(QString::fromUtf8("世界坐标轴 XYZ"));
+        setAccessibleName(QString::fromUtf8("三维视角方向球 XYZ"));
+    }
+
+    void enableInteraction()
+    {
+        setAttribute(Qt::WA_TransparentForMouseEvents, false);
+        setCursor(Qt::OpenHandCursor);
+        setToolTip(QString::fromUtf8("拖动旋转视角，点击轴端点切换视角"));
     }
 
     void setView(const QVector3D &from, const QVector3D &up)
@@ -165,44 +181,71 @@ public:
     }
 
 protected:
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() != Qt::LeftButton) return QWidget::mousePressEvent(event);
+        const auto offset = QPointF(event->pos()) - center();
+        if (QPointF::dotProduct(offset, offset) > 44 * 44) return QWidget::mousePressEvent(event);
+        pressed_ = true;
+        dragging_ = false;
+        lastPos_ = pressPos_ = event->pos();
+        setCursor(Qt::ClosedHandCursor);
+        event->accept();
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (!pressed_) return QWidget::mouseMoveEvent(event);
+        if (!dragging_ && (event->pos() - pressPos_).manhattanLength() < QApplication::startDragDistance())
+            return;
+        dragging_ = true;
+        const auto delta = event->pos() - lastPos_;
+        lastPos_ = event->pos();
+        orbit_(delta.x(), delta.y());
+        event->accept();
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event) override
+    {
+        if (!pressed_ || event->button() != Qt::LeftButton) return QWidget::mouseReleaseEvent(event);
+        pressed_ = false;
+        setCursor(Qt::OpenHandCursor);
+        if (!dragging_) {
+            const auto points = endpoints();
+            for (auto end = points.crbegin(); end != points.crend(); ++end) {
+                const auto offset = QPointF(event->pos()) - end->tip;
+                if (QPointF::dotProduct(offset, offset) <= end->radius * end->radius) {
+                    snap_(QString::fromLatin1(end->command));
+                    break;
+                }
+            }
+        }
+        event->accept();
+    }
+
     void paintEvent(QPaintEvent *) override
     {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing, true);
-        const QPointF origin(width() * 0.5, height() * 0.5);
-        const qreal radius = qMin(width(), height()) * 0.38;
-        const std::array<QVector3D, 3> axes = {{QVector3D(1, 0, 0), QVector3D(0, 1, 0), QVector3D(0, 0, 1)}};
         const std::array<QColor, 3> colors = {{QColor("#c84437"), QColor("#e7b827"), QColor("#a5cd8a")}};
-        struct Endpoint { QVector3D direction; int axis; bool positive; };
-        std::array<Endpoint, 6> endpoints;
-        for (int i = 0; i < int(axes.size()); ++i) {
-            const auto direction = worldToView_.rotatedVector(axes[i]);
-            endpoints[2 * i] = {-direction, i, false};
-            endpoints[2 * i + 1] = {direction, i, true};
-        }
-        std::stable_sort(endpoints.begin(), endpoints.end(), [](const Endpoint &a, const Endpoint &b) {
-            return a.direction.z() < b.direction.z();
-        });
+        const auto points = endpoints();
         QFont labelFont = font();
         labelFont.setBold(true);
         labelFont.setPixelSize(12);
         painter.setFont(labelFont);
-        for (const auto &end : endpoints) {
-            const QPointF tip = origin + QPointF(end.direction.x(), -end.direction.y()) * radius;
+        for (const auto &end : points) {
             QColor lineColor = colors[end.axis];
             lineColor.setAlpha(105);
             painter.setPen(QPen(lineColor, 1.6, Qt::SolidLine, Qt::RoundCap));
-            painter.drawLine(origin, tip);
+            painter.drawLine(center(), end.tip);
         }
-        for (const auto &end : endpoints) {
-            const QPointF tip = origin + QPointF(end.direction.x(), -end.direction.y()) * radius;
-            const qreal tipRadius = end.direction.z() > 0.75f ? 9.5 : 8.0;
+        for (const auto &end : points) {
             painter.setPen(Qt::NoPen);
             painter.setBrush(end.positive ? colors[end.axis] : colors[end.axis].darker(120));
-            painter.drawEllipse(tip, tipRadius, tipRadius);
-            if (end.positive || end.direction.z() > 0.75f) {
+            painter.drawEllipse(end.tip, end.radius, end.radius);
+            if (end.positive || end.depth > 0.75f) {
                 painter.setPen(QColor("#121212"));
-                painter.drawText(QRectF(tip.x() - 9, tip.y() - 9, 18, 18),
+                painter.drawText(QRectF(end.tip.x() - 9, end.tip.y() - 9, 18, 18),
                                  Qt::AlignCenter, (end.positive ? QString() : QStringLiteral("-"))
                                      + QStringLiteral("XYZ").mid(end.axis, 1));
             }
@@ -210,7 +253,69 @@ protected:
     }
 
 private:
+    struct Endpoint {
+        QPointF tip;
+        qreal radius;
+        float depth;
+        int axis;
+        bool positive;
+        const char *command;
+    };
+
+    QPointF center() const { return QPointF(width() * 0.5, height() * 0.5); }
+
+    std::array<Endpoint, 6> endpoints() const
+    {
+        const std::array<QVector3D, 3> axes = {{QVector3D(1, 0, 0), QVector3D(0, 1, 0), QVector3D(0, 0, 1)}};
+        const std::array<const char *, 6> commands = {{"left", "right", "front", "back", "bottom", "top"}};
+        const qreal radius = qMin(width(), height()) * 0.38;
+        std::array<Endpoint, 6> points;
+        for (int i = 0; i < int(points.size()); ++i) {
+            const bool positive = i % 2 != 0;
+            const auto direction = worldToView_.rotatedVector(positive ? axes[i / 2] : -axes[i / 2]);
+            points[i] = {center() + QPointF(direction.x(), -direction.y()) * radius,
+                         direction.z() > 0.75f ? 9.5 : 8.0, direction.z(), i / 2, positive, commands[i]};
+        }
+        std::stable_sort(points.begin(), points.end(), [](const Endpoint &a, const Endpoint &b) {
+            return a.depth < b.depth;
+        });
+        return points;
+    }
+
+    std::function<void(int, int)> orbit_;
+    std::function<void(const QString &)> snap_;
     QQuaternion worldToView_;
+    QPoint pressPos_;
+    QPoint lastPos_;
+    bool pressed_ = false;
+    bool dragging_ = false;
+};
+
+class MeshCanvas final : public QFrame {
+public:
+    explicit MeshCanvas(QWidget *parent) : QFrame(parent) {}
+
+    void setOrientationControl(QWidget *control)
+    {
+        control_ = control;
+        positionControl();
+        control_->raise();
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *event) override
+    {
+        QFrame::resizeEvent(event);
+        if (control_) positionControl();
+    }
+
+private:
+    void positionControl()
+    {
+        control_->move(9, qMax(0, height() - control_->height() - 16));
+    }
+
+    QWidget *control_ = nullptr;
 };
 }
 
@@ -243,12 +348,12 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         "#meshViewerToolbarScroll QScrollBar::add-line:vertical, "
         "#meshViewerToolbarScroll QScrollBar::sub-line:vertical { height:0; }"
         "#meshToolbarSeparator { background:#d6d5e0; }"
-        "#meshCanvasOverlay, QWidget#viewportSlot { background:transparent; }"
+        "QWidget#viewportSlot { background:transparent; }"
         "#meshTable { border:1px solid #d5dde6; background:#ffffff; gridline-color:#e4eaf1; "
         "alternate-background-color:#f7f9fc; selection-background-color:#dceafd; selection-color:#25364c; }"
         "#meshTable QHeaderView::section { background:#eef3f9; color:#25364c; border:0; "
         "border-right:1px solid #d5dde6; border-bottom:1px solid #d5dde6; padding:4px 6px; }"
-        "#meshCountLabel, #meshViewerStatus { color:#637083; }"
+        "#meshScopeLabel, #meshCountLabel, #meshViewerStatus { color:#637083; }"
         "#meshViewerStatus { background:#f5f7fa; border-top:1px solid #d5dde6; }"
         "#meshWorkspaceTabs, #meshWorkspaceTabs QTabBar { background:#2b285f; }"
         "#meshWorkspaceTabs::pane { border:0; background:#ffffff; }"
@@ -272,7 +377,7 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     headerLayout->addWidget(title);
     headerLayout->addStretch();
     auto *scope = new QLabel(uiText(u"\u524d\u7aef Mock \u4ea4\u4e92 \u00b7 \u672a\u8fde\u63a5\u771f\u5b9e\u7f51\u683c\u6570\u636e"), header);
-    scope->setObjectName(QStringLiteral("meshCountLabel"));
+    scope->setObjectName(QStringLiteral("meshScopeLabel"));
     headerLayout->addWidget(scope);
     pageLayout->addWidget(header);
 
@@ -420,7 +525,7 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     canvasRow->setSpacing(0);
     viewerLayout->addLayout(canvasRow, 1);
 
-    auto *canvas = new QFrame(viewerPanel);
+    auto *canvas = new MeshCanvas(viewerPanel);
     canvas->setObjectName(QStringLiteral("meshViewerCanvas"));
     canvas->setStyleSheet(meshCanvasBackground(0));
     auto *canvasLayout = new QGridLayout(canvas);
@@ -430,18 +535,11 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         placeholder->hide();
     canvasLayout->addWidget(viewportHost, 0, 0);
 
-    auto *overlay = new QWidget(canvas);
-    overlay->setObjectName(QStringLiteral("meshCanvasOverlay"));
-    overlay->setAttribute(Qt::WA_TransparentForMouseEvents);
-    auto *overlayLayout = new QGridLayout(overlay);
-    overlayLayout->setContentsMargins(9, 9, 9, 16);
-    auto *axis = new AxisTriad(overlay);
+    auto *axis = new AxisTriad(canvas,
+        [this](int dx, int dy) { emit boundaryOrbitRequested(dx, dy); },
+        [this](const QString &command) { emit boundaryViewRequested(command); });
     axisIndicator_ = axis;
-    axis->setObjectName(QStringLiteral("axisIndicator"));
-    axis->setFixedSize(88, 88);
-    overlayLayout->addWidget(axis, 0, 0, Qt::AlignLeft | Qt::AlignBottom);
-    canvasLayout->addWidget(overlay, 0, 0);
-    overlay->raise();
+    canvas->setOrientationControl(axis);
     canvasRow->addWidget(canvas, 1);
 
     auto *toolbarScroll = new QScrollArea(viewerPanel);
@@ -477,8 +575,8 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         auto *button = addViewButton(tools, toolbar, QStringLiteral("boundaryView_") + command,
                                      QString::fromUtf8(view.label), icon);
         connect(button, &QToolButton::clicked, this, [this, axis, view, command] {
-            axis->setView(view.from, view.up);
             if (boundaryMode_) emit boundaryViewRequested(command);
+            else axis->setView(view.from, view.up);
         });
     };
     const std::array<int, 6> faces = {{0, 3, 1, 4, 2, 5}};
@@ -725,8 +823,10 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
 void MeshManagementPage::addMesh()
 {
     if (boundaryMode_) {
-        const auto path=QFileDialog::getOpenFileName(this, QString::fromUtf8("导入网格边界"), QString(),
-            QString::fromUtf8("VTK 网格 (*.vtk *.vtu *.vti *.vtp)"));
+        QString filter = QString::fromUtf8("VTK 网格 (*.vtk *.vtu *.vti *.vtp)");
+        if (cgnsAvailable_) filter.prepend(QString::fromUtf8("网格 (*.cgns *.vtk *.vtu *.vti *.vtp);;CGNS 网格 (*.cgns);;"));
+        const auto path = QFileDialog::getOpenFileName(this, QString::fromUtf8("导入网格"),
+                                                       QString(), filter);
         if (!path.isEmpty()) emit boundaryImportRequested(path);
         return;
     }
@@ -931,10 +1031,13 @@ void MeshManagementPage::restoreDefaultLayout()
     setHistoryCollapsed(true);
 }
 
-void MeshManagementPage::enableBoundaryMode()
+void MeshManagementPage::enableBoundaryMode(bool cgnsAvailable)
 {
     if (boundaryMode_) return;
-    boundaryMode_=true;
+    boundaryMode_ = true;
+    cgnsAvailable_ = cgnsAvailable;
+    static_cast<AxisTriad *>(axisIndicator_)->enableInteraction();
+    findChild<QLabel *>(QStringLiteral("meshScopeLabel"))->setText(QString::fromUtf8("三维网格预览"));
     {
         QSignalBlocker block(meshTable_);
         meshTable_->setRowCount(0);
@@ -963,8 +1066,13 @@ void MeshManagementPage::enableBoundaryMode()
     viewerStatus_->setWordWrap(true);
     viewerStatus_->show();
     refreshEditor(); updateCount();
-    viewerStatus_->setText(QString::fromUtf8("请选择 VTK 网格文件；显示全部拓扑边界，原体数据保留用于分析。"));
+    viewerStatus_->setText(QString::fromUtf8("导入网格后，拖动方向球旋转，或点击轴端点切换视角。"));
 }
+void MeshManagementPage::setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up)
+{
+    static_cast<AxisTriad *>(axisIndicator_)->setView(from, up);
+}
+
 void MeshManagementPage::beginBoundary(const QString &id,const QString &path)
 {
     MeshUiState state; state.id=id; state.ready=false; state.name=QFileInfo(path).fileName();

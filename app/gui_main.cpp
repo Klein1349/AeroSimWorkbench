@@ -19,6 +19,10 @@
 #endif
 #include <QPixmap>
 
+#ifdef AEROSIM_HAS_MESH_VIEWER
+#include "MeshViewerBinding.h"
+#endif
+
 #ifdef AEROSIM_HAS_VTK_VIEWER
 #include "aerosim/visualization/scene/VtkSceneViewer.h"
 #include <QSurfaceFormat>
@@ -38,6 +42,10 @@ int main(int argc, char *argv[])
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #ifdef AEROSIM_HAS_VTK_VIEWER
     QSurfaceFormat::setDefaultFormat(QVTKOpenGLNativeWidget::defaultFormat());
+#endif
+#ifdef AEROSIM_HAS_MESH_VIEWER
+    if (qgetenv("AEROSIM_ENABLE_MESH_VIEWER") != "0")
+        aerosim::configureMeshViewerSurface();
 #endif
     QApplication app(argc, argv);
     aerosim::ApplicationController controller(
@@ -91,6 +99,13 @@ int main(int argc, char *argv[])
 #endif
     if (app.arguments().contains(QStringLiteral("--monitor")))
         window.showComputeMonitor();
+#ifdef AEROSIM_HAS_MESH_VIEWER
+    if (!smoke && qgetenv("AEROSIM_ENABLE_MESH_VIEWER") != "0"
+        && !aerosim::installMeshViewer(window)) {
+        QTextStream(stderr) << "Failed to insert preprocessing mesh viewer\n";
+        return 4;
+    }
+#endif
 #endif
     postprocess.bindServices(bindings);
 #ifndef AEROSIM_POSTPROCESS_STANDALONE

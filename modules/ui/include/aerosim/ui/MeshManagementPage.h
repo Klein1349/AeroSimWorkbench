@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QVariantMap>
 #include <QVector>
+#include <QVector3D>
 #include <QWidget>
 
 class QCheckBox;
@@ -33,16 +34,18 @@ public:
     QVariantMap layoutState() const;
     void restoreLayoutState(const QVariantMap &state);
     void restoreDefaultLayout();
-    void enableBoundaryMode();
+    void enableBoundaryMode(bool cgnsAvailable = false);
     void beginBoundary(const QString &id, const QString &path);
     void finishBoundary(const QString &id, const QString &summary);
     void failBoundary(const QString &id, const QString &message);
     void setBoundaryBusy(bool busy);
+    void setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up);
 signals:
     void boundaryImportRequested(const QString &path);
     void boundaryRemoveRequested(const QString &id);
     void boundaryStyleChanged(const QString &id, const QVariantMap &style);
     void boundaryViewRequested(const QString &command);
+    void boundaryOrbitRequested(int dx, int dy);
     void boundaryBackgroundRequested(int mode);
     void postProcessRequested();
 
@@ -73,6 +76,7 @@ private:
     int selectedRow() const;
     bool boundaryMode_ = false;
     bool boundaryBusy_ = false;
+    bool cgnsAvailable_ = false;
 
     QVector<MeshUiState> meshes_;
     QTableWidget *meshTable_ = nullptr;
@@ -90,8 +94,7 @@ private:
     QDoubleSpinBox *scaleEditor_ = nullptr;
     QComboBox *unitEditor_ = nullptr;
     QLabel *viewerStatus_ = nullptr;
-    // Custom colour axis triad; declared as QWidget so the header stays free
-    // of the paint-only helper type.
+    // The orientation control is implemented in the page source file.
     QWidget *axisIndicator_ = nullptr;
     QSplitter *mainSplitter_ = nullptr;
     QSplitter *settingsSplitter_ = nullptr;

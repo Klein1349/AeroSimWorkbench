@@ -1,4 +1,5 @@
 #include "aerosim/ui/MainWindow.h"
+#include "aerosim/ui/MeshManagementPage.h"
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include <QAbstractButton>
 #include <QAction>
@@ -16,6 +17,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QDockWidget>
 #include <QDialog>
 #include <QDoubleSpinBox>
@@ -58,6 +60,36 @@ int main(int argc, char **argv)
         if (!passed) QTextStream(stderr) << message << '\n';
         return passed;
     };
+    {
+        aerosim::MeshManagementPage page(new QWidget);
+        page.enableBoundaryMode();
+        auto *axis = page.findChild<QWidget *>("axisIndicator");
+        if (!check(axis && !axis->testAttribute(Qt::WA_TransparentForMouseEvents),
+                   "The orientation control must receive mouse events")) return 91;
+        QString view;
+        QPoint drag;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryViewRequested,
+                         &page, [&view](const QString &command) { view = command; });
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryOrbitRequested,
+                         &page, [&drag](int dx, int dy) { drag += QPoint(dx, dy); });
+        const auto mouse = [axis](QEvent::Type type, QPoint position,
+                                  Qt::MouseButton button, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, QPointF(position), button, buttons, Qt::NoModifier);
+            QApplication::sendEvent(axis, &event);
+        };
+        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
+        if (!check(view == QStringLiteral("right") && drag.isNull(),
+                   "Clicking the positive X endpoint must request the right view")) return 92;
+
+        view.clear();
+        mouse(QEvent::MouseButtonPress, QPoint(44, 44), Qt::LeftButton, Qt::LeftButton);
+        const int offset = QApplication::startDragDistance() + 5;
+        mouse(QEvent::MouseMove, QPoint(44 + offset, 46), Qt::NoButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(44 + offset, 46), Qt::LeftButton, Qt::NoButton);
+        if (!check(view.isEmpty() && drag == QPoint(offset, 2),
+                   "Dragging the orientation control must orbit without snapping")) return 93;
+    }
     // ASCII source with explicit UTF-16 expectations detects compiler/code-page corruption.
     const auto text = [](const char16_t *value) {
         return QString::fromUtf16(reinterpret_cast<const ushort *>(value));
