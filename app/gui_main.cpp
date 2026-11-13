@@ -6,6 +6,10 @@
 #include "aerosim/ui/StartupLandingPage.h"
 #include <QPixmap>
 
+#ifdef AEROSIM_HAS_MESH_VIEWER
+#include "MeshViewerBinding.h"
+#endif
+
 #ifdef AEROSIM_HAS_VTK_VIEWER
 #include "aerosim/visualization/VtkSceneViewer.h"
 #include <QSurfaceFormat>
@@ -26,6 +30,10 @@ int main(int argc, char *argv[])
 #ifdef AEROSIM_HAS_VTK_VIEWER
     QSurfaceFormat::setDefaultFormat(QVTKOpenGLNativeWidget::defaultFormat());
 #endif
+#ifdef AEROSIM_HAS_MESH_VIEWER
+    if (qgetenv("AEROSIM_ENABLE_MESH_VIEWER") != "0")
+        aerosim::configureMeshViewerSurface();
+#endif
     QApplication app(argc, argv);
     aerosim::ApplicationController controller(
         std::unique_ptr<aerosim::IWorkflowService>(new aerosim::MockWorkflowService),
@@ -45,6 +53,13 @@ int main(int argc, char *argv[])
         controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr};
 #ifndef AEROSIM_POSTPROCESS_STANDALONE
     window.bindServices(bindings);
+#ifdef AEROSIM_HAS_MESH_VIEWER
+    if (!smoke && qgetenv("AEROSIM_ENABLE_MESH_VIEWER") != "0"
+        && !aerosim::installMeshViewer(window)) {
+        QTextStream(stderr) << "Failed to insert preprocessing mesh viewer\n";
+        return 4;
+    }
+#endif
 #endif
     postprocess.bindServices(bindings);
 #ifndef AEROSIM_POSTPROCESS_STANDALONE
