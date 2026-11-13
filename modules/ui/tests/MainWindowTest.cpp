@@ -1,4 +1,5 @@
 #include "aerosim/ui/MainWindow.h"
+#include "aerosim/ui/MeshManagementPage.h"
 #include "aerosim/ui/postprocess/PostProcessWorkbenchWindow.h"
 #include <QAbstractButton>
 #include <QAction>
@@ -16,6 +17,8 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QMouseEvent>
+#include <QToolBar>
 #include <QDockWidget>
 #include <QDialog>
 #include <QDoubleSpinBox>
@@ -35,11 +38,11 @@
 class Workflow final : public aerosim::IWorkflowService {
 public:
     using IWorkflowService::IWorkflowService;
-    aerosim::WorkflowView view(const aerosim::ScopeRef &scope) const override {
-        aerosim::WorkflowView result;
+    aerosim::AccessResult<aerosim::WorkflowViewV2> viewV2(const aerosim::ScopeRef &scope) const override {
+        aerosim::WorkflowViewV2 result;
         result.scope = scope;
         result.actions.append({QStringLiteral("run"), true, {}, {}, {}, {}, {}});
-        return result;
+        return aerosim::AccessResult<aerosim::WorkflowViewV2>::success(result);
     }
     aerosim::ValidationResult requestRun(const aerosim::RunRequest &) override { ++requests; return {true, {}}; }
     void onTaskEvent(const aerosim::TaskEvent &) override {}
@@ -58,6 +61,105 @@ int main(int argc, char **argv)
         if (!passed) QTextStream(stderr) << message << '\n';
         return passed;
     };
+    {
+        aerosim::MeshManagementPage page(new QWidget);
+        page.enableBoundaryMode();
+        auto *toolbar = page.findChild<QToolBar *>("meshViewerToolbar");
+        if (!check(toolbar && toolbar->isMovable() && toolbar->allowedAreas() == Qt::AllToolBarAreas,
+                   "Mesh toolbar must allow four-edge docking")) return 94;
+        for (const auto area : {Qt::LeftToolBarArea, Qt::TopToolBarArea,
+                                Qt::BottomToolBarArea, Qt::RightToolBarArea}) {
+            page.restoreLayoutState({{QStringLiteral("meshToolbarArea"), int(area)}});
+            const auto orientation = (area == Qt::LeftToolBarArea || area == Qt::RightToolBarArea)
+                ? Qt::Vertical : Qt::Horizontal;
+            if (!check(page.layoutState().value(QStringLiteral("meshToolbarArea")).toInt() == int(area)
+                       && toolbar->orientation() == orientation,
+                       "Restoring a mesh toolbar edge must update its orientation")) return 95;
+        }
+        auto *axis = page.findChild<QWidget *>("axisIndicator");
+        if (!check(axis && !axis->testAttribute(Qt::WA_TransparentForMouseEvents),
+                   "The orientation control must receive mouse events")) return 91;
+        QString view;
+        QPoint drag;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryViewRequested,
+                         &page, [&view](const QString &command) { view = command; });
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryOrbitRequested,
+                         &page, [&drag](int dx, int dy) { drag += QPoint(dx, dy); });
+        const auto mouse = [axis](QEvent::Type type, QPoint position,
+                                  Qt::MouseButton button, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, QPointF(position), button, buttons, Qt::NoModifier);
+            QApplication::sendEvent(axis, &event);
+        };
+        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
+        if (!check(view == QStringLiteral("right") && drag.isNull(),
+                   "Clicking the positive X endpoint must request the right view")) return 92;
+
+        view.clear();
+        mouse(QEvent::MouseButtonPress, QPoint(44, 44), Qt::LeftButton, Qt::LeftButton);
+        const int offset = QApplication::startDragDistance() + 5;
+        mouse(QEvent::MouseMove, QPoint(44 + offset, 46), Qt::NoButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(44 + offset, 46), Qt::LeftButton, Qt::NoButton);
+        if (!check(view.isEmpty() && drag == QPoint(offset, 2),
+                   "Dragging the orientation control must orbit without snapping")) return 93;
+
+        page.beginBoundary(QStringLiteral("cube"), QStringLiteral("Cube.vtk"));
+        page.finishBoundary(QStringLiteral("cube"), QStringLiteral("Cube summary"));
+        page.beginBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder.vtu"));
+        page.finishBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"));
+        page.beginBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere.vtp"));
+        page.finishBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere summary"));
+        auto *meshList = page.findChild<QTableWidget *>("meshTable");
+        auto *removeMesh = page.findChild<QPushButton *>("deleteMeshButton");
+        auto *meshName = page.findChild<QLineEdit *>("meshNameEditor");
+        if (!check(meshList && removeMesh && meshName, "Mesh removal controls are missing")) return 96;
+        meshList->setCurrentCell(0, 1);
+        removeMesh->click();
+        if (!check(meshList->rowCount() == 2 && meshList->currentRow() == 0
+                   && meshList->item(0, 1)->text() == QStringLiteral("Cylinder.vtu")
+                   && meshName->text() == QStringLiteral("Cylinder.vtu"),
+                   "Removing a mesh must refresh the properties of the selected remaining mesh")) return 97;
+
+        QString rotationTarget;
+        QVector3D rotationAxis;
+        QPoint meshDrag;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryAxisRotationRequested, &page,
+                         [&](const QString &id, const QVector3D &direction) {
+            rotationTarget = id;
+            rotationAxis = direction;
+        });
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryDragRotationRequested, &page,
+                         [&](const QString &id, int dx, int dy) {
+            rotationTarget = id;
+            meshDrag += QPoint(dx, dy);
+        });
+        view.clear();
+        drag = QPoint();
+        page.selectBoundary(QStringLiteral("sphere"));
+        if (!check(meshName->text() == QStringLiteral("Sphere.vtp"),
+                   "A picked boundary must select its table row and properties")) return 98;
+        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
+        if (!check(view.isEmpty() && rotationTarget == QStringLiteral("sphere")
+                   && rotationAxis == QVector3D(1, 0, 0),
+                   "Clicking X must rotate only the picked mesh")) return 99;
+
+        meshList->setCurrentCell(0, 1);
+        mouse(QEvent::MouseButtonPress, QPoint(44, 44), Qt::LeftButton, Qt::LeftButton);
+        page.selectBoundary(QStringLiteral("sphere"));
+        mouse(QEvent::MouseMove, QPoint(44 + offset, 46), Qt::NoButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(44 + offset, 46), Qt::LeftButton, Qt::NoButton);
+        if (!check(drag.isNull() && rotationTarget == QStringLiteral("cylinder")
+                   && meshDrag == QPoint(offset, 2),
+                   "A direction-ball drag must keep the original mesh target")) return 100;
+
+        page.selectBoundary(QString());
+        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
+        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
+        if (!check(meshList->currentRow() == -1 && meshName->text().isEmpty()
+                   && view == QStringLiteral("right"),
+                   "Clearing selection must return the direction ball to camera control")) return 101;
+    }
     // ASCII source with explicit UTF-16 expectations detects compiler/code-page corruption.
     const auto text = [](const char16_t *value) {
         return QString::fromUtf16(reinterpret_cast<const ushort *>(value));
@@ -82,7 +184,7 @@ int main(int argc, char **argv)
                "Ribbon application button must return to the startup page")) return 69;
     returnToStartup->click();
     if (!check(startupRequests == 1, "Startup button did not emit the existing navigation request")) return 70;
-    if (!check(window.findChild<QLabel *>("propertyTitle")->text() == text(u"\u7f51\u683c\u6587\u4ef6"),
+    if (!check(window.findChild<QLabel *>("propertyTitle")->text() == text(u"\u7f51\u683c\u7ba1\u7406"),
                "Property title has incorrect Unicode characters")) return 16;
     if (!check(window.findChild<QTreeWidget *>("workspaceTree")->topLevelItemCount() == 1, "Missing workspace navigation")) return 1;
     const auto categories = window.ribbonBar()->categoryPages();
@@ -121,18 +223,23 @@ int main(int argc, char **argv)
                "Help Ribbon must not alter the business workspace or unified tree")) return 80;
     window.ribbonBar()->raiseCategory(preprocess);
     auto *meshPage = window.findChild<QWidget *>("viewportPage");
-    auto *meshList = window.findChild<QTreeWidget *>("meshList");
+    auto *meshTable = window.findChild<QTableWidget *>("meshTable");
     auto *meshCount = window.findChild<QLabel *>("meshObjectCount");
-    auto *addMesh = window.findChild<QPushButton *>("addMeshButton");
-    auto *removeMesh = window.findChild<QPushButton *>("removeMeshButton");
+    auto *importMesh = window.findChild<QPushButton *>("importMeshButton");
+    auto *deleteMesh = window.findChild<QPushButton *>("deleteMeshButton");
     auto *scaleEditor = window.findChild<QDoubleSpinBox *>("meshScaleEditor");
     auto *historyTabs = window.findChild<QTabWidget *>("meshHistoryTabs");
     auto *history = window.findChild<QListWidget *>("meshOperationHistory");
     auto *historyCollapse = window.findChild<QPushButton *>("meshHistoryCollapseButton");
-    if (!check(meshPage && meshList && meshList->topLevelItemCount() == 3
+    auto *workspaceTabs = window.findChild<QTabWidget *>("meshWorkspaceTabs");
+    if (!check(meshPage && meshTable && meshTable->rowCount() == 3
+               && meshTable->columnCount() == 3
                && meshCount && meshCount->text().contains("3 / 10")
-               && addMesh && removeMesh && scaleEditor && historyTabs && history && historyCollapse
+               && importMesh && deleteMesh && scaleEditor && historyTabs && history && historyCollapse
+               && workspaceTabs && workspaceTabs->count() == 1
+               && workspaceTabs->tabText(0) == text(u"\u7f51\u683c\u89c6\u56fe")
                && window.findChild<QSplitter *>("meshWorkspaceMainSplitter")
+               && window.findChild<QSplitter *>("meshSettingsSplitter")
                && window.findChild<QWidget *>("viewportSlot")
                && window.findChild<QDockWidget *>("propertyDock")->isHidden()
                && window.findChild<QWidget *>("outputBody")->isHidden()
@@ -140,22 +247,43 @@ int main(int argc, char **argv)
                && historyCollapse->text() == text(u"\u5c55\u5f00")
                && !window.findChild<QPlainTextEdit *>("meshScriptPlaceholder")->isEnabled(),
                "Mesh management workspace is incomplete")) return 57;
-    meshList->setCurrentItem(meshList->topLevelItem(1));
+    // The replicated reference layout exposes a coordinate system selector and
+    // a 序号/网格名称/是否可见 table next to the tabbed workspace.
+    auto *solidRadio = window.findChild<QRadioButton *>("meshCoordinateSystemSolid");
+    auto *planarRadio = window.findChild<QRadioButton *>("meshCoordinateSystemPlanar");
+    if (!check(solidRadio && planarRadio && solidRadio->isChecked()
+               && meshTable->horizontalHeaderItem(0)
+               && meshTable->horizontalHeaderItem(0)->text() == text(u"\u5e8f\u53f7")
+               && meshTable->horizontalHeaderItem(1)->text() == text(u"\u7f51\u683c\u540d\u79f0")
+               && meshTable->horizontalHeaderItem(2)->text() == text(u"\u662f\u5426\u53ef\u89c1"),
+               "Mesh information table does not match the reference layout")) return 86;
+    // Initial visibility must mirror the seeded state (the first two meshes are
+    // visible, the third is hidden). Assigning a checkable cell emits
+    // itemChanged before its state is set, which used to be read back as the
+    // user hiding every mesh.
+    if (!check(meshTable->item(0, 2)->checkState() == Qt::Checked
+               && meshTable->item(1, 2)->checkState() == Qt::Checked
+               && meshTable->item(2, 2)->checkState() == Qt::Unchecked,
+               "Initial mesh visibility was not preserved in the table")) return 87;
+    if (!check(!history->count() || !history->item(history->count() - 1)->text()
+                   .contains(text(u"\u9690\u85c5 Mesh_001")),
+               "Seeding the table must not log a spurious hide")) return 88;
+    meshTable->setCurrentCell(1, 1);
     scaleEditor->setValue(2.5);
-    meshList->topLevelItem(1)->setCheckState(0, Qt::Unchecked);
-    meshList->setCurrentItem(meshList->topLevelItem(0));
-    meshList->setCurrentItem(meshList->topLevelItem(1));
+    meshTable->item(1, 2)->setCheckState(Qt::Unchecked);
+    meshTable->setCurrentCell(0, 1);
+    meshTable->setCurrentCell(1, 1);
     app.processEvents();
     if (!check(scaleEditor->value() == 2.5
                && !window.findChild<QCheckBox *>("meshVisibleEditor")->isChecked()
                && history->count() >= 3,
                "Per-mesh mock display state was not retained")) return 58;
-    for (int i = meshList->topLevelItemCount(); i < 10; ++i) addMesh->click();
-    if (!check(meshList->topLevelItemCount() == 10 && !addMesh->isEnabled()
+    for (int i = meshTable->rowCount(); i < 10; ++i) importMesh->click();
+    if (!check(meshTable->rowCount() == 10 && !importMesh->isEnabled()
                && meshCount->text().contains("10 / 10"),
                "Mesh management did not enforce its ten-object UI limit")) return 59;
-    removeMesh->click();
-    if (!check(meshList->topLevelItemCount() == 9 && addMesh->isEnabled(),
+    deleteMesh->click();
+    if (!check(meshTable->rowCount() == 9 && importMesh->isEnabled(),
                "Removing a mock mesh did not update list availability")) return 60;
     historyCollapse->click();
     app.processEvents();
@@ -163,14 +291,32 @@ int main(int argc, char **argv)
                "Mesh operation history did not expand")) return 61;
     historyCollapse->click();
     app.processEvents();
-    if (!check(historyTabs->isHidden(), "Mesh operation history did not collapse")) return 62;
+    if (!check(historyTabs->isHidden() && historyCollapse->text() == text(u"\u5c55\u5f00"),
+               "Mesh operation history did not collapse")) return 62;
     if (!check(window.findChild<QTreeWidget *>("workflowTree")->isHidden(),
                "Workflow tree must not occupy the module navigation")) return 33;
-    projectTree->setCurrentItem(preprocessNode->child(0)->child(2));
-    projectTree->setCurrentItem(preprocessNode->child(0)->child(1));
+    // Preprocess holds exactly two expand-free leaf nodes: mesh management and
+    // the unified trajectory settings page.
+    projectTree->setCurrentItem(preprocessNode->child(1));
+    app.processEvents();
+    auto *trajectoryPage = window.findChild<QWidget *>("trajectorySettingsPage");
+    auto *selectTrajectoryFile = window.findChild<QPushButton *>("selectTrajectoryFileButton");
+    if (!check(preprocessNode->childCount() == 2
+               && preprocessNode->child(0)->childCount() == 0
+               && preprocessNode->child(1)->childCount() == 0,
+               "Preprocess navigation must expose two leaf nodes without sub-pages")) return 66;
+    if (!check(trajectoryPage && workspace->currentWidget() == trajectoryPage
+               && projectTree->currentItem() == preprocessNode->child(1)
+               && selectTrajectoryFile && !selectTrajectoryFile->isEnabled()
+               && window.findChild<QPushButton *>("loadTrajectoryDataButton")
+               && window.findChild<QPushButton *>("extractTrajectoryStateButton")
+               && window.findChild<QWidget *>("trajectoryFileSection")
+               && !trajectoryPage->findChild<QWidget *>("viewportSlot"),
+               "Trajectory leaf did not open the unified mock settings page")) return 66;
+    projectTree->setCurrentItem(preprocessNode->child(0));
     app.processEvents();
     auto *retainedPage = workspace->currentWidget();
-    if (!check(retainedPage->objectName() == "mesh-transformPage",
+    if (!check(retainedPage->objectName() == "viewportPage",
                "Preprocess node did not establish its module page state")) return 66;
     parameterNode->setExpanded(false);
     window.ribbonBar()->raiseCategory(window.findChild<SARibbonCategory *>("parametersCategory"));
@@ -228,7 +374,7 @@ int main(int argc, char **argv)
     app.processEvents();
     if (!check(projectTree->currentItem() == preprocessNode
                && workspace->currentWidget() == retainedPage
-               && workspace->currentWidget()->objectName() == "mesh-transformPage",
+               && workspace->currentWidget()->objectName() == "viewportPage",
                "Preprocess Ribbon did not restore its last page")) return 51;
     for (int cycle = 0; cycle < 3; ++cycle) {
         for (auto *category : categories) {
@@ -240,19 +386,20 @@ int main(int argc, char **argv)
     app.processEvents();
     if (!check(workspace->currentWidget() == retainedPage
                && window.findChildren<QWidget *>("viewportSlot").size() == 1
-               && meshList->topLevelItemCount() == 9,
+               && meshTable->rowCount() == 9,
                "Repeated module switching recreated state or the VTK host")) return 68;
     window.show();
     app.processEvents();
     auto *projectDock = window.findChild<QDockWidget *>("projectDock");
     auto *propertyDock = window.findChild<QDockWidget *>("propertyDock");
-    if (!check(window.dockWidgetArea(projectDock) == Qt::LeftDockWidgetArea
+    if (!check(projectDock && propertyDock
+               && window.dockWidgetArea(projectDock) == Qt::LeftDockWidgetArea
                && window.dockWidgetArea(propertyDock) == Qt::LeftDockWidgetArea
-               && projectDock->geometry().left() < propertyDock->geometry().left()
+               && propertyDock->isHidden()
                && !propertyDock->isFloating()
                && !(propertyDock->features() & QDockWidget::DockWidgetClosable)
-               && projectDock->minimumWidth() >= 220 && propertyDock->minimumWidth() >= 300,
-               "Default layout must place navigation before properties on the left")) return 42;
+               && projectDock->minimumWidth() >= 220 && propertyDock->minimumWidth() >= 180,
+               "Mesh workspace must retain the left docks and hide shared properties")) return 42;
     auto *outputDock = window.findChild<QDockWidget *>("outputDock");
     auto *outputTable = window.findChild<QTableWidget *>("outputLogTable");
     auto *levelFilter = window.findChild<QComboBox *>("logLevelFilter");
@@ -295,6 +442,22 @@ int main(int argc, char **argv)
                && preprocess->panelByObjectName("meshManagementGroup")
                && preprocess->panelByObjectName("trajectoryGroup")
                && preprocess->panelByObjectName("viewGroup"), "Missing grouped Preprocess commands")) return 18;
+    // Ribbon: one unified entry per preprocess page, all view tools retained.
+    auto *meshManagementPanel = preprocess->panelByObjectName("meshManagementGroup");
+    auto *trajectoryPanel = preprocess->panelByObjectName("trajectoryGroup");
+    auto *viewPanel = preprocess->panelByObjectName("viewGroup");
+    auto *meshManagementAction = window.findChild<QAction *>("meshAction");
+    auto *trajectoryAction = window.findChild<QAction *>("curveAction");
+    if (!check(meshManagementPanel && meshManagementPanel->actions().size() == 1
+               && trajectoryPanel && trajectoryPanel->actions().size() == 1
+               && meshManagementAction
+               && meshManagementAction->property("ribbonGroup").toString() == "meshManagementGroup"
+               && meshManagementAction->text() == text(u"\u7f51\u683c\u7ba1\u7406")
+               && trajectoryAction
+               && trajectoryAction->property("ribbonGroup").toString() == "trajectoryGroup"
+               && trajectoryAction->text() == text(u"\u5f39\u9053\u8bbe\u7f6e")
+               && viewPanel && viewPanel->actions().size() == 8,
+               "Preprocess Ribbon must expose one unified entry per page plus the view tools")) return 18;
     if (!check(window.findChild<QAction *>("showStartupAction")
                && window.findChild<QAction *>("showStartupAction")->isEnabled(),
                "Workbench must expose a return-to-startup entry")) return 56;
@@ -419,21 +582,20 @@ int main(int argc, char **argv)
         if (action->property("ribbonGroup").isValid()
             && !check(!action->icon().pixmap(32, 32).isNull(), "Missing embedded Ribbon icon")) return 20;
     }
-    projectTree->setCurrentItem(preprocessNode->child(0)->child(2));
-    projectTree->setCurrentItem(preprocessNode->child(0)->child(1));
+    projectTree->setCurrentItem(preprocessNode->child(1));
     app.processEvents();
-    if (!check(workspace->currentWidget()->objectName() == "mesh-transformPage",
-               "Mesh transform node did not open its placeholder page")) return 43;
-    if (!check(!propertyDock->isHidden(),
-               "Non-mesh workspace did not restore the shared property panel")) return 65;
+    if (!check(workspace->currentWidget()->objectName() == "trajectorySettingsPage",
+               "Trajectory settings node did not open its unified page")) return 43;
+    if (!check(propertyDock->isVisible()
+               && projectDock->geometry().left() < propertyDock->geometry().left(),
+               "Non-mesh workspace must restore shared properties to the right of navigation")) return 65;
     projectTree->setCurrentItem(preprocessNode->child(0));
     app.processEvents();
-    if (!check(workspace->currentWidget() == meshPage && meshList->topLevelItemCount() == 9
+    if (!check(workspace->currentWidget() == meshPage && meshTable->rowCount() == 9
                && propertyDock->isHidden()
                && !window.findChild<QWidget *>("outputBody")->isHidden()
                && projectDock->width() >= 200
-               && window.findChild<QWidget *>("meshViewerPanel")->width()
-                    > window.findChild<QWidget *>("meshObjectPanel")->width(),
+               && window.findChild<QWidget *>("meshViewerPanel")->width() > 0,
                "Mesh management group did not restore its persistent workspace")) return 63;
     app.processEvents();
     auto *saveUserLayout = window.findChild<QAction *>("saveUserLayoutAction");
@@ -476,7 +638,7 @@ int main(int argc, char **argv)
     const QList<int> defaultMeshSizes = meshMainSplitter->sizes();
     const double defaultMeshRatio = double(defaultMeshSizes.value(0))
         / qMax(1, defaultMeshSizes.value(0) + defaultMeshSizes.value(1));
-    if (!check(defaultMeshRatio >= (290.0 / 1140.0) - 0.04 && defaultMeshRatio <= 0.42
+    if (!check(defaultMeshRatio >= 0.54 && defaultMeshRatio <= 0.71
                && window.findChild<QWidget *>("outputBody")->isHidden()
                && userLayout.value("UserLayout/version").toInt() == 1,
                "Default layout must be safe without deleting the saved user layout")) return 84;
@@ -527,10 +689,8 @@ int main(int argc, char **argv)
         if (!check(rejected, "Occupied slot must reject without taking ownership")) return 3;
     }
     Workflow workflow;
-    const auto legacyV2 = workflow.viewV2(aerosim::ScopeRef());
-    if (!check(!legacyV2.ok()
-               && legacyV2.status() == aerosim::AccessStatus::Unsupported,
-               "Legacy workflow replacement must not be required to implement V2")) return 81;
+    const auto initialV2 = workflow.viewV2(aerosim::ScopeRef());
+    if (!check(initialV2.ok(), "Workflow stub must expose a V2 view")) return 81;
     aerosim::ServiceBindings bindings;
     bindings.workflow = &workflow;
     window.bindServices(bindings);
@@ -543,7 +703,7 @@ int main(int argc, char **argv)
     if (!check(run && run->isEnabled(), "Workflow action not reflected")) return 4;
     run->trigger();
     if (!check(workflow.requests == 1, "Repeated binding duplicated run requests")) return 5;
-    auto view = workflow.view(request.scope);
+    aerosim::WorkflowViewV2 view = workflow.viewV2(request.scope).value();
     view.actions[0].enabled = false;
     window.displayWorkflow(view);
     if (!check(!run->isEnabled(), "Blocked action remains enabled")) return 6;

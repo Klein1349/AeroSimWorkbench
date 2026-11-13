@@ -1,22 +1,25 @@
 #pragma once
 
+#include "aerosim/contracts/ResourceModels.h"
+
 #include <QMetaType>
 #include <QString>
 #include <QtGlobal>
 
 namespace aerosim {
 
+// Revision rule shared by every versioned V2 aggregate: revision starts at 1 and
+// a revision of zero means "unspecified/legacy" data that must not be used to
+// start a formal calculation. An edit creates a new revision instead of
+// overwriting the revision a run already pinned.
+constexpr quint64 kInitialRevision = 1;
+inline quint64 nextRevision(quint64 revision)
+{
+    return revision == 0 ? kInitialRevision : revision + 1;
+}
+
 struct ProjectRef {
     QString projectId;
-    QString filePath;
-    quint64 revision = 0;
-};
-
-// IDs and paths are copied across modules. They do not own the referenced data.
-struct ResourceRef {
-    QString resourceId;
-    QString projectId;
-    QString kind;
     QString filePath;
     quint64 revision = 0;
 };
@@ -34,12 +37,12 @@ struct ParameterSnapshotRef {
 };
 
 struct MeshRef {
-    ResourceRef resource;
+    ResourceRefV2 resource;
     QString meshVersion;
 };
 
 struct ResultRef {
-    ResourceRef resource;
+    ResourceRefV2 resource;
     QString taskId;
     QString meshVersion;
     QString caseId;

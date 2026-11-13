@@ -1,12 +1,16 @@
 set(AEROSIM_CONTRACT_HEADER_COMPILE_SOURCES
     PublicHeadersCompileMain.cpp
     compile/AccessResultHeader.cpp
+    compile/ConfigurationModelsHeader.cpp
     compile/DataAccessHeader.cpp
     compile/EnumTokensHeader.cpp
+    compile/ExecutionModelsHeader.cpp
     compile/IntegrationPortsHeader.cpp
+    compile/MeshModelsHeader.cpp
     compile/PostProcessRefsHeader.cpp
     compile/ReferencesHeader.cpp
     compile/ResourceModelsHeader.cpp
+    compile/ResultModelsHeader.cpp
     compile/TaskModelsHeader.cpp
     compile/TaskPortsHeader.cpp
     compile/TelemetryHeader.cpp
@@ -19,11 +23,11 @@ target_link_libraries(aerosim_contract_headers_compile PRIVATE aerosim_contracts
 add_test(NAME contracts_public_headers_compile
     COMMAND aerosim_contract_headers_compile)
 
-add_executable(aerosim_contract_legacy_ref_shape_test
-    LegacyReferenceShapeTest.cpp)
-target_link_libraries(aerosim_contract_legacy_ref_shape_test PRIVATE aerosim_contracts)
-add_test(NAME contracts_legacy_ref_shape
-    COMMAND aerosim_contract_legacy_ref_shape_test)
+add_executable(aerosim_contract_reference_shape_test
+    ReferenceShapeTest.cpp)
+target_link_libraries(aerosim_contract_reference_shape_test PRIVATE aerosim_contracts)
+add_test(NAME contracts_reference_shape
+    COMMAND aerosim_contract_reference_shape_test)
 
 add_executable(aerosim_contract_enum_tokens_test
     StableEnumTokenManifestTest.cpp)
@@ -54,6 +58,36 @@ add_executable(aerosim_contract_workflow_v2_test
 target_link_libraries(aerosim_contract_workflow_v2_test PRIVATE aerosim_contracts)
 add_test(NAME contracts_workflow_v2
     COMMAND aerosim_contract_workflow_v2_test)
+
+add_executable(aerosim_contract_configuration_models_test
+    ConfigurationModelsTest.cpp)
+target_link_libraries(aerosim_contract_configuration_models_test PRIVATE aerosim_contracts)
+add_test(NAME contracts_configuration_models
+    COMMAND aerosim_contract_configuration_models_test)
+
+add_executable(aerosim_contract_execution_models_test
+    ExecutionModelsTest.cpp)
+target_link_libraries(aerosim_contract_execution_models_test PRIVATE aerosim_contracts)
+add_test(NAME contracts_execution_models
+    COMMAND aerosim_contract_execution_models_test)
+
+add_executable(aerosim_contract_mesh_models_test
+    MeshModelsTest.cpp)
+target_link_libraries(aerosim_contract_mesh_models_test PRIVATE aerosim_contracts)
+add_test(NAME contracts_mesh_models
+    COMMAND aerosim_contract_mesh_models_test)
+
+add_executable(aerosim_contract_telemetry_models_test
+    TelemetryModelsTest.cpp)
+target_link_libraries(aerosim_contract_telemetry_models_test PRIVATE aerosim_contracts)
+add_test(NAME contracts_telemetry_models
+    COMMAND aerosim_contract_telemetry_models_test)
+
+add_executable(aerosim_contract_result_models_test
+    ResultModelsTest.cpp)
+target_link_libraries(aerosim_contract_result_models_test PRIVATE aerosim_contracts)
+add_test(NAME contracts_result_models
+    COMMAND aerosim_contract_result_models_test)
 
 add_test(NAME contracts_migration_fixture_layout
     COMMAND "${CMAKE_COMMAND}"
