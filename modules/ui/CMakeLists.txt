@@ -58,12 +58,6 @@ if(AEROSIM_BUILD_TESTS)
     target_link_libraries(aerosim_main_monitor_test PRIVATE aerosim_ui Qt5::Test)
     add_test(NAME main_monitor_integration COMMAND aerosim_main_monitor_test)
     set_tests_properties(main_monitor_integration PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-    # Parameter-page layout regression from the resolved parameter-panel branch:
-    # it pins the shared column rules and the four motion dialogs' geometry.
-    add_executable(aerosim_parameter_layout_test tests/ParameterLayoutRegression.cpp)
-    target_link_libraries(aerosim_parameter_layout_test PRIVATE aerosim_ui)
-    add_test(NAME parameter_layout_regression COMMAND aerosim_parameter_layout_test)
-    set_tests_properties(parameter_layout_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(aerosim_postprocess_ui_smoke tests/postprocess/PostProcessWorkbenchWindowSmoke.cpp)
     target_link_libraries(aerosim_postprocess_ui_smoke PRIVATE aerosim_ui)
     add_test(NAME postprocess_ui_smoke COMMAND aerosim_postprocess_ui_smoke)

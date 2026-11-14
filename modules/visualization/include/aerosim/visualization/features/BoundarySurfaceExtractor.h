@@ -1,6 +1,5 @@
 #pragma once
 #include <vtkSmartPointer.h>
-#include <vtkDataObject.h>
 #include <vtkDataSet.h>
 #include <vtkPolyData.h>
 #include <QString>
@@ -9,7 +8,7 @@
 namespace aerosim { namespace visualization {
 // Module-local immutable snapshot, not a new public mesh contract.
 struct BoundaryMesh {
-    vtkSmartPointer<vtkDataObject> source;
+    vtkSmartPointer<vtkDataSet> source;
     vtkSmartPointer<vtkPolyData> surface;
     vtkIdType inputPoints=0, inputCells=0, boundaryFaces=0, uniqueBoundaryPoints=0;
     bool volume=false;

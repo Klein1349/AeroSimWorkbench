@@ -26,7 +26,7 @@ QFormLayout *createForm(QWidget *parent)
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     form->setRowWrapPolicy(QFormLayout::WrapLongRows);
     form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    form->setVerticalSpacing(8);
+    form->setVerticalSpacing(10);
     return form;
 }
 }
@@ -50,7 +50,7 @@ GoverningEquationsPanel::GoverningEquationsPanel(const QVariantMap &draft, QWidg
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(12);
+    layout->setSpacing(16);
     auto *basic = new QGroupBox(uiText(u"基础设置"), this);
     auto *basicLayout = new QVBoxLayout(basic);
     basicLayout->setSpacing(10);
@@ -67,8 +67,7 @@ GoverningEquationsPanel::GoverningEquationsPanel(const QVariantMap &draft, QWidg
         options->setObjectName(key);
         auto *row = new QGridLayout(options);
         row->setContentsMargins(0, 0, 0, 0);
-        row->setHorizontalSpacing(16);
-        row->setVerticalSpacing(6);
+        row->setSpacing(20);
         auto *buttons = new QButtonGroup(options);
         buttons->setExclusive(true);
         QString selected = draft_.value(key).toString();
@@ -76,7 +75,7 @@ GoverningEquationsPanel::GoverningEquationsPanel(const QVariantMap &draft, QWidg
         for (const auto &choice : choices) valid = valid || choice.second == selected;
         if (!valid) selected = choices.first().second;
         draft_.insert(key, selected);
-        const int columns = qMin(3, choices.size());
+        const int columns = choices.size();
         int index = 0;
         for (const auto &choice : choices) {
             auto *button = new QRadioButton(choice.first, options);

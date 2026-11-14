@@ -2,8 +2,6 @@
 #include "aerosim/visualization/features/BoundarySurfaceExtractor.h"
 #include <QObject>
 #include <QHash>
-#include <QQueue>
-#include <QStringList>
 class QThread;
 namespace aerosim { namespace visualization {
 class BoundaryLoadService final : public QObject {
@@ -15,7 +13,6 @@ public:
     bool busy() const;
 public slots:
     void load(const QString& path);
-    void loadFiles(const QStringList &paths);
     void remove(const QString& id);
 signals:
     void started(const QString& id,const QString& path);
@@ -24,8 +21,6 @@ signals:
     void busyChanged(bool busy);
 private:
     struct Job;
-    void startNext();
-    QQueue<QString> pending_;
     std::shared_ptr<Job> job_;
     QThread* thread_=nullptr;
     QHash<QString,std::shared_ptr<const BoundaryMesh>> meshes_;

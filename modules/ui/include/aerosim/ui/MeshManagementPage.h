@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QColor>
-#include <QStringList>
 #include <QVariantMap>
 #include <QVector>
 #include <QVector3D>
@@ -13,7 +12,6 @@ class QDoubleSpinBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
-class QMainWindow;
 class QPushButton;
 class QRadioButton;
 class QSlider;
@@ -21,7 +19,6 @@ class QSplitter;
 class QTabWidget;
 class QTableWidget;
 class QTableWidgetItem;
-class QToolBar;
 
 namespace aerosim {
 
@@ -43,16 +40,14 @@ public:
     void failBoundary(const QString &id, const QString &message);
     void setBoundaryBusy(bool busy);
     void setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up);
-    void selectBoundary(const QString &id);
 signals:
-    void boundaryImportRequested(const QStringList &paths);
+    void boundaryImportRequested(const QString &path);
     void boundaryRemoveRequested(const QString &id);
     void boundaryStyleChanged(const QString &id, const QVariantMap &style);
     void boundaryViewRequested(const QString &command);
     void boundaryOrbitRequested(int dx, int dy);
-    void boundaryAxisRotationRequested(const QString &id, const QVector3D &axis);
-    void boundaryDragRotationRequested(const QString &id, int dx, int dy);
     void boundaryBackgroundRequested(int mode);
+    void postProcessRequested();
 
 private:
     struct MeshUiState {
@@ -104,8 +99,6 @@ private:
     QSplitter *mainSplitter_ = nullptr;
     QSplitter *settingsSplitter_ = nullptr;
     QTabWidget *workspaceTabs_ = nullptr;
-    QMainWindow *viewportWindow_ = nullptr;
-    QToolBar *viewToolbar_ = nullptr;
     QTabWidget *historyTabs_ = nullptr;
     QListWidget *historyList_ = nullptr;
     QWidget *historyHeader_ = nullptr;

@@ -1,5 +1,4 @@
 #include "aerosim/ui/FixedAxisMotionDialog.h"
-#include "MotionDialogLayout.h"
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -44,7 +43,7 @@ FixedAxisMotionDialog::FixedAxisMotionDialog(const QVariantMap &parameters, QWid
     setWindowTitle(text(u"定轴转动参数设置"));
     setProperty("parameterEditor", true);
     setModal(true);
-
+    resize(880, 740);
     setStyleSheet(QStringLiteral("QAbstractSpinBox, QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"));
     auto *layout = new QVBoxLayout(this);
     auto *scroll = new QScrollArea(this);
@@ -53,13 +52,9 @@ FixedAxisMotionDialog::FixedAxisMotionDialog(const QVariantMap &parameters, QWid
     auto *content = new QWidget(scroll);
     content->setProperty("parameterSurface", true);
     auto *body = new QVBoxLayout(content);
-    auto *columns = new motionLayout::Columns(content);
-    body->addWidget(columns);
-    body->addStretch();
-    auto *properties = new QGroupBox(text(u"转轴与运动体"), columns);
-    auto *form = new QFormLayout(properties);
+    auto *form = new QFormLayout;
     form->setRowWrapPolicy(QFormLayout::WrapLongRows);
-    columns->items->addWidget(properties, 1);
+    body->addLayout(form);
     scroll->setWidget(content);
     layout->addWidget(scroll);
     const auto number = [this](QWidget *owner, const QString &key, double fallback, double minimum = -1e9) {
@@ -122,7 +117,7 @@ FixedAxisMotionDialog::FixedAxisMotionDialog(const QVariantMap &parameters, QWid
     count->setValue(parameters_.value("forceCount", 1).toInt());
     form->addRow(text(u"外力数目"), count);
     auto *group = new QGroupBox(text(u"外力渐变设置"), content);
-    columns->items->addWidget(group, 1);
+    body->addWidget(group);
     auto *groupLayout = new QVBoxLayout(group);
     auto *forceForm = new QFormLayout;
     groupLayout->addLayout(forceForm);
@@ -144,7 +139,6 @@ FixedAxisMotionDialog::FixedAxisMotionDialog(const QVariantMap &parameters, QWid
     auto *save = new QPushButton(text(u"保存"), group); save->setObjectName("saveExternalForce");
     groupLayout->addWidget(save, 0, Qt::AlignRight);
     auto *feedback = new QLabel(group); feedback->setProperty("parameterHint", true);
-    feedback->setWordWrap(true);
     groupLayout->addWidget(feedback);
     connect(save, &QPushButton::clicked, this, [=] { storeForce(); feedback->setText(text(u"当前外力已保存到窗口草稿；确定后提交。")); });
     connect(force_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) { storeForce(); loadForce(index); });
@@ -185,7 +179,6 @@ FixedAxisMotionDialog::FixedAxisMotionDialog(const QVariantMap &parameters, QWid
         storeForce(); parameters_["forces"] = forces_; accept();
     });
     layout->addWidget(buttons);
-    motionLayout::fit(this, QSize(1120, 480));
 }
 void FixedAxisMotionDialog::storeForce()
 {

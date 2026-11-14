@@ -43,11 +43,10 @@ int main(int argc,char** argv) {
         const QString fixture=QString::fromUtf8(AEROSIM_FIXTURE_DIR)+"/cube_t00.vtk";
         auto cube=BoundaryMeshReader::read(fixture);
         require(cube->inputPoints==27 && cube->inputCells==8 && cube->boundaryFaces==24 && cube->uniqueBoundaryPoints==26,"cube counts");
-        auto *source = vtkDataSet::SafeDownCast(cube->source.GetPointer());
-        require(source && source->GetNumberOfCells()==8,"source lost");
+        require(cube->source->GetNumberOfCells()==8,"source lost");
         auto* original=vtkIdTypeArray::SafeDownCast(cube->surface->GetPointData()->GetArray("vtkOriginalPointIds"));
         for(const char* field:{"Pressure","Temperature","Phi","Velocity"}) {
-            auto* a=cube->surface->GetPointData()->GetArray(field); auto* b=source->GetPointData()->GetArray(field);
+            auto* a=cube->surface->GetPointData()->GetArray(field); auto* b=cube->source->GetPointData()->GetArray(field);
             require(a&&b,"missing field");
             for(vtkIdType i=0;i<a->GetNumberOfTuples();++i)
                 for(int c=0;c<a->GetNumberOfComponents();++c)
@@ -135,32 +134,6 @@ int main(int argc,char** argv) {
         QObject::connect(&service,&BoundaryLoadService::failed,&app,[&]{cancelled=true;loop.quit();});
         QTimer::singleShot(10000,&loop,&QEventLoop::quit);service.load(fixture);loop.exec();
         require(cancelled&&!loaded&&!service.mesh(id),"cancelled result resurrected");
-        QObject::disconnect(&service,nullptr,&app,nullptr);
-        QStringList completed;
-        QStringList failures;
-        QStringList ids;
-        int idleCount = 0;
-        QObject::connect(&service, &BoundaryLoadService::loaded, &app,
-            [&](const QString &value, const QString &path, const QString &) {
-                ids.append(value);
-                completed.append(path);
-            });
-        QObject::connect(&service, &BoundaryLoadService::failed, &app,
-            [&](const QString &, const QString &message) { failures.append(message); });
-        QObject::connect(&service, &BoundaryLoadService::busyChanged, &app, [&](bool busy) {
-            if (!busy) {
-                ++idleCount;
-                loop.quit();
-            }
-        });
-        QTimer::singleShot(10000, &loop, &QEventLoop::quit);
-        service.loadFiles({fixture, broken, vtp});
-        loop.exec();
-        require(completed == QStringList{fixture, vtp}, "mixed batch must continue after a broken file");
-        require(failures.size() == 1 && failures.first().contains("broken.vtk"), "batch failure needs its file name");
-        require(ids.size() == 2 && ids[0] != ids[1] && service.mesh(ids[0]) && service.mesh(ids[1]),
-                "each imported file must keep its own data and ID");
-        require(idleCount == 1 && !service.busy(), "batch must return to idle once");
         std::cout<<"Boundary tests passed: geometry, fields, IDs, winding, large grid, readers, rejection, async, cancellation\n";
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
     return 0;

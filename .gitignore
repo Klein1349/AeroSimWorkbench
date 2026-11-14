@@ -27,6 +27,3 @@ compile_commands.json
 *.tmp
 *.swp
 cmake/local*.cmake
-
-# Machine-local Windows dependency paths
-aerosim-windows.local.cmd
