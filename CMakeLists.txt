@@ -46,7 +46,13 @@ if(AEROSIM_BUILD_VISUALIZATION)
     add_subdirectory(modules/visualization)
 endif()
 
-if(AEROSIM_BUILD_GUI AND AEROSIM_BUILD_MESH_VIEWER)
+# modules/visualization/scene holds both viewers and is entered exactly once,
+# from here: the preprocessing mesh viewport needs AEROSIM_BUILD_MESH_VIEWER,
+# while the post-process workbench viewer (aerosim_visualization_scene, picked
+# up by app/ through a TARGET check) only needs AEROSIM_BUILD_VISUALIZATION.
+# modules/visualization/ deliberately does not add this directory again, and
+# the option above is the single declaration of AEROSIM_BUILD_MESH_VIEWER.
+if(AEROSIM_BUILD_GUI AND (AEROSIM_BUILD_MESH_VIEWER OR AEROSIM_BUILD_VISUALIZATION))
     add_subdirectory(modules/visualization/scene)
 endif()
 

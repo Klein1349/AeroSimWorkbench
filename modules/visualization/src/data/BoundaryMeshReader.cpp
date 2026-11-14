@@ -39,7 +39,9 @@ std::shared_ptr<const BoundaryMesh> BoundaryMeshReader::read(const QString& path
         vtkNew<vtkCompositeDataGeometryFilter> geometry;
         geometry->SetInputDataObject(blocks);
         geometry->Update();
+        if (cancelled && cancelled->load()) throw std::runtime_error("已取消导入");
         auto mesh = std::make_shared<BoundaryMesh>();
+        mesh->source = blocks.GetPointer();
         mesh->surface = geometry->GetOutput();
         mesh->boundaryFaces = mesh->surface->GetNumberOfPolys();
         if (!mesh->boundaryFaces) throw std::runtime_error("CGNS 文件没有生成可显示的边界");
