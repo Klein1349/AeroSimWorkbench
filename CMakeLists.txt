@@ -11,11 +11,19 @@ endif()
 
 option(AEROSIM_BUILD_GUI "Build the SARibbon main window" ON)
 option(AEROSIM_BUILD_TESTS "Build and register skeleton smoke tests" ON)
+option(AEROSIM_BUILD_MESH_VIEWER "Build the VTK preprocessing mesh viewport" OFF)
 
 option(AEROSIM_BUILD_STACK_PROBE "Build the optional Qt/VTK/SARibbon compatibility probe" OFF)
-# Enables the visualization module skeleton. Concrete targets are added only
-# when a delivered submodule owns an actual implementation.
-option(AEROSIM_BUILD_VISUALIZATION "Enable visualization/post-processing module targets" OFF)
+# Visualization is on by default: the monitor page gets its real curve widget
+# only when charts/ is present, and a default build is supposed to show curves,
+# not a placeholder. It follows AEROSIM_BUILD_GUI because the chart layer needs
+# Qt5::Widgets - a headless configuration must not be forced to provide Qwt.
+#
+# Turning this on makes Qwt and Eigen required: configure fails with an
+# actionable message rather than silently dropping the curve widget, so pass
+# -DAEROSIM_QWT_ROOT and -DAEROSIM_EIGEN_ROOT (or have them installed) or
+# explicitly set -DAEROSIM_BUILD_VISUALIZATION=OFF.
+option(AEROSIM_BUILD_VISUALIZATION "Enable visualization/post-processing module targets" ${AEROSIM_BUILD_GUI})
 
 find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Core)
 if(AEROSIM_BUILD_GUI)
@@ -30,12 +38,26 @@ add_subdirectory(contracts)
 add_subdirectory(modules/workflow)
 add_subdirectory(mocks/services)
 
-if(AEROSIM_BUILD_GUI)
-    add_subdirectory(modules/ui)
-endif()
-
+# Visualization is configured before the UI so that modules/ui can see
+# aerosim_monitor_charts and opt into the concrete curve widget. The UI never
+# requires it: whenever visualization is off, the monitor page keeps its
+# placeholder and the abstract MonitorCurveWidget injection point.
 if(AEROSIM_BUILD_VISUALIZATION)
     add_subdirectory(modules/visualization)
+endif()
+
+# modules/visualization/scene holds both viewers and is entered exactly once,
+# from here: the preprocessing mesh viewport needs AEROSIM_BUILD_MESH_VIEWER,
+# while the post-process workbench viewer (aerosim_visualization_scene, picked
+# up by app/ through a TARGET check) only needs AEROSIM_BUILD_VISUALIZATION.
+# modules/visualization/ deliberately does not add this directory again, and
+# the option above is the single declaration of AEROSIM_BUILD_MESH_VIEWER.
+if(AEROSIM_BUILD_GUI AND (AEROSIM_BUILD_MESH_VIEWER OR AEROSIM_BUILD_VISUALIZATION))
+    add_subdirectory(modules/visualization/scene)
+endif()
+
+if(AEROSIM_BUILD_GUI)
+    add_subdirectory(modules/ui)
 endif()
 
 add_subdirectory(app)

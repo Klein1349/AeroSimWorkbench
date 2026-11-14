@@ -9,6 +9,10 @@
 #include "aerosim/ui/OutputControlPanel.h"
 #include "aerosim/ui/InitializationPanel.h"
 #include "aerosim/ui/MeshManagementPage.h"
+#include "aerosim/ui/monitor/ComputeMonitorPage.h"
+#include "aerosim/ui/intelligent/ResultDataTablePage.h"
+#include "aerosim/ui/intelligent/ResultSummaryTablePage.h"
+#include "aerosim/ui/TrajectorySettingsPage.h"
 
 #include <SARibbonBar.h>
 #include <SARibbonCategory.h>
@@ -213,7 +217,12 @@ void MainWindow::createRibbon()
                 connect(action, &QAction::triggered, this, [this, index] { showOutput(index); });
             } else if (route.startsWith("workspace:")) {
                 const QString workspace = route.mid(10);
-                connect(action, &QAction::triggered, this, [this, workspace] { showWorkspacePage(workspace); });
+                connect(action, &QAction::triggered, this, [this, workspace] {
+                    if (workspace == QStringLiteral("result-data-table")
+                        || workspace == QStringLiteral("result-summary-table"))
+                        selectNavigationNode(projectTree_, workspace);
+                    showWorkspacePage(workspace);
+                });
             } else if (route == "postprocess") {
                 action->setObjectName(QStringLiteral("openPostProcessAction"));
                 connect(action, &QAction::triggered, this, &MainWindow::openPostProcessRequested);
@@ -294,15 +303,14 @@ void MainWindow::createRibbon()
     newProjectMenu->menuAction()->setToolTip(uiText(u"\u9009\u62e9\u65b0\u5efa\u5de5\u4f5c\u533a\u7684\u65b9\u5f0f"));
     workspacePanel->addLargeMenu(newProjectMenu);
     workspacePanel->moveAction(workspacePanel->actionIndex(newProjectMenu->menuAction()), 0);
+    // Preprocess keeps a single unified entry per page. The former mesh file /
+    // transform / boundary / info entries and the trajectory file / data /
+    // state-extraction entries are gone; their in-page content stays inside the
+    // two consolidated pages instead of separate navigation targets.
     addGroup(preprocess, "meshManagementGroup", uiText(u"\u7f51\u683c\u7ba1\u7406"), {
-        {"mesh", uiText(u"\u7f51\u683c\u6587\u4ef6"), true, "workspace:viewport"},
-        {"transform", uiText(u"\u7f51\u683c\u53d8\u6362"), false, "workspace:mesh-transform"},
-        {"boundary", uiText(u"\u7f51\u683c\u8fb9\u754c"), false, "workspace:mesh-boundary"},
-        {"settings", uiText(u"\u7f51\u683c\u4fe1\u606f"), false, "workspace:mesh-info"}});
+        {"mesh", uiText(u"\u7f51\u683c\u7ba1\u7406"), true, "workspace:viewport"}});
     addGroup(preprocess, "trajectoryGroup", uiText(u"\u5f39\u9053\u8bbe\u7f6e"), {
-        {"import-config", uiText(u"\u5f39\u9053\u6587\u4ef6"), true, "workspace:trajectory-file"},
-        {"curve", uiText(u"\u5f39\u9053\u6570\u636e"), false, "workspace:trajectory-data"},
-        {"state", uiText(u"\u72b6\u6001\u63d0\u53d6"), false, "workspace:state-extraction"}});
+        {"curve", uiText(u"\u5f39\u9053\u8bbe\u7f6e"), true, "workspace:trajectory-settings"}});
     auto *viewPanel = addGroup(preprocess, "viewGroup", uiText(u"\u89c6\u56fe"), {
         {"view-fit", uiText(u"\u9002\u5e94"), true, ""},
         {"view-zoom-in", uiText(u"\u653e\u5927"), false, ""},
@@ -352,8 +360,11 @@ void MainWindow::createRibbon()
 
     auto *data = ribbonBar()->addCategoryPage(uiText(u"\u667a\u80fd\u6570\u636e\u5904\u7406"));
     data->setObjectName(QStringLiteral("intelligentDataCategory"));
-    addGroup(data, "intelligentDataGroup", uiText(u"\u529f\u80fd\u5165\u53e3"), {
-        {"compare", uiText(u"\u667a\u80fd\u6570\u636e\u5904\u7406"), true, ""}});
+    auto *resultPanel = addGroup(data, "intelligentDataGroup", uiText(u"\u529f\u80fd\u5165\u53e3"), {
+        {"curve", uiText(u"结果数据表"), true, "workspace:result-data-table"},
+        {"compare", uiText(u"结果汇总表"), true, "workspace:result-summary-table"}});
+    resultPanel->actions().at(0)->setObjectName(QStringLiteral("resultDataTableAction"));
+    resultPanel->actions().at(1)->setObjectName(QStringLiteral("resultSummaryTableAction"));
 
     auto *post = ribbonBar()->addCategoryPage(uiText(u"\u540e\u5904\u7406\u5206\u6790"));
     post->setObjectName(QStringLiteral("postprocessAnalysisCategory"));
@@ -499,21 +510,23 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
         "QWidget[parameterEditor=\"true\"] QPushButton#applyBoundary:disabled { background: %1; color: %6; border-color: %4; }")
         .arg(bg, base, text, border, selected, QStringLiteral("#61748a")));
     setStyleSheet(styleSheet() + QStringLiteral(
-        "QWidget#parameterEditor_control-equations QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_control-equations QGroupBox { padding: 12px 16px 10px; }"
         "QWidget#parameterEditor_reference-values QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_calculation-control QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_solution-method QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_solution-method QAbstractSpinBox, QWidget#parameterEditor_solution-method QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
-        "QWidget#parameterEditor_output-control QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_output-control QGroupBox { padding: 12px 16px 10px; }"
+        "QWidget#parameterEditor_output-control QCheckBox { min-height: 20px; }"
         "QWidget#parameterEditor_output-control QAbstractSpinBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_initialization QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_initialization QAbstractSpinBox, QWidget#parameterEditor_initialization QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
-        "QWidget#parameterEditor_boundary-conditions QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_boundary-conditions QGroupBox { padding: 10px 16px 8px; }"
+        "QWidget#parameterEditor_mesh-motion QAbstractSpinBox, QWidget#parameterEditor_mesh-motion QComboBox, QWidget#parameterEditor_mesh-motion QLineEdit { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_boundary-conditions QAbstractSpinBox, QWidget#parameterEditor_boundary-conditions QComboBox, QWidget#parameterEditor_boundary-conditions QLineEdit { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_calculation-control QAbstractSpinBox, QWidget#parameterEditor_calculation-control QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_reference-values QAbstractSpinBox, QWidget#parameterEditor_reference-values QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_control-equations QAbstractSpinBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
-        "QWidget#parameterEditor_control-equations QRadioButton, QWidget#parameterEditor_control-equations QCheckBox { min-height: 28px; }"));
+        "QWidget#parameterEditor_control-equations QRadioButton, QWidget#parameterEditor_control-equations QCheckBox { min-height: 22px; }"));
     const QString editorStyle = QStringLiteral(
         "QPlainTextEdit { background: %1; color: %2; border: 1px solid %3; }")
         .arg(base, text, border);
@@ -544,10 +557,11 @@ void MainWindow::createWorkspace()
     auto *meshPage = new MeshManagementPage(viewport, workspaceStack_);
     viewportPage_ = meshPage;
     workspaceStack_->addWidget(meshPage);
-    // The replicated mesh workspace offers a 后处理 tab that opens the same
-    // standalone post-process workbench as the Ribbon entry.
-    connect(meshPage, &MeshManagementPage::postProcessRequested,
-            this, &MainWindow::openPostProcessRequested);
+    // Unified trajectory settings page. The former trajectory leaf pages are
+    // consolidated here; the page keeps all of its state in the window and no
+    // longer depends on the deleted navigation entries.
+    trajectorySettingsPage_ = new TrajectorySettingsPage(workspaceStack_);
+    workspaceStack_->addWidget(trajectorySettingsPage_);
 
     const auto createWorkspacePage = [this](const QString &objectName, const QString &title,
                                              const QString &description) {
@@ -592,50 +606,72 @@ void MainWindow::createWorkspace()
     createSlot(WidgetSlot::Monitor, {});
 
     dataProcessPage_ = createWorkspacePage(QStringLiteral("intelligentDataPage"), uiText(u"\u667a\u80fd\u6570\u636e\u5904\u7406"),
-        uiText(u"\u8be5\u6a21\u5757\u529f\u80fd\u5f85\u63a5\u5165\u3002\u672c\u9875\u4ec5\u7528\u4e8e\u660e\u786e Ribbon \u4e0e\u4e2d\u592e\u5de5\u4f5c\u533a\u7684\u5bfc\u822a\u8fb9\u754c\uff0c\u4e0d\u6267\u884c\u6570\u636e\u5206\u6790\u3001AI \u6216\u516c\u5f0f\u8ba1\u7b97\u3002"));
-    qobject_cast<QVBoxLayout *>(dataProcessPage_->layout())->addStretch();
+        uiText(u"\u8bfb\u53d6\u6c42\u89e3\u5668\u4fdd\u5b58\u7684\u7ed3\u679c\u6587\u4ef6\u3002\u7ed3\u679c\u6570\u636e\u8868\u5c55\u793a\u91c7\u6837\u5e8f\u5217\u548c\u66f2\u7ebf\uff0c\u7ed3\u679c\u6c47\u603b\u8868\u6309\u5de5\u51b5\u5bf9\u6bd4\u5404\u58c1\u9762\u6c14\u52a8\u529b\u7cfb\u6570\u3002"));
+    // The module page keeps its own object name and heading: the workspace-tree
+    // test pins both. The two result pages live inside it on a private stack, so
+    // the left tree gains two real destinations without the module turning into
+    // two separate top-level modules.
+    intelligentStack_ = new QStackedWidget(dataProcessPage_);
+    intelligentStack_->setObjectName(QStringLiteral("intelligentDataStack"));
+    resultDataTablePage_ = new ResultDataTablePage(intelligentStack_);
+    resultDataTablePage_->setObjectName(QStringLiteral("resultDataTablePage"));
+    resultSummaryTablePage_ = new ResultSummaryTablePage(intelligentStack_);
+    resultSummaryTablePage_->setObjectName(QStringLiteral("resultSummaryTablePage"));
+    intelligentStack_->addWidget(resultDataTablePage_);
+    intelligentStack_->addWidget(resultSummaryTablePage_);
+    intelligentPageIndex_.insert(QStringLiteral("intelligent-data"), 0);
+    intelligentPageIndex_.insert(QStringLiteral("result-data-table"), 0);
+    intelligentPageIndex_.insert(QStringLiteral("result-summary-table"), 1);
+    qobject_cast<QVBoxLayout *>(dataProcessPage_->layout())->addWidget(intelligentStack_, 1);
     postprocessOverviewPage_ = createWorkspacePage(
         QStringLiteral("postprocessOverviewPage"), uiText(u"\u540e\u5904\u7406\u5206\u6790"),
         uiText(u"\u8be5\u6a21\u5757\u529f\u80fd\u5f85\u63a5\u5165\u3002\u5df2\u6709\u540e\u5904\u7406\u5de5\u4f5c\u53f0\u4e0e\u76f8\u5173\u4ee3\u7801\u4fdd\u6301\u4e0d\u53d8\uff0c\u672c\u9875\u4e0d\u521b\u5efa\u7b2c\u4e8c\u4e2a VTK \u89c6\u53e3\u6216\u6267\u884c\u540e\u5904\u7406\u7b97\u6cd5\u3002"));
     qobject_cast<QVBoxLayout *>(postprocessOverviewPage_->layout())->addStretch();
+    // The monitor page is retained as a reusable assembly slot for the
+    // visualization module while calculation pages remain the two task pages.
+    // The live monitoring page is a real page fed by task events and monitor
+    // samples. It sits beside the mock task-monitor page above instead of
+    // replacing it: the placeholder carries its own navigation entry and the
+    // window-level tests pin its object names and log behaviour.
+    monitorPage_ = new ComputeMonitorPage(workspaceStack_);
+    computeMonitorPage_ = monitorPage_;
+    workspaceStack_->addWidget(computeMonitorPage_);
+    workspacePages_.insert(QStringLiteral("compute-monitor"), computeMonitorPage_);
+    // Keep the legacy task-monitor destination available for task events and
+    // service integration. The calculation workbench itself still exposes only
+    // the two task pages above; this is a separate monitoring destination.
+    taskMonitorPage_ = createWorkspacePage(
+        QStringLiteral("taskMonitorPage"), uiText(u"\u4efb\u52a1\u76d1\u63a7"),
+        uiText(u"\u4efb\u52a1\u8fd0\u884c\u65e5\u5fd7\u4e0e\u8fdb\u5ea6\u6458\u8981\u3002"));
+    workspacePages_.insert(QStringLiteral("task-monitor"), taskMonitorPage_);
     for (auto *page : {parameterWorkspacePage_, dataProcessPage_, postprocessOverviewPage_})
         workspaceStack_->addWidget(page);
+    workspaceStack_->addWidget(taskMonitorPage_);
     workspacePages_.insert(QStringLiteral("viewport"), viewportPage_);
+    workspacePages_.insert(QStringLiteral("trajectory-settings"), trajectorySettingsPage_);
     workspacePages_.insert(QStringLiteral("parameters"), parameterWorkspacePage_);
     workspacePages_.insert(QStringLiteral("data-process"), dataProcessPage_);
     workspacePages_.insert(QStringLiteral("intelligent-data"), dataProcessPage_);
+    // Both result pages resolve to the one module page; showWorkspacePage picks
+    // the inner index. Registering them here is what makes the shared
+    // navigation dispatch in handleNavigationSelection find them.
+    workspacePages_.insert(QStringLiteral("result-data-table"), dataProcessPage_);
+    workspacePages_.insert(QStringLiteral("result-summary-table"), dataProcessPage_);
     workspacePages_.insert(QStringLiteral("postprocess-overview"), postprocessOverviewPage_);
-    const struct PlaceholderPage { const char *id; const char16_t *title; const char16_t *description; } placeholderPages[] = {
-        {"mesh-transform", u"\u7f51\u683c\u53d8\u6362", u"\u914d\u7f6e\u7f51\u683c\u5e73\u79fb\u3001\u65cb\u8f6c\u4e0e\u7f29\u653e\u3002\u5f53\u524d\u4ec5\u4fdd\u7559 UI \u5165\u53e3\uff0c\u4e0d\u6267\u884c\u7f51\u683c\u64cd\u4f5c\u3002"},
-        {"mesh-boundary", u"\u7f51\u683c\u8fb9\u754c", u"\u5c55\u793a\u7f51\u683c\u8fb9\u754c\u4fe1\u606f\u4e0e\u540e\u7eed\u8bbe\u7f6e\u5165\u53e3\u3002\u5c1a\u672a\u63a5\u5165\u771f\u5b9e\u7f51\u683c\u6570\u636e\u3002"},
-        {"mesh-info", u"\u7f51\u683c\u4fe1\u606f", u"\u7528\u4e8e\u663e\u793a\u7f51\u683c\u7c7b\u578b\u3001\u6587\u4ef6\u4e0e\u89c4\u6a21\u3002\u5f53\u524d\u4e3a\u7a7a\u72b6\u6001\uff0c\u4e0d\u4f2a\u9020\u7f51\u683c\u5c5e\u6027\u3002"},
-        {"trajectory-file", u"\u5f39\u9053\u6587\u4ef6", u"\u5f39\u9053\u6587\u4ef6\u9009\u62e9\u4e0e\u7ba1\u7406\u5165\u53e3\u3002\u672c\u671f\u4e0d\u5b9e\u73b0\u6587\u4ef6\u89e3\u6790\u3002"},
-        {"trajectory-data", u"\u5f39\u9053\u6570\u636e", u"\u5f39\u9053\u6570\u636e\u67e5\u770b\u5165\u53e3\u3002\u5f53\u524d\u5de5\u4f5c\u533a\u6ca1\u6709\u53ef\u5c55\u793a\u7684\u771f\u5b9e\u6570\u636e\u3002"},
-        {"state-extraction", u"\u72b6\u6001\u63d0\u53d6", u"\u4ece\u5f39\u9053\u6570\u636e\u63d0\u53d6\u8ba1\u7b97\u72b6\u6001\u7684\u914d\u7f6e\u5165\u53e3\u3002\u672c\u671f\u4e0d\u6267\u884c\u63d0\u53d6\u8ba1\u7b97\u3002"}
-    };
-    for (const auto &definition : placeholderPages) {
-        auto *page = createWorkspacePage(QString::fromLatin1(definition.id) + QStringLiteral("Page"),
-            QString::fromUtf16(reinterpret_cast<const ushort *>(definition.title)),
-            QString::fromUtf16(reinterpret_cast<const ushort *>(definition.description)));
-        qobject_cast<QVBoxLayout *>(page->layout())->addStretch();
-        workspaceStack_->addWidget(page);
-        workspacePages_.insert(QString::fromLatin1(definition.id), page);
-    }
     const QString preprocessModuleId = QStringLiteral("module-preprocess");
     const QString parameterModuleId = QStringLiteral("module-parameters");
     const QString calculationModuleId = QStringLiteral("module-calculation");
     const QString intelligentModuleId = QStringLiteral("module-intelligent-data");
     const QString postprocessModuleId = QStringLiteral("module-postprocess-analysis");
-    for (const QString &pageId : {QStringLiteral("viewport"), QStringLiteral("mesh-transform"),
-                                  QStringLiteral("mesh-boundary"), QStringLiteral("mesh-info"),
-                                  QStringLiteral("trajectory-file"), QStringLiteral("trajectory-data"),
-                                  QStringLiteral("state-extraction")})
+    for (const QString &pageId : {QStringLiteral("viewport"), QStringLiteral("trajectory-settings")})
         workspacePageModules_.insert(pageId, preprocessModuleId);
     workspacePageModules_.insert(QStringLiteral("parameters"), parameterModuleId);
     for (const QString &pageId : {QStringLiteral("single-calculation"), QStringLiteral("batch-calculation")})
         workspacePageModules_.insert(pageId, calculationModuleId);
     workspacePageModules_.insert(QStringLiteral("data-process"), intelligentModuleId);
     workspacePageModules_.insert(QStringLiteral("intelligent-data"), intelligentModuleId);
+    workspacePageModules_.insert(QStringLiteral("result-data-table"), intelligentModuleId);
+    workspacePageModules_.insert(QStringLiteral("result-summary-table"), intelligentModuleId);
     workspacePageModules_.insert(QStringLiteral("postprocess-overview"), postprocessModuleId);
     moduleLastPages_.insert(preprocessModuleId, QStringLiteral("viewport"));
     moduleLastPages_.insert(parameterModuleId, QStringLiteral("parameters"));
@@ -656,15 +692,12 @@ void MainWindow::createWorkspace()
     auto *root = new QTreeWidgetItem(projectTree_, {uiText(u"\u5de5\u4f5c\u533a Workspace\uff08\u672a\u6253\u5f00\uff09")});
     root->setData(0, NodeTypeRole, QStringLiteral("workspace-root"));
     auto *preprocessModule = addNavigationItem(root, uiText(u"\u524d\u5904\u7406"), {}, QStringLiteral("module-preprocess"), QStringLiteral("module"));
-    auto *mesh = addNavigationItem(preprocessModule, uiText(u"\u7f51\u683c\u7ba1\u7406"), QStringLiteral("viewport"), QStringLiteral("mesh-management"), QStringLiteral("group"));
-    addNavigationItem(mesh, uiText(u"\u7f51\u683c\u6587\u4ef6"), QStringLiteral("viewport"), QStringLiteral("mesh-file"), QStringLiteral("feature"));
-    addNavigationItem(mesh, uiText(u"\u7f51\u683c\u53d8\u6362"), QStringLiteral("mesh-transform"), QStringLiteral("mesh-transform"), QStringLiteral("feature"));
-    addNavigationItem(mesh, uiText(u"\u7f51\u683c\u8fb9\u754c"), QStringLiteral("mesh-boundary"), QStringLiteral("mesh-boundary"), QStringLiteral("feature"));
-    addNavigationItem(mesh, uiText(u"\u7f51\u683c\u4fe1\u606f"), QStringLiteral("mesh-info"), QStringLiteral("mesh-info"), QStringLiteral("feature"));
-    auto *trajectory = addNavigationItem(preprocessModule, uiText(u"\u5f39\u9053\u8bbe\u7f6e"), {}, QStringLiteral("trajectory-settings"), QStringLiteral("group"));
-    addNavigationItem(trajectory, uiText(u"\u5f39\u9053\u6587\u4ef6"), QStringLiteral("trajectory-file"), QStringLiteral("trajectory-file"), QStringLiteral("feature"));
-    addNavigationItem(trajectory, uiText(u"\u5f39\u9053\u6570\u636e"), QStringLiteral("trajectory-data"), QStringLiteral("trajectory-data"), QStringLiteral("feature"));
-    addNavigationItem(trajectory, uiText(u"\u72b6\u6001\u63d0\u53d6"), QStringLiteral("state-extraction"), QStringLiteral("state-extraction"), QStringLiteral("feature"));
+    // Two leaf nodes only: the former mesh/trajectory sub-pages are consolidated
+    // into the two pages, so these nodes must not expose an expand indicator.
+    addNavigationItem(preprocessModule, uiText(u"\u7f51\u683c\u7ba1\u7406"),
+                      QStringLiteral("viewport"), QStringLiteral("mesh-management"), QStringLiteral("feature"));
+    addNavigationItem(preprocessModule, uiText(u"\u5f39\u9053\u8bbe\u7f6e"),
+                      QStringLiteral("trajectory-settings"), QStringLiteral("trajectory-settings"), QStringLiteral("feature"));
     auto *parameterModule = addNavigationItem(root, uiText(u"\u53c2\u6570\u8bbe\u7f6e"), {}, QStringLiteral("module-parameters"), QStringLiteral("module"));
     const struct ParameterNode { const char *id; const char16_t *label; } parameterNodes[] = {
         {"control-equations", u"\u63a7\u5236\u65b9\u7a0b"}, {"boundary-conditions", u"\u8fb9\u754c\u6761\u4ef6"},
@@ -680,12 +713,18 @@ void MainWindow::createWorkspace()
     auto *calculationModule = addNavigationItem(root, uiText(u"\u8ba1\u7b97\u4efb\u52a1"), {}, QStringLiteral("module-calculation"), QStringLiteral("module"));
     addNavigationItem(calculationModule, uiText(u"\u5355\u4efb\u52a1"), QStringLiteral("single-calculation"), QStringLiteral("single-calculation"), QStringLiteral("feature"));
     addNavigationItem(calculationModule, uiText(u"\u591a\u4efb\u52a1"), QStringLiteral("batch-calculation"), QStringLiteral("batch-calculation"), QStringLiteral("feature"));
-    addNavigationItem(root, uiText(u"\u667a\u80fd\u6570\u636e\u5904\u7406"), {}, QStringLiteral("module-intelligent-data"), QStringLiteral("module"));
+    auto *intelligentModule = addNavigationItem(root, uiText(u"\u667a\u80fd\u6570\u636e\u5904\u7406"), {}, QStringLiteral("module-intelligent-data"), QStringLiteral("module"));
+    addNavigationItem(intelligentModule, uiText(u"\u7ed3\u679c\u6570\u636e\u8868"), QStringLiteral("result-data-table"), QStringLiteral("result-data-table"), QStringLiteral("feature"));
+    addNavigationItem(intelligentModule, uiText(u"\u7ed3\u679c\u6c47\u603b\u8868"), QStringLiteral("result-summary-table"), QStringLiteral("result-summary-table"), QStringLiteral("feature"));
+    // Monitoring is kept as an independent destination so the calculation
+    // module remains the deliberately small single/multiple task entry point.
+    auto *monitorModule = addNavigationItem(root, uiText(u"\u8ba1\u7b97\u76d1\u63a7"), {}, QStringLiteral("module-compute-monitor"), QStringLiteral("module"));
+    addNavigationItem(monitorModule, uiText(u"\u5b9e\u65f6\u76d1\u63a7"), QStringLiteral("compute-monitor"), QStringLiteral("compute-monitor"), QStringLiteral("feature"));
+    auto *taskGroup = addNavigationItem(monitorModule, uiText(u"\u4efb\u52a1\u5217\u8868"), {}, QStringLiteral("monitor-tasks"), QStringLiteral("group"));
+    addNavigationItem(taskGroup, QStringLiteral("Task_001"), QStringLiteral("task"), QStringLiteral("Task_001"), QStringLiteral("task"));
     addNavigationItem(root, uiText(u"\u540e\u5904\u7406\u5206\u6790"), {}, QStringLiteral("module-postprocess-analysis"), QStringLiteral("module"));
     root->setExpanded(true);
     preprocessModule->setExpanded(true);
-    mesh->setExpanded(true);
-    trajectory->setExpanded(true);
     parameterModule->setExpanded(true);
     calculationModule->setExpanded(true);
     connect(projectTree_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem *item) { handleNavigationSelection(item); });
@@ -922,6 +961,10 @@ void MainWindow::handleNavigationSelection(QTreeWidgetItem *item)
     emit navigationRequested(page, objectId, {});
     if (item->treeWidget() == projectTree_) setOutputScope(QStringLiteral("current-project"));
     if (workspacePages_.contains(page)) showWorkspacePage(page);
+    else if (page == QStringLiteral("task")) {
+        showWorkspacePage(QStringLiteral("task-monitor"));
+        setOutputScope(objectId);
+    }
     else if (page == QStringLiteral("dataset") || page == QStringLiteral("data-process")) showWorkspacePage(QStringLiteral("data-process"));
     else if (page == QStringLiteral("monitor-log")) showOutput(0);
     else if (page == QStringLiteral("monitor-residual")) showWorkspacePage(QStringLiteral("single-calculation"));
@@ -935,6 +978,14 @@ void MainWindow::showWorkspacePage(const QString &pageId)
         const bool calculation = target == singleCalculationPage_ || target == batchCalculationPage_;
         if (!calculation) setCalculationWorkspaceActive(false);
         workspaceStack_->setCurrentWidget(target);
+        // Several page ids share the module widget, so the id alone does not say
+        // which screen to show; the inner stack carries that. Anything not
+        // listed keeps the index it was left on.
+        if (pageId == QStringLiteral("intelligent-data")
+            || pageId == QStringLiteral("result-data-table")
+            || pageId == QStringLiteral("result-summary-table")) {
+            if (intelligentStack_) intelligentStack_->setCurrentIndex(intelligentPageIndex_.value(pageId, 0));
+        }
         const QString moduleId = workspacePageModules_.value(pageId);
         if (!moduleId.isEmpty()) moduleLastPages_.insert(moduleId, pageId);
         setMeshWorkspaceActive(target == viewportPage_);
@@ -963,6 +1014,16 @@ void MainWindow::showWorkspacePage(const QString &pageId)
             }
         }
     }
+}
+
+void MainWindow::showComputeMonitor()
+{
+    if (!monitorPage_) return;
+    // Reuse the shared page switch instead of toggling the stack here: leaving
+    // a parameter page has to restore the property dock, and that state lives in
+    // showWorkspacePage().
+    selectPage(QStringLiteral("compute-monitor"));
+    showWorkspacePage(QStringLiteral("compute-monitor"));
 }
 
 void MainWindow::showModuleWorkspace(const QString &moduleId)
@@ -1212,10 +1273,10 @@ void MainWindow::selectPage(const QString &pageId)
         {"monitor-errors", uiText(u"\u9519\u8bef\u4fe1\u606f")}, {"results", uiText(u"\u7ed3\u679c\u4e0e\u540e\u5904\u7406")},
         {"parameters", uiText(u"\u53c2\u6570\u8bbe\u7f6e")}, {"calculation-overview", uiText(u"\u8ba1\u7b97")},
         {"intelligent-data", uiText(u"\u667a\u80fd\u6570\u636e\u5904\u7406")}, {"postprocess-overview", uiText(u"\u540e\u5904\u7406\u5206\u6790")},
-        {"viewport", uiText(u"\u7f51\u683c\u6587\u4ef6")}, {"mesh-transform", uiText(u"\u7f51\u683c\u53d8\u6362")},
-        {"mesh-boundary", uiText(u"\u7f51\u683c\u8fb9\u754c")}, {"mesh-info", uiText(u"\u7f51\u683c\u4fe1\u606f")},
-        {"trajectory-file", uiText(u"\u5f39\u9053\u6587\u4ef6")}, {"trajectory-data", uiText(u"\u5f39\u9053\u6570\u636e")},
-        {"state-extraction", uiText(u"\u72b6\u6001\u63d0\u53d6")}, {"single-calculation", uiText(u"\u5355\u6b21\u8ba1\u7b97")},
+        {"result-data-table", uiText(u"\u7ed3\u679c\u6570\u636e\u8868")}, {"result-summary-table", uiText(u"\u7ed3\u679c\u6c47\u603b\u8868")},
+        {"compute-monitor", uiText(u"实时监控")},
+        {"viewport", uiText(u"\u7f51\u683c\u7ba1\u7406")}, {"trajectory-settings", uiText(u"\u5f39\u9053\u8bbe\u7f6e")},
+        {"single-calculation", uiText(u"\u5355\u6b21\u8ba1\u7b97")},
         {"batch-calculation", uiText(u"\u6279\u91cf\u8ba1\u7b97")}};
     const QHash<QString, QString> parameterTitles = {
         {"calculation-control", uiText(u"\u8ba1\u7b97\u63a7\u5236")},
@@ -1580,6 +1641,58 @@ void MainWindow::displayTaskEvent(const TaskEvent &event)
     appendLog(level, QStringLiteral("Task"),
               (event.errorCode.isEmpty() ? QString() : event.errorCode + QLatin1Char(' ')) + event.message,
               event.taskId);
+    // Keep the independent monitoring tree in sync with service-backed task
+    // events. This does not add children to the calculation task module; it
+    // only gives the monitor page a selectable task entry.
+    if (tasks_ && projectTree_) {
+        const TaskRecord known = tasks_->record(event.taskId);
+        if (!known.taskId.isEmpty()) {
+            QTreeWidgetItem *monitorGroup = nullptr;
+            QTreeWidgetItem *batchItem = nullptr;
+            QTreeWidgetItem *taskItem = nullptr;
+            for (QTreeWidgetItemIterator it(projectTree_); *it; ++it) {
+                auto *candidate = *it;
+                const QString id = candidate->data(0, ObjectIdRole).toString();
+                if (id == QStringLiteral("monitor-tasks")) monitorGroup = candidate;
+                else if (id == known.batchId) batchItem = candidate;
+                else if (id == event.taskId) taskItem = candidate;
+            }
+            if (!monitorGroup) {
+                QTreeWidgetItem *module = nullptr;
+                for (QTreeWidgetItemIterator it(projectTree_); *it; ++it) {
+                    if ((*it)->data(0, ObjectIdRole).toString() == QStringLiteral("module-compute-monitor")) {
+                        module = *it;
+                        break;
+                    }
+                }
+                if (module)
+                    monitorGroup = addNavigationItem(module, uiText(u"\u4efb\u52a1\u5217\u8868"), {},
+                                                      QStringLiteral("monitor-tasks"), QStringLiteral("group"));
+            }
+            if (!known.batchId.isEmpty() && !batchItem && monitorGroup)
+                batchItem = addNavigationItem(monitorGroup, known.batchId, {}, known.batchId, QStringLiteral("group"));
+            auto *parent = batchItem ? batchItem : monitorGroup;
+            if (!taskItem && parent)
+                addNavigationItem(parent, event.taskId, QStringLiteral("task"), event.taskId, QStringLiteral("task"));
+        }
+    }
+    // Feed the live monitoring page as a second consumer. Its task set is its
+    // own, so this adds a listener without changing what the task tree and log
+    // table above already show for the same event.
+    if (monitorPage_) {
+        // The page rejects events whose attempt does not match the attempt it
+        // holds, which is what keeps a stale delivery from attaching itself to
+        // a newer run. A retry therefore has to reach it as a record first:
+        // without this the service would move to a second attempt and every
+        // event from it would be dropped as stale, leaving the page on the dead
+        // attempt with no visible sign that anything moved on.
+        if (tasks_) {
+            const TaskRecord known = tasks_->record(event.taskId);
+            if (!known.taskId.isEmpty() && monitorPage_->taskRecord(event.taskId).attemptId != known.attemptId)
+                monitorPage_->upsertTask(known);
+        }
+        monitorPage_->displayTaskEvent(event);
+    }
 }
 
 void MainWindow::appendMessage(const QString &message)
