@@ -39,7 +39,7 @@ if(AEROSIM_BUILD_VISUALIZATION)
 endif()
 
 option(AEROSIM_BUILD_MESH_VIEWER "Build the VTK preprocessing mesh viewport" OFF)
-if(AEROSIM_BUILD_GUI AND AEROSIM_BUILD_MESH_VIEWER)
+if(AEROSIM_BUILD_GUI AND AEROSIM_BUILD_MESH_VIEWER AND NOT AEROSIM_BUILD_VISUALIZATION)
     add_subdirectory(modules/visualization/scene)
 endif()
 

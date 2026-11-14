@@ -6,11 +6,11 @@
 #include <memory>
 #include "aerosim/visualization/features/BoundarySurfaceExtractor.h"
 namespace aerosim { namespace visualization {
-class VtkSceneViewer final : public QWidget {
+class MeshSceneViewer final : public QWidget {
     Q_OBJECT
 public:
-    explicit VtkSceneViewer(QWidget* parent=nullptr);
-    ~VtkSceneViewer() override;
+    explicit MeshSceneViewer(QWidget* parent=nullptr);
+    ~MeshSceneViewer() override;
     void addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh);
     static void configureSurface();
 public slots:

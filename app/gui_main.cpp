@@ -11,7 +11,7 @@
 #endif
 
 #ifdef AEROSIM_HAS_VTK_VIEWER
-#include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include "aerosim/visualization/VtkSceneViewer.h"
 #include <QSurfaceFormat>
 #include <QVTKOpenGLNativeWidget.h>
 #endif
@@ -93,12 +93,10 @@ int main(int argc, char *argv[])
     });
 #endif
 #ifdef AEROSIM_HAS_VTK_VIEWER
-    // The workbench remains usable without a native OpenGL surface.  This is
-    // also the safe default on remote desktop sessions where VTK's native
-    // widget may not be backed by the expected graphics driver.
-    const bool enableVtkViewer = qEnvironmentVariableIntValue("AEROSIM_ENABLE_VTK_VIEWER") == 1;
-    if (!smoke && enableVtkViewer) {
+    // Smoke tests run without an OpenGL surface; interactive sessions use the VTK viewer.
+    if (!smoke) {
         auto *viewer = new aerosim::visualization::VtkSceneViewer;
+        viewer->bindWorkbench(&postprocess);
         if (!postprocess.insertWidget(aerosim::WidgetSlot::Viewport, viewer)) {
             delete viewer;
             QTextStream(stderr) << "Failed to insert VTK viewer\n";

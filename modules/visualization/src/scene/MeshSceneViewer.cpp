@@ -1,4 +1,4 @@
-#include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include "aerosim/visualization/scene/MeshSceneViewer.h"
 #include <QVTKOpenGLNativeWidget.h>
 #include <QApplication>
 #include <QMouseEvent>
@@ -24,7 +24,7 @@ VTK_MODULE_INIT(vtkInteractionStyle);
 #include <array>
 #include <cmath>
 namespace aerosim { namespace visualization {
-struct VtkSceneViewer::Impl {
+struct MeshSceneViewer::Impl {
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> window=vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
     vtkSmartPointer<vtkRenderer> renderer=vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkInteractorStyleTrackballCamera> style =
@@ -35,7 +35,7 @@ struct VtkSceneViewer::Impl {
     QPoint pickPressPosition;
     bool pickPending = false;
 };
-VtkSceneViewer::VtkSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl) {
+MeshSceneViewer::MeshSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl) {
     setObjectName(QStringLiteral("boundaryVtkViewer"));
     auto* layout=new QVBoxLayout(this); layout->setContentsMargins(0,0,0,0);
     auto* widget=new QVTKOpenGLNativeWidget(this); layout->addWidget(widget);
@@ -46,27 +46,27 @@ VtkSceneViewer::VtkSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl) 
     vtkNew<vtkCallbackCommand> interaction;
     interaction->SetClientData(this);
     interaction->SetCallback([](vtkObject *, unsigned long, void *client, void *) {
-        static_cast<VtkSceneViewer *>(client)->publishCameraOrientation();
+        static_cast<MeshSceneViewer *>(client)->publishCameraOrientation();
     });
     impl_->interactionObserver = impl_->style->AddObserver(vtkCommand::InteractionEvent, interaction);
     impl_->renderer->SetBackground(0.15,0.19,0.25);
     impl_->renderer->SetBackground2(0.85,0.9,0.96); impl_->renderer->GradientBackgroundOn();
 }
-VtkSceneViewer::~VtkSceneViewer()
+MeshSceneViewer::~MeshSceneViewer()
 {
     impl_->viewport->removeEventFilter(this);
     impl_->style->RemoveObserver(impl_->interactionObserver);
 }
 
-void VtkSceneViewer::configureSurface()
+void MeshSceneViewer::configureSurface()
 {
     QSurfaceFormat::setDefaultFormat(QVTKOpenGLNativeWidget::defaultFormat());
 }
-void VtkSceneViewer::render() {
+void MeshSceneViewer::render() {
     Q_ASSERT(QThread::currentThread()==thread());
     if(isVisible()) impl_->window->Render();
 }
-void VtkSceneViewer::addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh) {
+void MeshSceneViewer::addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh) {
     if(!mesh || impl_->objects.contains(id)) return;
     vtkNew<vtkPolyDataMapper> mapper; mapper->SetInputData(mesh->surface); mapper->ScalarVisibilityOff();
     vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
@@ -83,11 +83,11 @@ void VtkSceneViewer::addBoundary(const QString& id,std::shared_ptr<const Boundar
         render();
     }
 }
-void VtkSceneViewer::removeObject(const QString& id) {
+void MeshSceneViewer::removeObject(const QString& id) {
     if(!impl_->objects.contains(id)) return;
     impl_->renderer->RemoveActor(impl_->objects.take(id)); render();
 }
-void VtkSceneViewer::setObjectStyle(const QString& id,const QVariantMap& s) {
+void MeshSceneViewer::setObjectStyle(const QString& id,const QVariantMap& s) {
     if(!impl_->objects.contains(id)) return;
     auto* a=impl_->objects.value(id).GetPointer(); auto* p=a->GetProperty();
     if(s.contains("visible")) a->SetVisibility(s.value("visible").toBool());
@@ -108,11 +108,11 @@ void VtkSceneViewer::setObjectStyle(const QString& id,const QVariantMap& s) {
     }
     impl_->renderer->ResetCameraClippingRange(); render();
 }
-void VtkSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
+void MeshSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
     impl_->renderer->SetBackground(b.redF(),b.greenF(),b.blueF());
     impl_->renderer->SetBackground2(t.redF(),t.greenF(),t.blueF()); impl_->renderer->SetGradientBackground(g); render();
 }
-void VtkSceneViewer::setCameraOrientation(const QString &command)
+void MeshSceneViewer::setCameraOrientation(const QString &command)
 {
     auto *camera = impl_->renderer->GetActiveCamera();
     if (command == QStringLiteral("fit")) {
@@ -148,7 +148,7 @@ void VtkSceneViewer::setCameraOrientation(const QString &command)
     render();
 }
 
-void VtkSceneViewer::orbitCamera(int dx, int dy)
+void MeshSceneViewer::orbitCamera(int dx, int dy)
 {
     auto *camera = impl_->renderer->GetActiveCamera();
     constexpr double degreesPerPixel = 0.65;
@@ -160,7 +160,7 @@ void VtkSceneViewer::orbitCamera(int dx, int dy)
     render();
 }
 
-void VtkSceneViewer::rotateObjectAroundAxis(const QString &id, const QVector3D &axis)
+void MeshSceneViewer::rotateObjectAroundAxis(const QString &id, const QVector3D &axis)
 {
     auto actor = impl_->objects.value(id);
     if (!actor || !actor->GetVisibility()) return;
@@ -169,7 +169,7 @@ void VtkSceneViewer::rotateObjectAroundAxis(const QString &id, const QVector3D &
     render();
 }
 
-void VtkSceneViewer::rotateObjectByDrag(const QString &id, int dx, int dy)
+void MeshSceneViewer::rotateObjectByDrag(const QString &id, int dx, int dy)
 {
     auto actor = impl_->objects.value(id);
     if (!actor || !actor->GetVisibility()) return;
@@ -187,7 +187,7 @@ void VtkSceneViewer::rotateObjectByDrag(const QString &id, int dx, int dy)
     render();
 }
 
-bool VtkSceneViewer::eventFilter(QObject *watched, QEvent *event)
+bool MeshSceneViewer::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched != impl_->viewport) return QWidget::eventFilter(watched, event);
     switch (event->type()) {
@@ -219,7 +219,7 @@ bool VtkSceneViewer::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
-void VtkSceneViewer::pickBoundary(const QPoint &position)
+void MeshSceneViewer::pickBoundary(const QPoint &position)
 {
     const auto *size = impl_->window->GetSize();
     if (size[0] <= 0 || size[1] <= 0 || impl_->viewport->width() <= 0 || impl_->viewport->height() <= 0) return;
@@ -237,7 +237,7 @@ void VtkSceneViewer::pickBoundary(const QPoint &position)
     emit boundaryPicked(QString());
 }
 
-void VtkSceneViewer::publishCameraOrientation()
+void MeshSceneViewer::publishCameraOrientation()
 {
     auto *camera = impl_->renderer->GetActiveCamera();
     const auto *direction = camera->GetDirectionOfProjection();
