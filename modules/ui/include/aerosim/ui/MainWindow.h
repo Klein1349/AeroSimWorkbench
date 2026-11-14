@@ -32,6 +32,7 @@ class QObject;
 
 namespace aerosim {
 
+class CalculationTaskPage;
 class ComputeMonitorPage;
 class ResultDataTablePage;
 class ResultSummaryTablePage;
@@ -70,13 +71,6 @@ signals:
     void parameterDraftChanged(const QString &pageId, const QVariantMap &values);
 
 private:
-    struct StateDraft {
-        double mach = 0.8;
-        double angleOfAttack = 2.0;
-        double temperature = 288.15;
-        double altitude = 5000.0;
-    };
-
     void createRibbon();
     void applyWindowTheme(const QString &id);
     void createWorkspace();
@@ -87,33 +81,19 @@ private:
     void showWorkspacePage(const QString &pageId);
     void showModuleWorkspace(const QString &moduleId);
     void setMeshWorkspaceActive(bool active);
+    void setCalculationWorkspaceActive(bool active);
     void selectNavigationNode(QTreeWidget *tree, const QString &objectId);
     void restoreLayout();
     void saveUserLayout();
     void restoreUserLayout();
     void constrainToAvailableScreen();
     void submitRun();
-    void submitSingleCalculation();
-    void addBatchCase();
-    void removeBatchCase();
-    void submitBatchCalculation();
-    void applyStateToSingleCalculation(const QString &stateId);
-    bool editCalculationParameters(QString &caseId, double &mach, double &aoa,
-                                   double &temperature, int &mpi);
-    void addState();
-    void editState();
-    void removeState();
-    void refreshStateModel();
     void appendMessage(const QString &message);
     void appendLog(const QString &level, const QString &source, const QString &message,
                    const QString &scope = QString());
     void applyLogFilters();
     void setOutputScope(const QString &scope);
     void setOutputCollapsed(bool collapsed);
-    void showTaskMonitor(const QString &taskId);
-    void refreshTaskLog();
-    void appendTaskLogMock(const QString &stream, const QString &message);
-    void updateTaskProgressMock(const QString &message);
     QWidget *createSlot(WidgetSlot slot, const QString &text);
     void showOutput(int index);
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -130,21 +110,16 @@ private:
     QAction *restoreUserLayoutAction_ = nullptr;
     QTreeWidget *projectTree_ = nullptr;
     QTreeWidget *workflowTree_ = nullptr;
-    QTreeWidget *taskTree_ = nullptr;
     QStackedWidget *workspaceStack_ = nullptr;
     QWidget *viewportPage_ = nullptr;
     QWidget *trajectorySettingsPage_ = nullptr;
     QWidget *parameterWorkspacePage_ = nullptr;
-    QWidget *calculationOverviewPage_ = nullptr;
-    QWidget *stateListPage_ = nullptr;
-    QWidget *batchPlanPage_ = nullptr;
-    QWidget *batchMonitorPage_ = nullptr;
-    QWidget *taskMonitorPage_ = nullptr;
-    QWidget *singleCalculationPage_ = nullptr;
-    QWidget *batchCalculationPage_ = nullptr;
+    CalculationTaskPage *singleCalculationPage_ = nullptr;
+    CalculationTaskPage *batchCalculationPage_ = nullptr;
     QWidget *dataProcessPage_ = nullptr;
     QWidget *postprocessOverviewPage_ = nullptr;
     QWidget *computeMonitorPage_ = nullptr;
+    QWidget *taskMonitorPage_ = nullptr;
     ComputeMonitorPage *monitorPage_ = nullptr;
     ResultDataTablePage *resultDataTablePage_ = nullptr;
     ResultSummaryTablePage *resultSummaryTablePage_ = nullptr;
@@ -157,9 +132,6 @@ private:
     QHash<QString, QWidget *> workspacePages_;
     QHash<QString, QString> workspacePageModules_;
     QHash<QString, QString> moduleLastPages_;
-    QTableWidget *stateTable_ = nullptr;
-    QTableWidget *batchPlanTable_ = nullptr;
-    QTableWidget *batchCalculationTable_ = nullptr;
     QTableWidget *outputLogTable_ = nullptr;
     QDockWidget *projectDock_ = nullptr;
     QDockWidget *propertyDock_ = nullptr;
@@ -168,53 +140,27 @@ private:
     QLabel *propertyTitle_ = nullptr;
     QLabel *parameterWorkspaceTitle_ = nullptr;
     QLabel *suggestion_ = nullptr;
-    QLabel *monitorStatus_ = nullptr;
-    QLabel *monitorDetails_ = nullptr;
-    QLabel *taskMonitorTitle_ = nullptr;
-    QLabel *taskCurveState_ = nullptr;
-    QLabel *taskResourceSummary_ = nullptr;
     QLabel *outputTitle_ = nullptr;
     QLabel *status_ = nullptr;
-    QProgressBar *progress_ = nullptr;
-    QSplitter *taskMonitorContentSplitter_ = nullptr;
     QPushButton *draftReset_ = nullptr;
     QPushButton *outputScopeReset_ = nullptr;
     QPushButton *outputCollapse_ = nullptr;
     QComboBox *logLevelFilter_ = nullptr;
     QComboBox *logModuleFilter_ = nullptr;
-    QComboBox *taskLogStreamFilter_ = nullptr;
     QLineEdit *logSearch_ = nullptr;
-    QComboBox *singleCaseCombo_ = nullptr;
-    QComboBox *singleOutputModeCombo_ = nullptr;
-    QDoubleSpinBox *singleMachSpin_ = nullptr;
-    QDoubleSpinBox *singleAoASpin_ = nullptr;
-    QDoubleSpinBox *singleTemperatureSpin_ = nullptr;
-    QSpinBox *singleMpiSpin_ = nullptr;
-    QLabel *singleGenerationStatus_ = nullptr;
-    QLabel *singleParametersSummary_ = nullptr;
-    QLabel *batchGenerationStatus_ = nullptr;
-    QLabel *batchRunSummary_ = nullptr;
-    QProgressBar *batchRunProgress_ = nullptr;
-    QPushButton *addStateButton_ = nullptr;
-    QPushButton *editStateButton_ = nullptr;
-    QPushButton *removeStateButton_ = nullptr;
-    QTreeWidgetItem *statesNavigationItem_ = nullptr;
-    QStringList stateIds_ = {QStringLiteral("State_001"), QStringLiteral("State_002"), QStringLiteral("State_003")};
-    QHash<QString, StateDraft> stateDrafts_;
-    quint64 batchPlanVersion_ = 0;
     QCheckBox *logAutoScroll_ = nullptr;
-    QCheckBox *taskLogAutoScroll_ = nullptr;
-    QPlainTextEdit *taskLogView_ = nullptr;
     QWidget *outputBody_ = nullptr;
     QString currentPage_;
     QString outputScope_ = QStringLiteral("current-project");
-    QString currentTaskId_ = QStringLiteral("Task_001");
     int expandedOutputHeight_ = 140;
     bool outputCollapsed_ = false;
     bool projectEditingEnabled_ = false;
     bool syncingRibbonTree_ = false;
     bool meshWorkspaceActive_ = false;
+    bool calculationWorkspaceActive_ = false;
     bool propertyDockVisibleBeforeMesh_ = true;
+    bool propertyDockVisibleBeforeCalculation_ = true;
+    bool outputDockVisibleBeforeCalculation_ = true;
     int projectDockWidth_ = 260;
     // Embedded parameter editors hide the shared property dock; remember the
     // previous visibility so main's non-mesh pages restore it afterwards.
@@ -222,8 +168,6 @@ private:
     bool propertyDockVisibleBeforeParameter_ = true;
     bool meshOutputInitialCollapseApplied_ = false;
     QHash<QString, QVariantMap> drafts_;
-    QHash<QString, QVector<QPair<QString, QString>>> taskLogEntries_;
-    QHash<QString, int> taskLogScrollPositions_;
 };
 
 } // namespace aerosim

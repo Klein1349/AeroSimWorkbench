@@ -24,6 +24,8 @@ add_subdirectory(monitor)
 add_subdirectory(intelligent)
 add_library(aerosim_ui STATIC
     resources/PostProcessIcons.qrc
+    src/CalculationTaskPage.cpp include/aerosim/ui/CalculationTaskPage.h
+    src/CalculationTaskInputDialog.cpp include/aerosim/ui/CalculationTaskInputDialog.h
     src/MainWindow.cpp include/aerosim/ui/MainWindow.h resources/RibbonIcons.qrc
     src/MeshManagementPage.cpp include/aerosim/ui/MeshManagementPage.h
     src/TrajectorySettingsPage.cpp include/aerosim/ui/TrajectorySettingsPage.h
