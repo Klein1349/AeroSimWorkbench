@@ -1,15 +1,13 @@
 #include "aerosim/ui/CalculationTaskPage.h"
 
-#include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDateTime>
 #include <QFontDatabase>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
-#include <QMessageBox>
-#include <QMenu>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -20,6 +18,8 @@
 #include <QSplitter>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <cmath>
+#include <cstddef>
 
 namespace aerosim {
 
@@ -82,6 +82,7 @@ double splitRatio(QSplitter *splitter)
 
 void restoreRatio(QSplitter *splitter, double ratio)
 {
+    if (!std::isfinite(ratio)) ratio = 0.5;
     ratio = qBound(0.15, ratio, 0.85);
     splitter->setSizes({qRound(1000 * ratio), qRound(1000 * (1 - ratio))});
 }
@@ -95,37 +96,44 @@ CalculationTaskPage::CalculationTaskPage(bool multiple, QWidget *parent)
     setStyleSheet(QStringLiteral(
         "QLabel[calculationSection=\"true\"] { background: palette(highlight); color: palette(highlighted-text); }"
         "QGroupBox { border: 1px solid palette(mid); border-radius: 3px; margin-top: 12px; padding: 10px 7px 7px; }"
-        "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top center; padding: 0 5px; }"
+        "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 10px; padding: 0 5px; }"
+        "QFrame#singleExecutionCard { background: palette(base); border: 1px solid palette(midlight); border-radius: 6px; }"
+        "QLabel#executionHeading { font-size: 16px; font-weight: bold; background: transparent; }"
+        "QLabel[calculationHint=\"true\"] { color: palette(disabled, text); background: transparent; }"
+        "QPushButton#submitCalculation { background: #2563a6; color: white; border: 1px solid #2563a6; border-radius: 4px; padding: 6px 10px; }"
+        "QPushButton#submitCalculation:hover { background: #3475b8; }"
+        "QComboBox#submissionModeCombo { min-width: 112px; max-width: 130px; }"
         "QSplitter::handle { background: palette(midlight); }"
         "QSplitter::handle:horizontal { width: 5px; }"
         "QSplitter::handle:vertical { height: 5px; }"
         "QSplitter::handle:hover { background: palette(highlight); }"
-        "QPushButton[taskCategory=\"true\"] { padding: 6px 3px; }"
+        "QPushButton[taskCategory=\"true\"] { padding: 5px 3px; border-radius: 3px; }"
         "QLabel#calculationUiNotice { color: palette(mid); padding: 2px 6px; }"));
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    mainSplitter_ = new QSplitter(Qt::Horizontal, this);
+    verticalSplitter_ = new QSplitter(Qt::Vertical, this);
+    verticalSplitter_->setObjectName(QStringLiteral("calculationVerticalSplitter"));
+    verticalSplitter_->setChildrenCollapsible(false);
+    mainSplitter_ = new QSplitter(Qt::Horizontal, verticalSplitter_);
     mainSplitter_->setObjectName(QStringLiteral("calculationMainSplitter"));
     mainSplitter_->setChildrenCollapsible(false);
     auto *settings = new QWidget(mainSplitter_);
     settings->setObjectName(QStringLiteral("calculationSettingsPanel"));
-    settings->setMinimumWidth(360);
+    settings->setMinimumWidth(multiple ? 340 : 280);
     auto *settingsLayout = new QVBoxLayout(settings);
     settingsLayout->setContentsMargins(0, 0, 0, 0);
     settingsLayout->setSpacing(0);
     settingsLayout->addWidget(sectionTitle(uiText(u"\u8bbe\u7f6e\u9762\u677f"), settings));
     auto *settingsScroll = new QScrollArea(settings);
+    settingsScroll->setObjectName(QStringLiteral("calculationSettingsScroll"));
     settingsScroll->setWidgetResizable(true);
     settingsScroll->setFrameShape(QFrame::NoFrame);
     settingsScroll->setWidget(multiple ? createMultipleSettings() : createSingleSettings());
     settingsLayout->addWidget(settingsScroll);
 
-    rightSplitter_ = new QSplitter(Qt::Vertical, mainSplitter_);
-    rightSplitter_->setObjectName(QStringLiteral("calculationRightSplitter"));
-    rightSplitter_->setChildrenCollapsible(false);
-    rightSplitter_->setMinimumWidth(270);
-    auto *monitor = new QWidget(rightSplitter_);
+    auto *monitor = new QWidget(mainSplitter_);
+    monitor->setMinimumWidth(330);
     auto *monitorLayout = new QVBoxLayout(monitor);
     monitorLayout->setContentsMargins(0, 0, 0, 0);
     monitorLayout->setSpacing(0);
@@ -138,23 +146,17 @@ CalculationTaskPage::CalculationTaskPage(bool multiple, QWidget *parent)
     tab->setCheckable(true); tab->setChecked(true);
     connect(tab, &QPushButton::clicked, this, [tab] { tab->setChecked(true); });
     tabLayout->addWidget(tab);
-    if (multiple) {
-        auto *monitorTab = new QPushButton(uiText(u"\u8ba1\u7b97\u76d1\u63a7"), monitor);
-        monitorTab->setObjectName(QStringLiteral("calculationMonitorTab"));
-        monitorTab->setCheckable(true); monitorTab->setChecked(true);
-        connect(monitorTab, &QPushButton::clicked, this, [monitorTab] { monitorTab->setChecked(true); });
-        tabLayout->addWidget(monitorTab);
-    }
     tabLayout->addStretch();
     monitorLayout->addWidget(tabs);
     monitorSplitter_ = new QSplitter(Qt::Horizontal, monitor);
     monitorSplitter_->setObjectName(QStringLiteral("calculationMonitorSplitter"));
     monitorSplitter_->setChildrenCollapsible(false);
+    auto *observations = new QWidget(monitorSplitter_);
+    observations->setMinimumWidth(130);
+    auto *observationLayout = new QVBoxLayout(observations);
+    observationLayout->setContentsMargins(8, 6, 3, 5);
+    observationLayout->addWidget(createObservables(), 1);
     if (multiple) {
-        auto *observations = new QWidget(monitorSplitter_);
-        auto *observationLayout = new QVBoxLayout(observations);
-        observationLayout->setContentsMargins(8, 6, 3, 5);
-        observationLayout->addWidget(createObservables(), 1);
         auto *samples = new QCheckBox(uiText(u"\u4ec5\u663e\u793a\u6837\u672c\u70b9"), observations);
         samples->setObjectName(QStringLiteral("calculationSamplesOnly"));
         samples->setToolTip(uiText(u"\u9009\u62e9\u4fdd\u7559\u5728\u672c\u9875\uff0c\u63a5\u5165\u66f2\u7ebf\u6570\u636e\u540e\u751f\u6548"));
@@ -168,22 +170,38 @@ CalculationTaskPage::CalculationTaskPage(bool multiple, QWidget *parent)
     curveLayout_->addWidget(emptyChart_);
     monitorLayout->addWidget(monitorSplitter_, 1);
 
-    auto *logPanel = new QWidget(rightSplitter_);
-    logPanel->setObjectName(QStringLiteral("calculationLogPanel"));
-    logPanel->setMinimumHeight(100);
-    auto *logLayout = new QVBoxLayout(logPanel);
-    logLayout->setContentsMargins(0, 0, 0, 0); logLayout->setSpacing(0);
-    logLayout->addWidget(sectionTitle(uiText(u"\u65e5\u5fd7"), logPanel));
-    log_ = new QPlainTextEdit(logPanel);
-    log_->setObjectName(QStringLiteral("calculationLog"));
-    log_->setReadOnly(true);
-    log_->setMaximumBlockCount(2000);
-    log_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    log_->setPlaceholderText(uiText(u"\u6682\u65e0\u8fd0\u884c\u65e5\u5fd7"));
-    logLayout->addWidget(log_);
+    outputSplitter_ = new QSplitter(Qt::Horizontal, verticalSplitter_);
+    outputSplitter_->setObjectName(QStringLiteral("calculationOutputSplitter"));
+    outputSplitter_->setChildrenCollapsible(false);
+    const auto createOutput = [this](const QString &name, const QString &title,
+                                      const QString &placeholder) {
+        auto *panel = new QWidget(outputSplitter_);
+        panel->setObjectName(name + QStringLiteral("Panel"));
+        panel->setMinimumSize(200, 115);
+        auto *panelLayout = new QVBoxLayout(panel);
+        panelLayout->setContentsMargins(0, 0, 0, 0);
+        panelLayout->setSpacing(0);
+        panelLayout->addWidget(sectionTitle(title, panel));
+        auto *editor = new QPlainTextEdit(panel);
+        editor->setObjectName(name);
+        editor->setReadOnly(true);
+        editor->setMaximumBlockCount(2000);
+        editor->setPlaceholderText(placeholder);
+        panelLayout->addWidget(editor);
+        return editor;
+    };
+    history_ = createOutput(QStringLiteral("calculationRunHistory"), uiText(u"运行历史"),
+        uiText(u"暂无操作记录"));
+    solverOutput_ = createOutput(QStringLiteral("calculationSolverOutput"), uiText(u"解算器输出"),
+        uiText(u"暂无解算器输出"));
+    solverOutput_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     mainSplitter_->setStretchFactor(0, 0);
     mainSplitter_->setStretchFactor(1, 1);
-    layout->addWidget(mainSplitter_, 1);
+    outputSplitter_->setStretchFactor(0, 0);
+    outputSplitter_->setStretchFactor(1, 1);
+    monitorSplitter_->setStretchFactor(0, 0);
+    monitorSplitter_->setStretchFactor(1, 1);
+    layout->addWidget(verticalSplitter_, 1);
     auto *notice = new QLabel(uiText(u"\u754c\u9762\u9884\u89c8 \u00b7 \u5c1a\u672a\u63a5\u5165\u8ba1\u7b97\u4e0e\u6587\u4ef6\u751f\u6210"), this);
     notice->setObjectName(QStringLiteral("calculationUiNotice"));
     layout->addWidget(notice);
@@ -196,14 +214,6 @@ QWidget *CalculationTaskPage::createSingleSettings()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(12);
-    auto *calculation = new QGroupBox(uiText(u"\u8ba1\u7b97"), panel);
-    auto *calculationLayout = new QHBoxLayout(calculation);
-    calculationLayout->addWidget(new QLabel(uiText(u"\u7eed\u7b97\uff1a"), calculation));
-    auto *resume = new QCheckBox(calculation);
-    resume->setObjectName(QStringLiteral("singleTaskResume"));
-    resume->setAccessibleName(uiText(u"\u7eed\u7b97"));
-    calculationLayout->addWidget(resume); calculationLayout->addStretch();
-    layout->addWidget(calculation);
     auto *execution = new QGroupBox(uiText(u"\u6267\u884c\u65b9\u5f0f"), panel);
     auto *executionLayout = new QHBoxLayout(execution);
     executionLayout->addWidget(new QLabel(uiText(u"\u8fd0\u884c\u6a21\u5f0f\uff1a"), execution));
@@ -213,11 +223,18 @@ QWidget *CalculationTaskPage::createSingleSettings()
     console->setObjectName(QStringLiteral("singleTaskConsoleMode"));
     executionLayout->addWidget(window); executionLayout->addWidget(console); executionLayout->addStretch();
     layout->addWidget(execution);
+    connect(window, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked) appendLog(uiText(u"已选择 Window 执行模式。"));
+    });
+    connect(console, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked) appendLog(uiText(u"已选择 Console 执行模式。"));
+    });
+    auto *hint = new QLabel(uiText(u"选择运行窗口和提交方式后，可直接提交当前工况。"), panel);
+    hint->setProperty("calculationHint", true);
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
     layout->addWidget(createSubmissionControls());
     layout->addSpacing(10);
-    auto *observables = createObservables();
-    observables->setMaximumHeight(135);
-    layout->addWidget(observables);
     layout->addStretch();
     return panel;
 }
@@ -244,8 +261,8 @@ QWidget *CalculationTaskPage::createMultipleSettings()
     const int widths[] = {42, 62, 38, 58, 95, 52, 48, 52};
     for (int col = 0; col < 8; ++col) table_->setColumnWidth(col, widths[col]);
     groupLayout->addWidget(table_, 1);
-    auto *types = new QWidget(group);
-    types->setObjectName(QStringLiteral("taskCategoryButtons"));
+    auto *types = new QGroupBox(uiText(u"\u53ef\u9009\u7c7b\u522b"), group);
+    types->setObjectName(QStringLiteral("taskCategoryGroup"));
     auto *typeLayout = new QGridLayout(types);
     typeLayout->setContentsMargins(0, 4, 0, 4);
     const CalculationInputKind kinds[] = {CalculationInputKind::ReynoldsTemperature,
@@ -267,16 +284,10 @@ QWidget *CalculationTaskPage::createMultipleSettings()
     selectAll_->setObjectName(QStringLiteral("selectAllTasks"));
     commands->addWidget(selectAll_);
     commands->addStretch();
-    auto *add = new QPushButton(uiText(u"+ \u6dfb\u52a0\u4efb\u52a1"), group);
-    add->setObjectName(QStringLiteral("addTask"));
-    add->setToolTip(uiText(u"\u6253\u5f00\u4efb\u52a1\u7c7b\u522b\u83dc\u5355\uff1b\u4e5f\u53ef\u4ee5\u76f4\u63a5\u70b9\u51fb\u4e0b\u65b9\u7c7b\u522b\u6309\u94ae"));
-    commands->addWidget(add);
     remove_ = new QPushButton(uiText(u"\u2212 \u5220\u9664\u9009\u4e2d"), group);
     remove_->setObjectName(QStringLiteral("removeSelectedTasks"));
-    remove_->setToolTip(uiText(u"\u5220\u9664\u52fe\u9009\u4efb\u52a1\uff1b\u6ca1\u6709\u52fe\u9009\u65f6\u5220\u9664\u9ad8\u4eae\u884c"));
-    clear_ = new QPushButton(uiText(u"\u6e05\u7a7a"), group);
-    clear_->setObjectName(QStringLiteral("clearTasks"));
-    commands->addWidget(remove_); commands->addWidget(clear_);
+    remove_->setToolTip(uiText(u"仅删除序号列复选框已勾选的任务"));
+    commands->addWidget(remove_);
     groupLayout->addLayout(commands);
     count_ = new QLabel(group);
     count_->setObjectName(QStringLiteral("multipleTaskCount"));
@@ -293,26 +304,9 @@ QWidget *CalculationTaskPage::createMultipleSettings()
         for (int row = 0; row < table_->rowCount(); ++row)
             table_->item(row, 0)->setCheckState(checked ? Qt::Checked : Qt::Unchecked);
         updateSelection();
+        appendLog(checked ? uiText(u"已全选任务。") : uiText(u"已取消全选任务。"));
     });
     connect(remove_, &QPushButton::clicked, this, &CalculationTaskPage::removeSelected);
-    connect(add, &QPushButton::clicked, this, [this, add] {
-        QMenu menu(add);
-        const CalculationInputKind kinds[] = {CalculationInputKind::ReynoldsTemperature,
-            CalculationInputKind::PressureTemperature, CalculationInputKind::TotalPressureTemperature,
-            CalculationInputKind::Altitude, CalculationInputKind::Trajectory};
-        for (const auto kind : kinds) {
-            const auto selectedKind = kind;
-            auto *action = menu.addAction(calculationInputTitle(selectedKind));
-            connect(action, &QAction::triggered, this, [this, selectedKind] { addTasks(selectedKind); });
-        }
-        menu.exec(add->mapToGlobal(QPoint(0, add->height())));
-    });
-    connect(clear_, &QPushButton::clicked, this, [this] {
-        if (QMessageBox::question(this, uiText(u"\u6e05\u7a7a\u4efb\u52a1"), uiText(u"\u6e05\u7a7a\u672c\u9875\u7684\u5168\u90e8\u4efb\u52a1\uff1f"),
-                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
-        rows_.clear(); table_->setRowCount(0); updateSelection();
-        appendLog(uiText(u"\u5df2\u6e05\u7a7a\u672c\u9875\u4efb\u52a1\u3002"));
-    });
     updateSelection();
     return panel;
 }
@@ -320,33 +314,41 @@ QWidget *CalculationTaskPage::createMultipleSettings()
 QWidget *CalculationTaskPage::createSubmissionControls()
 {
     auto *widget = new QWidget(this);
-    auto *layout = new QVBoxLayout(widget);
+    auto *layout = new QHBoxLayout(widget);
     layout->setContentsMargins(0, 5, 0, 10);
-    auto *modes = new QButtonGroup(widget);
-    const QStringList labels = {uiText(u"\u63d0\u4ea4\u672c\u5730\u8ba1\u7b97"), uiText(u"\u4ec5\u751f\u6210xdb\u6587\u4ef6"), uiText(u"\u4ec5\u751f\u6210\u8ba1\u7b97\u538b\u7f29\u5305")};
-    // A grid wraps the longer third choice instead of forcing the settings
-    // splitter to consume the plot area at common desktop resolutions.
-    auto *choices = new QGridLayout;
-    for (int i = 0; i < labels.size(); ++i) {
-        auto *radio = new QRadioButton(labels[i], widget);
-        radio->setObjectName(QStringLiteral("submissionMode_%1").arg(i));
-        modes->addButton(radio, i); choices->addWidget(radio, i / 2, i % 2);
-        if (i == 0) radio->setChecked(true);
+    if (!multiple_) {
+        resume_ = new QCheckBox(uiText(u"\u7eed\u7b97"), widget);
+        resume_->setObjectName(QStringLiteral("singleTaskResume"));
+        resume_->setAccessibleName(uiText(u"\u7eed\u7b97"));
+        resume_->setToolTip(uiText(u"在已有结果基础上继续计算"));
+        layout->addWidget(resume_);
+        connect(resume_, &QCheckBox::toggled, this, [this](bool checked) {
+            appendLog(checked ? uiText(u"已开启续算。") : uiText(u"已关闭续算。"));
+        });
     }
-    layout->addLayout(choices);
-    auto *submit = new QPushButton(uiText(u"\u63d0\u4ea4\u8ba1\u7b97"), widget);
+    auto *modeLabel = new QLabel(uiText(u"输出："), widget);
+    layout->addWidget(modeLabel);
+    auto *mode = new QComboBox(widget);
+    mode->setObjectName(QStringLiteral("submissionModeCombo"));
+    mode->addItems({uiText(u"提交本地计算"), uiText(u"仅生成 xdb 文件"), uiText(u"仅生成计算压缩包")});
+    mode->setToolTip(uiText(u"选择提交计算时的输出方式"));
+    layout->addWidget(mode);
+    auto *submit = new QPushButton(uiText(u"提交计算"), widget);
     submit->setObjectName(QStringLiteral("submitCalculation"));
-    submit->setToolTip(uiText(u"\u754c\u9762\u9884\u89c8\uff1a\u8ba1\u7b97\u6267\u884c\u4e0e\u6587\u4ef6\u751f\u6210\u5c1a\u672a\u63a5\u5165"));
-    layout->addWidget(submit, 0, Qt::AlignHCenter);
-    connect(submit, &QPushButton::clicked, this, [this, modes] {
+    submit->setToolTip(uiText(u"当前仅为界面预览，尚未接入真实计算"));
+    layout->addWidget(submit, 0, Qt::AlignLeft);
+    layout->addStretch();
+    connect(mode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, mode](int) {
+        appendLog(uiText(u"已选择提交方式：%1。 ").arg(mode->currentText()));
+    });
+    connect(submit, &QPushButton::clicked, this, [this, mode] {
         if (multiple_) {
             int checked = 0;
             for (int row = 0; row < table_->rowCount(); ++row)
                 checked += table_->item(row, 0)->checkState() == Qt::Checked;
             if (!checked) { appendLog(uiText(u"\u8bf7\u5148\u6dfb\u52a0\u5e76\u52fe\u9009\u9700\u8981\u63d0\u4ea4\u7684\u4efb\u52a1\u3002")); return; }
         }
-        appendLog(uiText(u"\u5df2\u9009\u62e9\u201c%1\u201d\u3002\u5f53\u524d\u4e3a\u754c\u9762\u9884\u89c8\uff0c\u5c1a\u672a\u63d0\u4ea4\u8ba1\u7b97\u6216\u751f\u6210\u6587\u4ef6\u3002")
-                      .arg(modes->checkedButton()->text()));
+        appendLog(uiText(u"已提交计算（%1）。 ").arg(mode->currentText()));
     });
     return widget;
 }
@@ -431,12 +433,15 @@ void CalculationTaskPage::updateSelection()
     for (int row = 0; row < table_->rowCount(); ++row)
         if (table_->item(row, 0) && table_->item(row, 0)->checkState() == Qt::Checked) ++checked;
     const QSignalBlocker blocker(selectAll_);
-    selectAll_->setTristate(checked > 0 && checked < table_->rowCount());
-    selectAll_->setCheckState(checked == 0 ? Qt::Unchecked
-        : checked == table_->rowCount() ? Qt::Checked : Qt::PartiallyChecked);
+    // Keep this binary: a partially checked square is easy to mistake for a
+    // full selection.  Only every sequence checkbox makes “全选” checked.
+    selectAll_->setTristate(false);
+    selectAll_->setCheckState(checked > 0 && checked == table_->rowCount()
+        ? Qt::Checked : Qt::Unchecked);
     selectAll_->setEnabled(table_->rowCount() > 0);
-    remove_->setEnabled(checked > 0 || !table_->selectionModel()->selectedRows().isEmpty());
-    clear_->setEnabled(table_->rowCount() > 0);
+    // Row highlighting is only for browsing/editing.  Deletion is driven
+    // exclusively by the checkbox in the sequence column.
+    remove_->setEnabled(checked > 0);
     count_->setText(uiText(u"\u5171 %1 \u4e2a\u4efb\u52a1 \u00b7 \u5df2\u52fe\u9009 %2 \u4e2a").arg(table_->rowCount()).arg(checked));
 }
 
@@ -445,14 +450,12 @@ void CalculationTaskPage::removeSelected()
     QVector<int> selected;
     for (int row = 0; row < table_->rowCount(); ++row)
         if (table_->item(row, 0)->checkState() == Qt::Checked) selected.append(row);
-    if (selected.isEmpty())
-        for (int row = 0; row < table_->rowCount(); ++row)
-            if (table_->selectionModel()->isRowSelected(row, QModelIndex())) selected.append(row);
     for (int i = selected.size() - 1; i >= 0; --i) {
         rows_.removeAt(selected[i]); table_->removeRow(selected[i]);
     }
     updateSelection();
-    appendLog(uiText(u"\u5df2\u5220\u9664 %1 \u4e2a\u4efb\u52a1\u3002 ").arg(selected.size()));
+    appendLog(selected.isEmpty() ? uiText(u"未勾选任务，未执行删除。")
+                                : uiText(u"已删除 %1 个任务。 ").arg(selected.size()));
 }
 
 void CalculationTaskPage::attachMonitor(QWidget *widget)
@@ -465,28 +468,38 @@ void CalculationTaskPage::attachMonitor(QWidget *widget)
 
 void CalculationTaskPage::appendLog(const QString &message)
 {
-    log_->appendPlainText(QDateTime::currentDateTime().toString(QStringLiteral("[HH:mm:ss] ")) + message);
+    if (!history_) return;
+    history_->appendPlainText(QDateTime::currentDateTime().toString(QStringLiteral("[yyyy-MM-dd HH:mm:ss] ")) + message);
+}
+
+void CalculationTaskPage::appendSolverOutput(const QString &message)
+{
+    if (!solverOutput_) return;
+    solverOutput_->appendPlainText(message);
 }
 
 QVariantMap CalculationTaskPage::layoutState() const
 {
     return {{QStringLiteral("settingsRatio"), splitRatio(mainSplitter_)},
-        {QStringLiteral("plotRatio"), splitRatio(rightSplitter_)},
-        {QStringLiteral("observablesRatio"), splitRatio(monitorSplitter_)}};
+        {QStringLiteral("monitorRatio"), splitRatio(monitorSplitter_)},
+        {QStringLiteral("outputRatio"), splitRatio(outputSplitter_)},
+        {QStringLiteral("verticalRatio"), splitRatio(verticalSplitter_)}};
 }
 
 void CalculationTaskPage::restoreLayoutState(const QVariantMap &state)
 {
     restoreRatio(mainSplitter_, state.value(QStringLiteral("settingsRatio"), 0.46).toDouble());
-    restoreRatio(rightSplitter_, state.value(QStringLiteral("plotRatio"), 0.56).toDouble());
-    if (multiple_) restoreRatio(monitorSplitter_, state.value(QStringLiteral("observablesRatio"), 0.32).toDouble());
+    restoreRatio(monitorSplitter_, state.value(QStringLiteral("monitorRatio"), 0.32).toDouble());
+    restoreRatio(outputSplitter_, state.value(QStringLiteral("outputRatio"), 0.50).toDouble());
+    restoreRatio(verticalSplitter_, state.value(QStringLiteral("verticalRatio"), 0.67).toDouble());
 }
 
 void CalculationTaskPage::restoreDefaultLayout()
 {
-    mainSplitter_->setSizes({520, 670});
-    rightSplitter_->setSizes({360, 270});
-    if (multiple_) monitorSplitter_->setSizes({220, 480});
+    verticalSplitter_->setSizes({520, 270});
+    mainSplitter_->setSizes({multiple_ ? 560 : 390, multiple_ ? 760 : 930});
+    monitorSplitter_->setSizes({multiple_ ? 250 : 230, 600});
+    outputSplitter_->setSizes({600, 600});
 }
 
 } // namespace aerosim

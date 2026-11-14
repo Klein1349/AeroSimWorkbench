@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QDialogButtonBox>
 #include <QDialog>
+#include <QGroupBox>
 #include <QLineEdit>
 #include <QProcessEnvironment>
 #include <QPlainTextEdit>
@@ -59,8 +60,12 @@ int main(int argc, char **argv)
                && single && property->isHidden()
                && single->findChild<QCheckBox *>("singleTaskResume")
                && single->findChild<QPushButton *>("submitCalculation")
+               && single->findChild<QComboBox *>("submissionModeCombo")
+               && single->findChildren<QGroupBox *>("calculationObservables").size() == 1
                && single->findChild<QPushButton *>("calculationConditionTab")
-               && single->findChild<QPlainTextEdit *>("calculationLog"),
+               && single->findChild<QPlainTextEdit *>("calculationRunHistory")
+               && single->findChild<QPlainTextEdit *>("calculationSolverOutput")
+               && single->findChild<QCheckBox *>("singleTaskResume"),
                "Single task reference layout is incomplete")) return 5;
     if (!check(single->findChild<QPushButton *>("calculationConditionTab")->text() == text(u"\u5355\u5de5\u51b5")
                && !single->findChild<QPushButton *>("calculationMonitorTab"),
@@ -69,6 +74,10 @@ int main(int argc, char **argv)
     if (!captureDir.isEmpty()) window.grab().save(QDir(captureDir).filePath(QStringLiteral("single-task.png")));
     if (!check(!window.findChild<QDockWidget *>("outputDock")->isVisible(),
                "Calculation pages must keep the log inside the right-hand page")) return 7;
+    single->findChild<QPushButton *>("submitCalculation")->click();
+    app.processEvents();
+    if (!check(single->findChild<QPlainTextEdit *>("calculationRunHistory")->toPlainText().contains(text(u"已提交计算")),
+               "Submitting a single task must record a submitted message")) return 8;
 
     tree->setCurrentItem(calculation->child(1));
     app.processEvents();
@@ -78,20 +87,25 @@ int main(int argc, char **argv)
                && multi && table && table->columnCount() == 8
                && property->isHidden()
                && multi->findChild<QPushButton *>("calculationConditionTab")->text() == text(u"\u591a\u5de5\u51b5")
-               && multi->findChild<QPushButton *>("calculationMonitorTab"),
-               "Multiple task reference layout is incomplete")) return 8;
+               && !multi->findChild<QPushButton *>("calculationMonitorTab"),
+               "Multiple task reference layout is incomplete")) return 9;
     int categoryButtons = 0;
     for (auto *button : multi->findChildren<QPushButton *>())
         categoryButtons += button->property("taskCategory").toBool();
     if (!check(categoryButtons == 5
-               && window.findChild<QPushButton *>("addTask")
+               && multi->findChild<QGroupBox *>("taskCategoryGroup")
                && window.findChild<QPushButton *>("removeSelectedTasks")
-               && window.findChild<QPushButton *>("clearTasks"),
-               "Multiple task category controls are incomplete")) return 9;
+               && !window.findChild<QPushButton *>("addTask")
+               && !window.findChild<QPushButton *>("clearTasks"),
+               "Multiple task category controls are incomplete")) return 10;
     if (!captureDir.isEmpty()) window.grab().save(QDir(captureDir).filePath(QStringLiteral("multiple-task.png")));
     if (!check(!window.findChild<QComboBox *>("multipleTaskCategory")
-               && window.findChild<QPlainTextEdit *>("calculationLog"),
-               "Task category input must use buttons and retain the right-hand log")) return 10;
+               && multi->findChild<QPlainTextEdit *>("calculationRunHistory")
+               && multi->findChild<QPlainTextEdit *>("calculationSolverOutput")
+               && multi->findChild<QPushButton *>("submitCalculation")
+               && multi->findChild<QComboBox *>("submissionModeCombo")
+               && multi->findChild<QComboBox *>("submissionModeCombo")->count() == 3,
+               "Task category input must use buttons and retain the right-hand log")) return 11;
 
     QTimer::singleShot(0, &window, [] {
         auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
@@ -105,10 +119,26 @@ int main(int argc, char **argv)
     });
     multi->findChild<QPushButton *>("addTaskCategory_0")->click();
     app.processEvents();
-    if (!check(table->rowCount() == 1, "A category button must add one configured task row")) return 11;
+    if (!check(table->rowCount() == 1, "A category button must add one configured task row")) return 12;
+    if (!check(multi->findChild<QPlainTextEdit *>("calculationRunHistory")->toPlainText().contains(text(u"\u5df2\u6dfb\u52a0")),
+               "Adding a task must be recorded in run history")) return 13;
+    auto *selectAll = multi->findChild<QCheckBox *>("selectAllTasks");
+    auto *remove = multi->findChild<QPushButton *>("removeSelectedTasks");
+    table->selectRow(0);
+    app.processEvents();
+    if (!check(!selectAll->isChecked() && !remove->isEnabled(),
+               "Highlighting a row must not select it for deletion")) return 14;
+    remove->click();
+    if (!check(table->rowCount() == 1, "Delete must ignore a highlighted but unchecked row")) return 15;
     table->item(0, 0)->setCheckState(Qt::Checked);
-    multi->findChild<QPushButton *>("removeSelectedTasks")->click();
-    if (!check(table->rowCount() == 0, "Removing the selected task must remove its row")) return 12;
+    app.processEvents();
+    if (!check(selectAll->isChecked() && remove->isEnabled(),
+               "The select-all indicator must reflect every sequence checkbox")) return 16;
+    multi->findChild<QPushButton *>("submitCalculation")->click();
+    if (!check(multi->findChild<QPlainTextEdit *>("calculationRunHistory")->toPlainText().contains(text(u"已提交计算")),
+               "Submitting multiple tasks must record a submitted message")) return 17;
+    remove->click();
+    if (!check(table->rowCount() == 0, "Removing the checked task must remove its row")) return 18;
 
     QTextStream(stdout) << "Calculation task reference UI checks passed\n";
     return 0;

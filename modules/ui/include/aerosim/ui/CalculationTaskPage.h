@@ -23,6 +23,7 @@ public:
     explicit CalculationTaskPage(bool multiple, QWidget *parent = nullptr);
     void attachMonitor(QWidget *widget);
     void appendLog(const QString &message);
+    void appendSolverOutput(const QString &message);
     QVariantMap layoutState() const;
     void restoreLayoutState(const QVariantMap &state);
     void restoreDefaultLayout();
@@ -48,11 +49,13 @@ private:
     QTableWidget *table_ = nullptr;
     QCheckBox *selectAll_ = nullptr;
     QPushButton *remove_ = nullptr;
-    QPushButton *clear_ = nullptr;
     QLabel *count_ = nullptr;
-    QPlainTextEdit *log_ = nullptr;
+    QCheckBox *resume_ = nullptr;
+    QPlainTextEdit *history_ = nullptr;
+    QPlainTextEdit *solverOutput_ = nullptr;
+    QSplitter *verticalSplitter_ = nullptr;
     QSplitter *mainSplitter_ = nullptr;
-    QSplitter *rightSplitter_ = nullptr;
+    QSplitter *outputSplitter_ = nullptr;
     QSplitter *monitorSplitter_ = nullptr;
     QVBoxLayout *curveLayout_ = nullptr;
     QWidget *emptyChart_ = nullptr;
