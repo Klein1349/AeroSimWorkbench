@@ -1,15 +1,26 @@
 # Both viewers share this directory but are independently selectable.
+#
+# The workbench viewer is built only when the shared CGNS adapter exists: it
+# calls createCgnsAdapter() and takes DataAdapter.h from that target's public
+# include directory. modules/visualization/data leaves the adapter out when VTK
+# or CGNS is missing, so gating here keeps a CGNS-less configure working; app/
+# already links this target through a TARGET check and simply skips the viewer.
 if(AEROSIM_BUILD_VISUALIZATION)
-    find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Widgets OpenGL Concurrent)
-    find_package(VTK 8.2.0 EXACT REQUIRED COMPONENTS vtkCommonCore vtkCommonDataModel vtkGUISupportQt vtkInteractionStyle vtkRenderingCore vtkRenderingOpenGL2)
-    add_library(aerosim_visualization_scene STATIC src/VtkSceneViewer.cpp)
-    target_include_directories(aerosim_visualization_scene PUBLIC include ${VTK_INCLUDE_DIRS})
-    target_link_libraries(aerosim_visualization_scene PUBLIC aerosim_visualization_data aerosim_ui Qt5::Widgets Qt5::OpenGL Qt5::Concurrent ${VTK_LIBRARIES})
-    if(AEROSIM_BUILD_TESTS)
-        add_executable(aerosim_cgns_workbench_test ../tests/CgnsWorkbenchTest.cpp)
-        target_link_libraries(aerosim_cgns_workbench_test PRIVATE aerosim_visualization_scene)
-        add_executable(aerosim_cgns_region_render_test ../tests/CgnsRegionRenderTest.cpp)
-        target_link_libraries(aerosim_cgns_region_render_test PRIVATE aerosim_visualization_scene)
+    if(TARGET aerosim_visualization_data)
+        find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Widgets OpenGL Concurrent)
+        find_package(VTK 8.2.0 EXACT REQUIRED COMPONENTS vtkCommonCore vtkCommonDataModel vtkGUISupportQt vtkInteractionStyle vtkRenderingCore vtkRenderingOpenGL2)
+        add_library(aerosim_visualization_scene STATIC src/VtkSceneViewer.cpp)
+        target_include_directories(aerosim_visualization_scene PUBLIC include ${VTK_INCLUDE_DIRS})
+        target_link_libraries(aerosim_visualization_scene PUBLIC aerosim_visualization_data aerosim_ui Qt5::Widgets Qt5::OpenGL Qt5::Concurrent ${VTK_LIBRARIES})
+        if(AEROSIM_BUILD_TESTS)
+            add_executable(aerosim_cgns_workbench_test ../tests/CgnsWorkbenchTest.cpp)
+            target_link_libraries(aerosim_cgns_workbench_test PRIVATE aerosim_visualization_scene)
+            add_executable(aerosim_cgns_region_render_test ../tests/CgnsRegionRenderTest.cpp)
+            target_link_libraries(aerosim_cgns_region_render_test PRIVATE aerosim_visualization_scene)
+        endif()
+    else()
+        message(STATUS "aerosim_visualization_scene skipped: no CGNS adapter target "
+            "(see modules/visualization/data)")
     endif()
 endif()
 
