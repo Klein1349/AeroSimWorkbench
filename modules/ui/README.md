@@ -20,6 +20,7 @@
 - 「日志」面板以常规字体逐行显示操作记录并自动换行，提供“收起 / 展开”按钮；折叠时仅保留标题栏。显隐、颜色、透明度、比例和单位只保存当前窗口的前端状态，不执行文件 IO、几何变换或渲染。
 - “前处理 → 弹道设置”使用统一的 `TrajectorySettingsPage`：弹道文件、弹道数据和状态提取三个原独立页面合并为同一页内的分组区域，区域操作按钮保持禁用并标注“等待业务服务接入”。该页面不占用视口插槽，不读取弹道文件、不执行状态提取或求解计算。前处理 Ribbon 只保留“网格管理”和“弹道设置”两个统一入口，视图操作按钮保持不变。
 - 参数类别在主窗口中央打开嵌入式设置页，并隐藏三维视口和右侧属性栏；离开参数页后恢复共享属性面板。数值变化仍通过模块内 `parameterDraftChanged` 信号通知，尚未实现专业校验或文件持久化。
+- 参数页优先利用横向空间：参考量与初始化采用左右分组，求解方法与 CFL 表格并排，输出变量采用多列复选框，计算控制分为迭代、收敛和计算资源。网格运动开关与运动体数量位于同一工具栏。保留较小窗口的页面滚动及动态表格内部滚动，所有选项、类型切换和参数弹窗继续可用。`parameter_layout_regression` 检查时间设置、CFL 点数、运动体数据和远场参数应用时的值保留；四类运动弹窗通过实窗检查。
 - 底部仅保留统一“输出”面板；日志、警告和错误按级别、模块、关键字与当前对象范围筛选。计算监控、收敛趋势和任务列表位于计算模块对应的主显示区。
 - 计算监控页在曲线下方提供当前任务专用的等宽文本日志区，通过可拖动分隔条调整高度；单任务与批处理子任务共享该页面，并按任务保存 Mock 日志与滚动位置。日志区可筛选 stdout/stderr、暂停自动滚动、清空当前显示，并用按钮演示逐行追加和同一进度行更新。它不复制底部全局输出，也尚未接入真实求解器流。
 - “计算”概览页提供“窗口内输出 / 独立控制台”的前端配置入口；默认窗口内输出，独立控制台仅保存当前窗口内的 Mock 选择状态，不启动进程或执行输出重定向。
@@ -135,3 +136,5 @@ CTest 的 offscreen 测试负责装配与几何回归，不代替原生字体截
 “帮助 → 界面布局”维护唯一一份用户主动保存的布局。`QMainWindow::saveGeometry/saveState` 保存窗口及 Dock 基础状态，额外保存工作区/属性 Dock、全局输出、网格对象与 VTK 区域、网格操作记录、监控曲线与任务日志的相对比例和折叠状态。恢复时根据当前 `QScreen::availableGeometry()` 重算尺寸，并对比例、最小宽高和窗口位置做边界限制；不同分辨率下优先保持结构，空间不足时优先保证控件最小可用尺寸。“恢复默认布局”不会删除 `QSettings("AeroSimWorkbench", "UiLayout")` 中的用户记录。布局首选项不包含网格、工况、任务或求解结果等业务数据。
 
 本地兼容预览构建通过；集成测试覆盖欢迎页、统一工作区树、四种主题、重复切换、配置保存/恢复和无效主题回退。主题测试使用临时配置目录，不污染用户设置。可设置 `AEROSIM_THEME_SCREENSHOTS` 指向已有目录，让 `aerosim_ui_test` 导出各主题截图。Windows 原生环境仍需按开发基线复验。
+
+- Mesh-motion dialogs use responsive columns and screen-bounded initial sizes. Six-DOF and rotation-release editors group inertia components in a grid and switch force/moment tables through tabs. Existing draft, save/cancel, validation, and inactive-entry retention behavior is preserved; small windows retain scrolling with a fixed confirmation footer.

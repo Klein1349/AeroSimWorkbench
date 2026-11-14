@@ -517,21 +517,23 @@ void MainWindow::applyWindowTheme(const QString &requestedId)
         "QWidget[parameterEditor=\"true\"] QPushButton#applyBoundary:disabled { background: %1; color: %6; border-color: %4; }")
         .arg(bg, base, text, border, selected, QStringLiteral("#61748a")));
     setStyleSheet(styleSheet() + QStringLiteral(
-        "QWidget#parameterEditor_control-equations QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_control-equations QGroupBox { padding: 12px 16px 10px; }"
         "QWidget#parameterEditor_reference-values QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_calculation-control QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_solution-method QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_solution-method QAbstractSpinBox, QWidget#parameterEditor_solution-method QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
-        "QWidget#parameterEditor_output-control QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_output-control QGroupBox { padding: 12px 16px 10px; }"
+        "QWidget#parameterEditor_output-control QCheckBox { min-height: 20px; }"
         "QWidget#parameterEditor_output-control QAbstractSpinBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_initialization QGroupBox { padding: 16px 18px 14px; }"
         "QWidget#parameterEditor_initialization QAbstractSpinBox, QWidget#parameterEditor_initialization QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
-        "QWidget#parameterEditor_boundary-conditions QGroupBox { padding: 16px 18px 14px; }"
+        "QWidget#parameterEditor_boundary-conditions QGroupBox { padding: 10px 16px 8px; }"
+        "QWidget#parameterEditor_mesh-motion QAbstractSpinBox, QWidget#parameterEditor_mesh-motion QComboBox, QWidget#parameterEditor_mesh-motion QLineEdit { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_boundary-conditions QAbstractSpinBox, QWidget#parameterEditor_boundary-conditions QComboBox, QWidget#parameterEditor_boundary-conditions QLineEdit { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_calculation-control QAbstractSpinBox, QWidget#parameterEditor_calculation-control QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_reference-values QAbstractSpinBox, QWidget#parameterEditor_reference-values QComboBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
         "QWidget#parameterEditor_control-equations QAbstractSpinBox { min-height: 22px; max-height: 22px; padding: 2px 6px; }"
-        "QWidget#parameterEditor_control-equations QRadioButton, QWidget#parameterEditor_control-equations QCheckBox { min-height: 28px; }"));
+        "QWidget#parameterEditor_control-equations QRadioButton, QWidget#parameterEditor_control-equations QCheckBox { min-height: 22px; }"));
     const QString editorStyle = QStringLiteral(
         "QPlainTextEdit { background: %1; color: %2; border: 1px solid %3; }")
         .arg(base, text, border);
