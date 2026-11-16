@@ -132,3 +132,7 @@ Pop-Location
 单网格旋转的复测步骤是先选中圆柱体，再点击 `+X` 或 `+Y` 观察圆柱体倾转。接着选中正方体并拖动方向球，确认正方体独立旋转。点击空白处后，确认方向球恢复控制相机。此前通过的自动化记录早于这项改动。
 
 删除早期样例时发现，表格高亮行可能已切换，属性面板仍显示旧网格。`removeCurrentMesh()` 在删行、重新编号和确定新选中行期间阻塞表格信号，随后主动刷新属性面板。`MainWindowTest.cpp` 增加了对应回归检查。
+
+## 7. 仓库内的多格式几何样例
+
+[`examples/preprocess/meshes`](../examples/preprocess/meshes/README.md) 提供 14 个已提交的网格样例，包含正方体、长方体和三棱锥，覆盖 `.cgns`、`.vtk`、`.vtu`、`.vtp` 与 `.vti`。三种几何沿 X 轴分开放置，可混合选择 `cube.cgns`、`cuboid.vtu` 和 `triangular_pyramid.vtp` 检查批量导入与独立对象操作。文件格式、点数、体积、路径与验证范围见该目录的说明。
