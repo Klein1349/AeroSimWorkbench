@@ -105,6 +105,7 @@ void MeshMotionPanel::rebuildTable()
             const QString key = column == 0 ? "name" : "target";
             auto *edit = new QLineEdit(body.value(key).toString(), table_);
             edit->setObjectName(QStringLiteral("motionBody%1_%2").arg(row).arg(key));
+            edit->setAccessibleName((column == 0 ? uiText(u"运动体%1名称") : uiText(u"运动体%1指定对象")).arg(row + 1));
             edit->setMaxLength(128);
             if (column == 1) edit->setPlaceholderText(uiText(u"填写网格 / 对象名称"));
             table_->setCellWidget(row, column, edit);
@@ -112,6 +113,7 @@ void MeshMotionPanel::rebuildTable()
         }
         auto *type = new QComboBox(table_);
         type->setObjectName(QStringLiteral("motionBody%1_type").arg(row));
+        type->setAccessibleName(uiText(u"运动体%1运动类型").arg(row + 1));
         type->addItem(uiText(u"强迫运动"), QStringLiteral("forced"));
         type->addItem(uiText(u"定轴转动"), QStringLiteral("fixed-axis"));
         type->addItem(uiText(u"六自由度运动"), QStringLiteral("six-dof"));
@@ -129,6 +131,7 @@ void MeshMotionPanel::rebuildTable()
         });
         auto *settings = new QPushButton(uiText(u"设置参数"), table_);
         settings->setObjectName(QStringLiteral("motionBody%1_settings").arg(row));
+        settings->setAccessibleName(uiText(u"运动体%1设置参数").arg(row + 1));
         table_->setCellWidget(row, 3, settings);
         connect(settings, &QPushButton::clicked, this, [this, row] {
             table_->setCurrentCell(row, 3);

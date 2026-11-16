@@ -9,6 +9,7 @@
 #include "aerosim/ui/InitializationPanel.h"
 #include "aerosim/ui/MeshManagementPage.h"
 #include "aerosim/ui/TrajectorySettingsPage.h"
+#include "aerosim/ui/ParameterAssistantPanel.h"
 
 #include <SARibbonBar.h>
 #include <SARibbonCategory.h>
@@ -878,7 +879,21 @@ void MainWindow::createWorkspace()
     moduleLastPages_.insert(calculationModuleId, QStringLiteral("calculation-overview"));
     moduleLastPages_.insert(intelligentModuleId, QStringLiteral("intelligent-data"));
     moduleLastPages_.insert(postprocessModuleId, QStringLiteral("postprocess-overview"));
-    setCentralWidget(workspaceStack_);
+    auto *central = new QWidget(this);
+    central->setObjectName(QStringLiteral("workspaceWithAssistant"));
+    auto *centralLayout = new QVBoxLayout(central);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+    centralLayout->addWidget(workspaceStack_, 1);
+    parameterAssistant_ = new ParameterAssistantPanel(central);
+    centralLayout->addWidget(parameterAssistant_);
+    parameterAssistant_->hide();
+    connect(parameterAssistant_, &ParameterAssistantPanel::runningChanged, this, [this](bool running) {
+        const QString page = workspaceStack_->currentWidget()->objectName();
+        parameterAssistant_->setVisible(running || page.startsWith(QStringLiteral("parameterEditor_"))
+            || workspaceStack_->currentWidget() == parameterWorkspacePage_);
+    });
+    setCentralWidget(central);
 
     projectDock_ = new QDockWidget(uiText(u"\u5de5\u4f5c\u533a\u6811"), this);
     projectDock_->setObjectName(QStringLiteral("projectDock"));
@@ -1343,6 +1358,8 @@ void MainWindow::showWorkspacePage(const QString &pageId)
     if (auto *target = workspacePages_.value(pageId, nullptr)) {
         workspaceStack_->setCurrentWidget(target);
         const QString moduleId = workspacePageModules_.value(pageId);
+        if (parameterAssistant_)
+            parameterAssistant_->setVisible(moduleId == QStringLiteral("module-parameters") || parameterAssistant_->isRunning());
         if (!moduleId.isEmpty()) moduleLastPages_.insert(moduleId, pageId);
         setMeshWorkspaceActive(target == viewportPage_);
         // Embedded parameter editors fill the central area, so hide the shared
@@ -1664,6 +1681,7 @@ void MainWindow::selectPage(const QString &pageId)
 
 void MainWindow::restoreLayout()
 {
+    if (parameterAssistant_) parameterAssistant_->resetLogLayout();
     for (auto *dock : {projectDock_, propertyDock_, outputDock_}) {
         dock->setFloating(false);
         removeDockWidget(dock);

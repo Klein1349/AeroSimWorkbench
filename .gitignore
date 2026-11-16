@@ -30,3 +30,8 @@ cmake/local*.cmake
 
 # Machine-local Windows dependency paths
 aerosim-windows.local.cmd
+
+# Local desktop automation runtime and private UI snapshots
+tools/agent-desktop/node_modules/
+tools/agent-desktop/artifacts/
+.codex/config.toml

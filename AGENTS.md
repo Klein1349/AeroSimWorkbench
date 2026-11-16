@@ -31,3 +31,10 @@
 | Windows 打包或目标机部署 | `docs/windows-deployment.md`，并核对 `docs/DevelopmentEnvironment.md` 的 Debug/Release 适用范围 |
 
 遇到文档冲突时，先核对代码和较新的实测记录，区分历史记录与当前规范；不要将评审草案视为定案。
+
+## 使用 agent-desktop 配置参数
+
+- 桌面参数操作入口为 `scripts/agent-desktop.cmd`，依赖固定在 `tools/agent-desktop/package-lock.json`。部署及已验证流程见 `docs/AgentDesktop.md`；首次使用运行 `scripts/agent-desktop.cmd skills get desktop` 与 `scripts/agent-desktop.cmd skills get platform`，按安装版本的指南操作。
+- 仅绑定本项目 `aerosim_gui.exe` 的目标窗口。使用实时快照的唯一名称、角色与 ref；每次修改后重新观察，不复用旧坐标或失效 ref。Qt 导航树需要物理输入时，显式使用 `--headed`，从最新快照 bounds 计算位置并验证页面已打开。
+- 参数请求默认配置现有界面草稿；切页重开核对值，运动弹窗需按原有“确定/取消”语义处理。未接入的持久化或求解器业务不能宣称已完成。配置参数的请求不包含启动计算。
+- 工作台内 AI 桌面模式通过 Responses function calling 与 agent-desktop MCP 循环交互，不使用本地规则或 JSON 预设的字段/页面白名单。日志显示工具操作与返回，不输出密钥或模型内部推理；AI 设置禁止观察，助手和执行日志从无障碍树中过滤，工作台截图仍包含其可见区域。验证 UI 能力时区分模拟测试、真实模型请求与真实桌面动作。

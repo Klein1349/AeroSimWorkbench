@@ -117,6 +117,8 @@ private:
             const auto values = rows.value(r).toList();
             for (int c = 0; c < table_->columnCount(); ++c) {
                 auto *value = new Number(table_);
+                value->setAccessibleName((moment_ ? text(u"外力矩%1 渐变点%2 %3") : text(u"外力%1 渐变点%2 %3"))
+                    .arg(index + 1).arg(r + 1).arg(table_->horizontalHeaderItem(c)->text()));
                 if (c == table_->columnCount() - 1) value->setMinimum(0);
                 value->setValue(values.value(c, 0.).toDouble()); table_->setCellWidget(r, c, value);
             }
@@ -221,9 +223,13 @@ SixDofMotionDialog::SixDofMotionDialog(const QVariantMap &parameters, QWidget *p
         auto *cell = new QWidget(inertia);
         auto *cellLayout = new QHBoxLayout(cell);
         cellLayout->setContentsMargins(0, 0, 0, 0);
-        cellLayout->addWidget(new QLabel("I" + component, cell));
-        cellLayout->addWidget(number(cell, "inertia" + component, component[0] == component[1] ? 1. : 0.,
-                                     component[0] == component[1] ? 0.000001 : -1e12));
+        auto *label = new QLabel("I" + component, cell);
+        auto *value = number(cell, "inertia" + component, component[0] == component[1] ? 1. : 0.,
+                             component[0] == component[1] ? 0.000001 : -1e12);
+        label->setBuddy(value);
+        value->setAccessibleName(text(u"惯性矩 I%1 (kg·m²)").arg(component));
+        cellLayout->addWidget(label);
+        cellLayout->addWidget(value);
         inertiaGrid->addWidget(cell, row, column);
         ++componentIndex;
     }

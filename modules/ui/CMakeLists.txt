@@ -20,6 +20,13 @@ find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Svg)
 add_library(aerosim_ui STATIC
     resources/PostProcessIcons.qrc
     src/MainWindow.cpp include/aerosim/ui/MainWindow.h resources/RibbonIcons.qrc
+    src/ParameterCommandParser.cpp include/aerosim/ui/ParameterCommandParser.h
+    src/ParameterAssistantRunner.cpp include/aerosim/ui/ParameterAssistantRunner.h
+    src/ParameterAssistantPanel.cpp include/aerosim/ui/ParameterAssistantPanel.h
+    src/ParameterAiSettings.cpp include/aerosim/ui/ParameterAiSettings.h
+    src/ParameterAiSettingsDialog.cpp include/aerosim/ui/ParameterAiSettingsDialog.h
+    src/ParameterAiPlanner.cpp include/aerosim/ui/ParameterAiPlanner.h
+    src/ParameterDesktopAgent.cpp include/aerosim/ui/ParameterDesktopAgent.h
     src/MeshManagementPage.cpp include/aerosim/ui/MeshManagementPage.h
     src/TrajectorySettingsPage.cpp include/aerosim/ui/TrajectorySettingsPage.h
     src/StartupLandingPage.cpp include/aerosim/ui/StartupLandingPage.h
@@ -41,12 +48,39 @@ set_target_properties(aerosim_ui PROPERTIES AUTORCC ON)
 add_library(aerosim::ui ALIAS aerosim_ui)
 target_include_directories(aerosim_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(aerosim_ui PUBLIC aerosim_contracts Qt5::Widgets Qt5::Svg SARibbonBar::SARibbonBar)
+if(WIN32)
+    target_link_libraries(aerosim_ui PRIVATE Advapi32)
+endif()
 if(MSVC)
     # Keep Chinese UI source literals UTF-8 when this module is configured as
     # part of the top-level project or built on its own.
     target_compile_options(aerosim_ui PRIVATE /utf-8)
 endif()
 if(AEROSIM_BUILD_TESTS)
+    add_executable(aerosim_parameter_ai_settings_test tests/ParameterAiSettingsTest.cpp)
+    target_link_libraries(aerosim_parameter_ai_settings_test PRIVATE aerosim_ui)
+    add_test(NAME parameter_ai_settings COMMAND aerosim_parameter_ai_settings_test)
+    set_tests_properties(parameter_ai_settings PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(aerosim_parameter_ai_planner_test tests/ParameterAiPlannerTest.cpp)
+    target_link_libraries(aerosim_parameter_ai_planner_test PRIVATE aerosim_ui)
+    add_test(NAME parameter_ai_planner COMMAND aerosim_parameter_ai_planner_test)
+    add_executable(aerosim_parameter_desktop_agent_test tests/ParameterDesktopAgentTest.cpp)
+    target_link_libraries(aerosim_parameter_desktop_agent_test PRIVATE aerosim_ui)
+    add_test(NAME parameter_desktop_agent COMMAND aerosim_parameter_desktop_agent_test)
+    add_executable(aerosim_parameter_ai_panel_test tests/ParameterAiPanelTest.cpp)
+    target_link_libraries(aerosim_parameter_ai_panel_test PRIVATE aerosim_ui)
+    add_test(NAME parameter_ai_panel COMMAND aerosim_parameter_ai_panel_test)
+    set_tests_properties(parameter_ai_panel PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(aerosim_parameter_command_test tests/ParameterCommandParserTest.cpp)
+    target_link_libraries(aerosim_parameter_command_test PRIVATE aerosim_ui)
+    add_test(NAME parameter_command_parser COMMAND aerosim_parameter_command_test)
+    add_executable(aerosim_parameter_assistant_runner_test tests/ParameterAssistantRunnerTest.cpp)
+    target_link_libraries(aerosim_parameter_assistant_runner_test PRIVATE aerosim_ui)
+    add_test(NAME parameter_assistant_runner COMMAND aerosim_parameter_assistant_runner_test)
+    if(MSVC)
+        target_compile_options(aerosim_parameter_command_test PRIVATE /utf-8)
+        target_compile_options(aerosim_parameter_assistant_runner_test PRIVATE /utf-8)
+    endif()
     add_executable(aerosim_parameter_layout_test tests/ParameterLayoutRegression.cpp)
     target_link_libraries(aerosim_parameter_layout_test PRIVATE aerosim_ui)
     add_test(NAME parameter_layout_regression COMMAND aerosim_parameter_layout_test)

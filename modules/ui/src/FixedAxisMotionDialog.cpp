@@ -215,6 +215,8 @@ void FixedAxisMotionDialog::loadForce(int index)
         const auto values = rows.value(r).toList();
         for (int c = 0; c < 7; ++c) {
             auto *value = new Number(table_); value->setDecimals(6);
+            value->setAccessibleName(text(u"外力%1 渐变点%2 %3")
+                .arg(index + 1).arg(r + 1).arg(table_->horizontalHeaderItem(c)->text()));
             value->setRange(c == 6 ? 0 : -1e12, 1e12);
             value->setValue(values.value(c, 0.0).toDouble());
             table_->setCellWidget(r, c, value);

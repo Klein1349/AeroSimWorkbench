@@ -31,6 +31,7 @@ class QEvent;
 class QObject;
 
 namespace aerosim {
+class ParameterAssistantPanel;
 
 // UI shell: business validation and persistence remain in injected services.
 class MainWindow final : public SARibbonMainWindow, public IWidgetHost {
@@ -113,6 +114,7 @@ private:
     QTreeWidget *workflowTree_ = nullptr;
     QTreeWidget *taskTree_ = nullptr;
     QStackedWidget *workspaceStack_ = nullptr;
+    ParameterAssistantPanel *parameterAssistant_ = nullptr;
     QWidget *viewportPage_ = nullptr;
     QWidget *trajectorySettingsPage_ = nullptr;
     QWidget *parameterWorkspacePage_ = nullptr;

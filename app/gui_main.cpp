@@ -140,11 +140,20 @@ int main(int argc, char *argv[])
                 app.quit();
             }
         }, Qt::QueuedConnection);
-        QTimer::singleShot(0, &app, [&controller] {
+        QTimer::singleShot(0, &app, [&controller, &app] {
             aerosim::RunRequest request;
+            request.scope.projectId = QStringLiteral("mock-project");
             request.scope.caseId = QStringLiteral("mock-case");
             request.inputSnapshot.snapshotId = QStringLiteral("mock-snapshot");
-            controller.workflow()->requestRun(request);
+            const auto result = controller.workflow()->requestRun(request);
+            if (!result.allowed) {
+                QTextStream error(stderr);
+                error << "MOCK GUI smoke submission rejected\n";
+                for (const auto &issue : result.issues)
+                    error << issue.code << ": " << issue.message << '\n';
+                error.flush();
+                app.quit();
+            }
         });
         QTimer::singleShot(3000, &app, &QCoreApplication::quit);
     }

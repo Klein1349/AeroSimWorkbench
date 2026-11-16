@@ -56,7 +56,7 @@ public:
         const auto number=[=](const QString &key,const QString &caption,double fallback,double minimum) {
             auto *v=new Number(this); v->setObjectName(key); v->setMinimum(minimum);
             v->setValue(values.value(key,fallback).toDouble()); values[key]=v->value();
-            auto *label=new QLabel(caption,this); rows_[key]=qMakePair(label,static_cast<QWidget *>(v));
+            auto *label=new QLabel(caption,this); label->setBuddy(v); rows_[key]=qMakePair(label,static_cast<QWidget *>(v));
             connect(v,QOverload<double>::of(&QDoubleSpinBox::valueChanged),this,[=](double d){values[key]=d; notify();});
         };
         number("machNumber",text(u"马赫数"),6.,0.);
@@ -116,7 +116,7 @@ InitializationPanel::InitializationPanel(const QVariantMap &draft,QWidget *paren
     mode_->setCurrentIndex(qMax(0,mode_->findData(draft_.value("mode","custom"))));draft_["mode"]=mode_->currentData();
     form->addRow(text(u"初始化方式"),mode_);
     form->labelForField(mode_)->setMinimumWidth(140);
-    source_=new QComboBox(global);source_->setObjectName("initializationBoundary");sourceLabel_=new QLabel(text(u"从边界条件获取"),global);form->addRow(sourceLabel_,source_);
+    source_=new QComboBox(global);source_->setObjectName("initializationBoundary");sourceLabel_=new QLabel(text(u"从边界条件获取"),global);sourceLabel_->setBuddy(source_);form->addRow(sourceLabel_,source_);
     state_=new QWidget(global);state_->setObjectName("initializationStateHost");auto *stateLayout=new QVBoxLayout(state_);stateLayout->setContentsMargins(0,0,0,0);globalLayout->addWidget(state_);
     sourceHint_=new QLabel(global);sourceHint_->setWordWrap(true);sourceHint_->setProperty("parameterHint",true);globalLayout->addWidget(sourceHint_);globalLayout->addStretch();layout->addWidget(global, 1);
     connect(mode_,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[=](int){draft_["mode"]=mode_->currentData();updateGlobal();publish();});

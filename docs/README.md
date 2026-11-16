@@ -37,5 +37,6 @@
 | --- | --- | --- |
 | [第一阶段验证记录](phase1-validation.md) | 按日期保存曾执行的构建、CTest 和技术栈探针结果 | 历史记录；已退役原型的结果不代表当前功能 |
 | [Windows 骨架部署](windows-deployment.md) | 不链接 VTK 的 Qt GUI/CLI Release 骨架打包与启动 | 骨架范围有效；不适用于正式 VTK Release 集成 |
+| [agent-desktop 参数配置](AgentDesktop.md) | 本地工具部署、RightAPI AI 桌面工具循环、执行日志、本地模式、JSON 预设与 CLI/MCP 操作；Qt 5.12 导航兼容方式 | 操作现有工作台界面；参数页仍为窗口草稿 |
 
 当前根 CMake 已接入 `modules/ui` 主窗口、Mock 服务、夹具检查和可选技术栈探针。参见 [UI 模块说明](../modules/ui/README.md) 和 [UI 验证记录](ui-validation.md)。其余正式业务目标尚未定义。后处理建议目标名与场景 API 应在接口评审后再写入构建配置。

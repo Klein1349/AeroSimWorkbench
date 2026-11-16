@@ -1,0 +1,11 @@
+{
+  "name": "aerosim-desktop-tools",
+  "private": true,
+  "description": "Pinned desktop automation tooling for AeroSimWorkbench parameter editing",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "agent-desktop": "1.3.1"
+  }
+}

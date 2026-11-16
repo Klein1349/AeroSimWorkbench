@@ -197,6 +197,11 @@ int main(int argc, char **argv)
     if (!check(categoriesMatch, "Expected five functional Ribbon tabs followed by Help")) return 17;
     auto *preprocess = categories[0];
     auto *workspace = window.findChild<QStackedWidget *>("centralWorkspace");
+    auto *assistant = window.findChild<QWidget *>("parameterAssistant");
+    if (!check(assistant && assistant->isHidden()
+               && assistant->findChild<QLineEdit *>("parameterCommandInput")
+               && assistant->findChild<QPushButton *>("executeParameterCommand"),
+               "Parameter assistant must exist without reducing the initial mesh workspace")) return 101;
     auto *projectTree = window.findChild<QTreeWidget *>("workspaceTree");
     auto *root = projectTree ? projectTree->topLevelItem(0) : nullptr;
     if (!check(workspace && projectTree && root && root->childCount() == 5
@@ -331,6 +336,17 @@ int main(int argc, char **argv)
     projectTree->setCurrentItem(parameterNode->child(0));
     app.processEvents();
     auto *parameterEditor = window.findChild<QWidget *>("parameterEditor_control-equations");
+    auto *commandInput = assistant->findChild<QLineEdit *>("parameterCommandInput");
+    auto *commandStatus = assistant->findChild<QLabel *>("parameterAssistantStatus");
+    auto *localMode = assistant->findChild<QAction *>("parameterLocalModeAction");
+    if (!check(localMode, "Assistant must retain an explicit offline mode")) return 104;
+    localMode->trigger();
+    commandInput->setText(text(u"\u9a6c\u8d6b\u65700.8\uff0c\u542f\u52a8\u8ba1\u7b97"));
+    assistant->findChild<QPushButton *>("executeParameterCommand")->click();
+    if (!check(!assistant->isHidden() && commandStatus
+               && commandStatus->toolTip().contains(text(u"\u65e0\u6cd5\u5b8c\u6574\u8bc6\u522b"))
+               && assistant->height() <= 90 && workspace->currentWidget() == parameterEditor,
+               "Assistant must reject unsupported clauses before invoking automation and stay compact")) return 102;
     if (!check(parameterEditor && !parameterEditor->isHidden()
                && workspace->currentWidget()->objectName() == "parameterEditor_control-equations"
                && !parameterEditor->isWindow()
@@ -342,6 +358,7 @@ int main(int argc, char **argv)
                "Parameter node did not embed its editor or reverse-sync Ribbon")) return 52;
     window.ribbonBar()->raiseCategory(window.findChild<SARibbonCategory *>("calculationCategory"));
     app.processEvents();
+    if (!check(assistant->isHidden(), "Assistant should release space outside parameter pages")) return 103;
     if (!check(projectTree->currentItem() == calculationNode && calculationNode->isExpanded()
                && parameterNode->isExpanded()
                && workspace->currentWidget()->objectName() == "calculationOverviewPage",
