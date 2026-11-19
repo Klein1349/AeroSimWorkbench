@@ -140,6 +140,8 @@ int main(int argc,char** argv) {
         QStringList failures;
         QStringList ids;
         int idleCount = 0;
+        int importedBatches = 0;
+        QObject::connect(&service, &BoundaryLoadService::batchImported, &app, [&] { ++importedBatches; });
         QObject::connect(&service, &BoundaryLoadService::loaded, &app,
             [&](const QString &value, const QString &path, const QString &) {
                 ids.append(value);
@@ -161,6 +163,11 @@ int main(int argc,char** argv) {
         require(ids.size() == 2 && ids[0] != ids[1] && service.mesh(ids[0]) && service.mesh(ids[1]),
                 "each imported file must keep its own data and ID");
         require(idleCount == 1 && !service.busy(), "batch must return to idle once");
+        require(importedBatches == 1, "fit all successful meshes once per batch");
+        QTimer::singleShot(10000, &loop, &QEventLoop::quit);
+        service.loadFiles({broken});
+        loop.exec();
+        require(idleCount == 2 && importedBatches == 1, "failed import must preserve the camera");
         std::cout<<"Boundary tests passed: geometry, fields, IDs, winding, large grid, readers, rejection, async, cancellation\n";
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
     return 0;

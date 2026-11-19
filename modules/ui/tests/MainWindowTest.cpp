@@ -22,6 +22,7 @@
 #include <QDockWidget>
 #include <QDialog>
 #include <QDoubleSpinBox>
+#include <QGroupBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
@@ -56,6 +57,7 @@ int main(int argc, char **argv)
     if (!preferences.isValid()) return 22;
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, preferences.path());
+    QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, preferences.path());
     aerosim::MainWindow window;
     const auto check = [](bool passed, const char *message) {
         if (!passed) QTextStream(stderr) << message << '\n';
@@ -135,9 +137,25 @@ int main(int argc, char **argv)
         });
         view.clear();
         drag = QPoint();
+        auto *properties = page.findChild<QGroupBox *>("meshDisplayProperties");
+        auto *opacity = page.findChild<QSlider *>("meshOpacityEditor");
+        if (!check(properties && opacity, "Missing per-mesh properties")) return 102;
+        properties->setChecked(false);
         page.selectBoundary(QStringLiteral("sphere"));
-        if (!check(meshName->text() == QStringLiteral("Sphere.vtp"),
-                   "A picked boundary must select its table row and properties")) return 98;
+        if (!check(meshName->text() == QStringLiteral("Sphere.vtp") && properties->isChecked()
+                   && opacity->isVisibleTo(&page) && opacity->isEnabled(),
+                   "Picking a mesh must reveal its editable properties")) return 98;
+        QStringList editedIds;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryStyleChanged,
+                         &page, [&](const QString &id, const QVariantMap &) { editedIds << id; });
+        opacity->setValue(35);
+        page.selectBoundary(QStringLiteral("cylinder"));
+        if (!check(opacity->value() == 100, "Editing the sphere must preserve cylinder opacity")) return 103;
+        opacity->setValue(70);
+        page.selectBoundary(QStringLiteral("sphere"));
+        if (!check(opacity->value() == 35
+                   && editedIds == QStringList{QStringLiteral("sphere"), QStringLiteral("cylinder")},
+                   "Only the edited mesh should receive a style change")) return 104;
         mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
         mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
         if (!check(view.isEmpty() && rotationTarget == QStringLiteral("sphere")
@@ -610,7 +628,8 @@ int main(int argc, char **argv)
     monitorLayoutSplitter->setSizes({720, 280});
     saveUserLayout->trigger();
     app.processEvents();
-    QSettings userLayout(QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
+    QSettings userLayout(QSettings::defaultFormat(), QSettings::UserScope,
+                         QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
     if (!check(restoreUserLayout->isEnabled()
                && userLayout.value("UserLayout/version").toInt() == 1,
                "Saving a user layout did not create the single persistent record")) return 82;
@@ -659,7 +678,8 @@ int main(int argc, char **argv)
         if (id != "office-blue"
             && !check(window.ribbonBar()->windowTitleBackgroundBrush().style() == Qt::NoBrush,
                       "Non-blue themes must clear the Word title background")) return 29;
-        QSettings saved(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+        QSettings saved(QSettings::defaultFormat(), QSettings::UserScope,
+                        QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
         if (!check(saved.value("theme").toString() == id, "Theme selection not saved")) return 25;
         const QString screenshots = qEnvironmentVariable("AEROSIM_THEME_SCREENSHOTS");
         if (!screenshots.isEmpty()) {
@@ -674,7 +694,8 @@ int main(int argc, char **argv)
         if (!check(reopened.property("windowThemeId").toString() == "dark-gray", "Saved theme not restored")) return 26;
     }
     {
-        QSettings saved(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+        QSettings saved(QSettings::defaultFormat(), QSettings::UserScope,
+                        QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
         saved.setValue("theme", "unknown-theme");
         aerosim::MainWindow fallback;
         app.processEvents();

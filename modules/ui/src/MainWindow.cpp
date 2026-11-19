@@ -181,7 +181,8 @@ MainWindow::MainWindow(QWidget *parent) : SARibbonMainWindow(initializeRibbonRes
     statusBar()->addWidget(status_, 1);
     statusBar()->addPermanentWidget(new QLabel(uiText(u"UI \u6846\u67b6 \u00b7 Mock \u670d\u52a1"), this));
     QTimer::singleShot(0, this, [this] {
-        QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+        QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+                           QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
         applyWindowTheme(settings.value(QStringLiteral("theme"), QStringLiteral("office-blue")).toString());
     });
     restoreLayout();
@@ -252,7 +253,8 @@ void MainWindow::createRibbon()
                 connect(action, &QAction::triggered, this, &MainWindow::saveUserLayout);
             } else if (route == "layout-restore") {
                 action->setObjectName(QStringLiteral("restoreUserLayoutAction"));
-                QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
+                QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+                                   QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
                 action->setEnabled(settings.value(QStringLiteral("UserLayout/version")).toInt() == 1);
                 restoreUserLayoutAction_ = action;
                 connect(action, &QAction::triggered, this, &MainWindow::restoreUserLayout);
@@ -398,7 +400,8 @@ void MainWindow::createRibbon()
         group->addAction(action);
         connect(action, &QAction::triggered, this, [this, id] {
             applyWindowTheme(id);
-            QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
+            QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+                               QStringLiteral("AeroSimWorkbench"), QStringLiteral("Appearance"));
             settings.setValue(QStringLiteral("theme"), id);
         });
     }
@@ -1692,7 +1695,8 @@ void MainWindow::restoreLayout()
 
 void MainWindow::saveUserLayout()
 {
-    QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+                       QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
     settings.beginGroup(QStringLiteral("UserLayout"));
     settings.remove(QString());
     settings.setValue(QStringLiteral("version"), 1);
@@ -1732,7 +1736,8 @@ void MainWindow::saveUserLayout()
 
 void MainWindow::restoreUserLayout()
 {
-    QSettings settings(QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+                       QStringLiteral("AeroSimWorkbench"), QStringLiteral("UiLayout"));
     settings.beginGroup(QStringLiteral("UserLayout"));
     if (settings.value(QStringLiteral("version")).toInt() != 1) {
         settings.endGroup();

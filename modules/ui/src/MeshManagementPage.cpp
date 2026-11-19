@@ -451,19 +451,26 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     properties->setCheckable(true);
     properties->setChecked(false);
     properties->setToolTip(uiText(u"\u5c55\u5f00\u540e\u53ef\u7f16\u8f91\u5f53\u524d\u7f51\u683c\u7684\u663e\u793a\u5c5e\u6027"));
-    auto *form = new QFormLayout(properties);
+    auto *propertyScroll = new QScrollArea(properties);
+    propertyScroll->setObjectName(QStringLiteral("meshPropertyScroll"));
+    propertyScroll->setWidgetResizable(true);
+    propertyScroll->setFrameShape(QFrame::NoFrame);
+    propertyScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    propertyScroll->setMinimumHeight(120);
+    auto *fields = new QWidget(propertyScroll);
+    auto *form = new QFormLayout(fields);
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
-    nameEditor_ = new QLineEdit(properties);
+    nameEditor_ = new QLineEdit(fields);
     nameEditor_->setObjectName(QStringLiteral("meshNameEditor"));
-    visibleEditor_ = new QCheckBox(uiText(u"\u53ef\u89c1\uff08Mock\uff09"), properties);
+    visibleEditor_ = new QCheckBox(uiText(u"\u53ef\u89c1\uff08Mock\uff09"), fields);
     visibleEditor_->setObjectName(QStringLiteral("meshVisibleEditor"));
-    displayModeEditor_ = new QComboBox(properties);
+    displayModeEditor_ = new QComboBox(fields);
     displayModeEditor_->setObjectName(QStringLiteral("meshDisplayModeEditor"));
     displayModeEditor_->addItems({uiText(u"\u8868\u9762"), uiText(u"\u7ebf\u6846"), uiText(u"\u8868\u9762 + \u8fb9\u7ebf")});
-    colorButton_ = new QPushButton(properties);
+    colorButton_ = new QPushButton(fields);
     colorButton_->setObjectName(QStringLiteral("meshColorButton"));
     colorButton_->setToolTip(uiText(u"\u70b9\u51fb\u5faa\u73af\u5207\u6362 Mock \u663e\u793a\u989c\u8272"));
-    auto *opacityRow = new QWidget(properties);
+    auto *opacityRow = new QWidget(fields);
     auto *opacityLayout = new QHBoxLayout(opacityRow);
     opacityLayout->setContentsMargins(0, 0, 0, 0);
     opacityEditor_ = new QSlider(Qt::Horizontal, opacityRow);
@@ -473,12 +480,12 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     opacityValue_->setMinimumWidth(36);
     opacityLayout->addWidget(opacityEditor_, 1);
     opacityLayout->addWidget(opacityValue_);
-    scaleEditor_ = new QDoubleSpinBox(properties);
+    scaleEditor_ = new QDoubleSpinBox(fields);
     scaleEditor_->setObjectName(QStringLiteral("meshScaleEditor"));
     scaleEditor_->setRange(0.001, 1000.0);
     scaleEditor_->setDecimals(3);
     scaleEditor_->setSingleStep(0.1);
-    unitEditor_ = new QComboBox(properties);
+    unitEditor_ = new QComboBox(fields);
     unitEditor_->setObjectName(QStringLiteral("meshUnitEditor"));
     unitEditor_->addItems({QStringLiteral("m"), QStringLiteral("mm"), QStringLiteral("cm"), QStringLiteral("in")});
     form->addRow(uiText(u"\u7f51\u683c\u540d\u79f0"), nameEditor_);
@@ -488,17 +495,10 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     form->addRow(uiText(u"\u900f\u660e\u5ea6"), opacityRow);
     form->addRow(uiText(u"\u6bd4\u4f8b\u56e0\u5b50"), scaleEditor_);
     form->addRow(uiText(u"\u5355\u4f4d\u6807\u8bb0"), unitEditor_);
+    propertyScroll->setWidget(fields);
+    auto *propertiesLayout = new QVBoxLayout(properties);
+    propertiesLayout->addWidget(propertyScroll);
     objectLayout->addWidget(properties);
-    // Checkable group boxes hide only their own children; apply the same
-    // collapse to the scroll wrapper so the panel really shrinks.
-    auto *propertyScroll = new QScrollArea(objectPanel);
-    propertyScroll->setObjectName(QStringLiteral("meshPropertyScroll"));
-    propertyScroll->setWidgetResizable(true);
-    propertyScroll->setFrameShape(QFrame::NoFrame);
-    propertyScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    propertyScroll->setMinimumHeight(120);
-    propertyScroll->setWidget(properties);
-    objectLayout->addWidget(propertyScroll, 2);
     propertyScroll->setVisible(properties->isChecked());
 
     // The preprocessing workspace contains only the mesh view.
@@ -1033,7 +1033,6 @@ void MeshManagementPage::enableBoundaryMode(bool cgnsAvailable)
     auto *displayGroup = findChild<QGroupBox *>("meshDisplayProperties");
     displayGroup->setTitle(QString::fromUtf8("显示属性"));
     displayGroup->setChecked(true);
-    findChild<QScrollArea *>("meshPropertyScroll")->setVisible(true);
     visibleEditor_->setText(QString::fromUtf8("可见"));
     colorButton_->setToolTip(QString::fromUtf8("自定义当前网格颜色"));
     auto *opacityRow=opacityEditor_->parentWidget();
@@ -1069,6 +1068,7 @@ void MeshManagementPage::selectBoundary(const QString &id)
         if (meshes_[row].id != id) continue;
         meshTable_->setCurrentCell(row, 1);
         meshTable_->scrollToItem(meshTable_->item(row, 1));
+        findChild<QGroupBox *>(QStringLiteral("meshDisplayProperties"))->setChecked(true);
         return;
     }
 }

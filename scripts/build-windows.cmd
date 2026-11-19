@@ -16,6 +16,7 @@ if not defined AEROSIM_BUILD_STACK_PROBE set "AEROSIM_BUILD_STACK_PROBE=OFF"
 if not defined AEROSIM_BUILD_MESH_VIEWER if defined AEROSIM_VTK_DIR set "AEROSIM_BUILD_MESH_VIEWER=ON"
 if not defined AEROSIM_BUILD_MESH_VIEWER set "AEROSIM_BUILD_MESH_VIEWER=OFF"
 set "PATH=%AEROSIM_QT_ROOT%\bin;%PATH%"
+set "QT_PLUGIN_PATH=%AEROSIM_QT_ROOT%\plugins;%QT_PLUGIN_PATH%"
 rem Deployed GUI directories may only contain qwindowsd; CTest also needs offscreen.
 set "QT_QPA_PLATFORM_PLUGIN_PATH=%AEROSIM_QT_ROOT%\plugins\platforms"
 if defined AEROSIM_VTK_BIN set "PATH=%AEROSIM_VTK_BIN%;%PATH%"

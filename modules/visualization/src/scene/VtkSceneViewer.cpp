@@ -2,6 +2,7 @@
 #include <QVTKOpenGLNativeWidget.h>
 #include <QApplication>
 #include <QMouseEvent>
+#include <QWheelEvent>
 #include <QVBoxLayout>
 #include <QThread>
 #include <QSurfaceFormat>
@@ -24,6 +25,16 @@ VTK_MODULE_INIT(vtkInteractionStyle);
 #include <array>
 #include <cmath>
 namespace aerosim { namespace visualization {
+namespace {
+void zoomCamera(vtkCamera *camera, double steps)
+{
+    const double factor = std::pow(1.2, steps);
+    if (camera->GetParallelProjection())
+        camera->SetParallelScale(camera->GetParallelScale() / factor);
+    else
+        camera->Dolly(factor);
+}
+}
 struct VtkSceneViewer::Impl {
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> window=vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
     vtkSmartPointer<vtkRenderer> renderer=vtkSmartPointer<vtkRenderer>::New();
@@ -118,7 +129,7 @@ void VtkSceneViewer::setCameraOrientation(const QString &command)
     if (command == QStringLiteral("fit")) {
         impl_->renderer->ResetCamera();
     } else if (command == QStringLiteral("in") || command == QStringLiteral("out")) {
-        camera->Dolly(command == QStringLiteral("in") ? 1.2 : 1.0 / 1.2);
+        zoomCamera(camera, command == QStringLiteral("in") ? 1.0 : -1.0);
     } else {
         struct View { const char *name; QVector3D from; QVector3D up; };
         const std::array<View, 7> views = {{
@@ -191,6 +202,20 @@ bool VtkSceneViewer::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched != impl_->viewport) return QWidget::eventFilter(watched, event);
     switch (event->type()) {
+    case QEvent::Wheel: {
+        auto *wheel = static_cast<QWheelEvent *>(event);
+        // A conventional wheel notch is 120 angle units. Keep fractional
+        // steps for high-resolution wheels and pixel-only touchpad events.
+        const int delta = wheel->angleDelta().isNull() ? wheel->pixelDelta().y() : wheel->angleDelta().y();
+        const double steps = double(delta) / QWheelEvent::DefaultDeltasPerStep;
+        if (steps != 0.0) {
+            zoomCamera(impl_->renderer->GetActiveCamera(), steps);
+            impl_->renderer->ResetCameraClippingRange();
+            render();
+        }
+        wheel->accept();
+        return true;
+    }
     case QEvent::MouseButtonPress: {
         auto *mouse = static_cast<QMouseEvent *>(event);
         impl_->pickPending = mouse->button() == Qt::LeftButton && mouse->modifiers() == Qt::NoModifier;
