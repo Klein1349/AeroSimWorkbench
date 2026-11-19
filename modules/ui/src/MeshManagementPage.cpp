@@ -1101,9 +1101,14 @@ void MeshManagementPage::beginBoundary(const QString &id,const QString &path)
     refreshTableRow(row);
     meshTable_->setCurrentCell(row, 1); refreshEditor(); updateCount();
 }
-void MeshManagementPage::finishBoundary(const QString &id,const QString &summary)
+void MeshManagementPage::finishBoundary(const QString &id, const QString &summary, qint64 boundaryFaces)
 {
     for(int i=0;i<meshes_.size();++i) if(meshes_[i].id==id) {
+        // Edge drawing needs an additional index buffer. Large imports start
+        // with the full surface; the display editor can enable edges on demand.
+        constexpr qint64 largeSurfaceFaces = 10000000;
+        if (!meshes_[i].ready && boundaryFaces >= largeSurfaceFaces)
+            meshes_[i].displayMode = displayModeEditor_->itemText(0);
         meshes_[i].ready=true; meshes_[i].summary=summary;
         refreshTableRow(i); refreshEditor(); emitBoundaryStyle(i); appendHistory(summary); return;
     }

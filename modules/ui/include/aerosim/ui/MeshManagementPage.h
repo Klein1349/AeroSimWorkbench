@@ -39,7 +39,7 @@ public:
     void restoreDefaultLayout();
     void enableBoundaryMode(bool cgnsAvailable = false);
     void beginBoundary(const QString &id, const QString &path);
-    void finishBoundary(const QString &id, const QString &summary);
+    void finishBoundary(const QString &id, const QString &summary, qint64 boundaryFaces = 0);
     void failBoundary(const QString &id, const QString &message);
     void setBoundaryBusy(bool busy);
     void setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up);

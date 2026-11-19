@@ -23,6 +23,7 @@
 #include <QDialog>
 #include <QDoubleSpinBox>
 #include <QGroupBox>
+#include <QHash>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
@@ -105,12 +106,27 @@ int main(int argc, char **argv)
         if (!check(view.isEmpty() && drag == QPoint(offset, 2),
                    "Dragging the orientation control must orbit without snapping")) return 93;
 
+        auto *displayMode = page.findChild<QComboBox *>("meshDisplayModeEditor");
+        if (!check(displayMode, "Missing display mode editor")) return 105;
+        QHash<QString, int> sceneModes;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryStyleChanged, &page,
+                         [&](const QString &id, const QVariantMap &style) {
+            sceneModes.insert(id, style.value(QStringLiteral("mode")).toInt());
+        });
         page.beginBoundary(QStringLiteral("cube"), QStringLiteral("Cube.vtk"));
-        page.finishBoundary(QStringLiteral("cube"), QStringLiteral("Cube summary"));
+        page.finishBoundary(QStringLiteral("cube"), QStringLiteral("Cube summary"), 9999999);
+        if (!check(displayMode->currentIndex() == 2 && sceneModes.value("cube", -1) == 2,
+                   "Smaller imports retain surface and edges")) return 106;
         page.beginBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder.vtu"));
-        page.finishBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"));
+        if (!check(!displayMode->isEnabled(), "Pending mesh mode cannot be edited")) return 107;
+        page.finishBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"), 10000000);
+        if (!check(displayMode->isEnabled() && displayMode->currentIndex() == 0 && sceneModes.value("cylinder", -1) == 0,
+                   "Ten million faces must initially render as a surface")) return 108;
+        displayMode->setCurrentIndex(2);
         page.beginBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere.vtp"));
-        page.finishBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere summary"));
+        page.finishBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere summary"), 20000000);
+        if (!check(displayMode->currentIndex() == 0 && sceneModes.value("sphere", -1) == 0 &&
+                   sceneModes.value("cylinder", -1) == 2, "Each mesh keeps its edited display mode")) return 109;
         auto *meshList = page.findChild<QTableWidget *>("meshTable");
         auto *removeMesh = page.findChild<QPushButton *>("deleteMeshButton");
         auto *meshName = page.findChild<QLineEdit *>("meshNameEditor");

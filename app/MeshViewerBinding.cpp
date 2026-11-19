@@ -57,8 +57,10 @@ bool installMeshViewer(MainWindow &window)
                      page, &MeshManagementPage::beginBoundary);
     QObject::connect(service, &BoundaryLoadService::loaded, page,
                      [page, viewer, service](const QString &id, const QString &, const QString &summary) {
-        viewer->addBoundary(id, service->mesh(id));
-        page->finishBoundary(id, summary);
+        const auto mesh = service->mesh(id);
+        if (!mesh) return;
+        viewer->addBoundary(id, mesh);
+        page->finishBoundary(id, summary, mesh->boundaryFaces);
     });
     QObject::connect(service, &BoundaryLoadService::batchImported, viewer, [viewer] {
         viewer->setCameraOrientation(QStringLiteral("fit"));
