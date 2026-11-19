@@ -1,4 +1,5 @@
 #include "aerosim/visualization/features/BoundarySurfaceExtractor.h"
+#include "aerosim/visualization/features/SharedPolygonEdges.h"
 #include <vtkCell.h>
 #include <vtkAlgorithm.h>
 #include <vtkCallbackCommand.h>
@@ -212,6 +213,9 @@ std::shared_ptr<const BoundaryMesh> BoundarySurfaceExtractor::extract(vtkDataSet
     auto* cellIds=vtkIdTypeArray::SafeDownCast(r->surface->GetCellData()->GetArray("vtkOriginalCellIds"));
     if(!r->boundaryFaces || !points || !cellIds || points->GetNumberOfTuples()!=r->surface->GetNumberOfPoints()
         || cellIds->GetNumberOfTuples()!=r->surface->GetNumberOfCells()) throw std::runtime_error("未生成有效边界或来源映射");
+    // A volume's extracted patches can repeat a point on either side of a seam.
+    // Use its original node for identity and its surface index for drawing.
+    r->sharedEdges = SharedPolygonEdges::build(r->surface, cancelled, poly ? nullptr : points, np);
     // VTK 8.2 passes PolyData through and supplies 1:1 original point IDs,
     // including any unused input points. Volume filters can repeat source IDs.
     if (poly) {

@@ -10,6 +10,7 @@
 #include <stdexcept>
 #ifdef AEROSIM_MESH_HAS_CGNS
 #include "aerosim/visualization/DataAdapter.h"
+#include "aerosim/visualization/features/SharedPolygonEdges.h"
 #include <vtkCompositeDataGeometryFilter.h>
 #include <vtkMultiBlockDataSet.h>
 #endif
@@ -49,6 +50,7 @@ std::shared_ptr<const BoundaryMesh> BoundaryMeshReader::read(const QString& path
         mesh->inputCells = cells;
         mesh->uniqueBoundaryPoints = mesh->surface->GetNumberOfPoints();
         mesh->volume = volume;
+        mesh->sharedEdges = SharedPolygonEdges::build(mesh->surface, cancelled);
         return mesh;
     }
 #endif

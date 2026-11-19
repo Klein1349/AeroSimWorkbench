@@ -1,4 +1,5 @@
 #include "aerosim/visualization/features/BoundarySurfaceExtractor.h"
+#include "aerosim/visualization/features/SharedPolygonEdges.h"
 #include "aerosim/visualization/data/BoundaryMeshReader.h"
 #include "aerosim/visualization/data/BoundaryLoadService.h"
 #include <QCoreApplication>
@@ -68,6 +69,7 @@ static void testPolygonValidationAndMapping() {
     input->GetCellData()->SetScalars(zone);
 
     const auto mesh = BoundarySurfaceExtractor::extract(input);
+    require(mesh->sharedEdges && mesh->sharedEdges->edgeCount() == 6, "mixed polygons share one edge");
     require(!mesh->volume && mesh->inputCells == 2 && mesh->boundaryFaces == 2, "mixed polygon counts");
     require(mesh->inputPoints == 6 && mesh->surface->GetNumberOfPoints() == 6 &&
             mesh->uniqueBoundaryPoints == 6, "PolyData keeps the unused source point");

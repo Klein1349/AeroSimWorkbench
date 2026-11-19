@@ -7,12 +7,14 @@
 #include <atomic>
 #include <memory>
 namespace aerosim { namespace visualization {
+class SharedPolygonEdges;
 // Module-local immutable snapshot, not a new public mesh contract.
 struct BoundaryMesh {
     vtkSmartPointer<vtkDataObject> source;
     vtkSmartPointer<vtkPolyData> surface;
     vtkIdType inputPoints=0, inputCells=0, boundaryFaces=0, uniqueBoundaryPoints=0;
     bool volume=false;
+    std::shared_ptr<const SharedPolygonEdges> sharedEdges;
     QString summary() const;
 };
 class BoundarySurfaceExtractor {

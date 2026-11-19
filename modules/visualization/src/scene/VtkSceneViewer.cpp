@@ -1,4 +1,5 @@
 #include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include "aerosim/visualization/scene/BoundaryPolyDataMapper.h"
 #include <QVTKOpenGLNativeWidget.h>
 #include <QApplication>
 #include <QMouseEvent>
@@ -79,7 +80,10 @@ void VtkSceneViewer::render() {
 }
 void VtkSceneViewer::addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh) {
     if(!mesh || impl_->objects.contains(id)) return;
-    vtkNew<vtkPolyDataMapper> mapper; mapper->SetInputData(mesh->surface); mapper->ScalarVisibilityOff();
+    vtkNew<BoundaryPolyDataMapper> mapper;
+    mapper->SetInputData(mesh->surface);
+    mapper->SetSharedEdges(mesh->sharedEdges);
+    mapper->ScalarVisibilityOff();
     vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
     actor->SetMapper(mapper);
     double center[3];
