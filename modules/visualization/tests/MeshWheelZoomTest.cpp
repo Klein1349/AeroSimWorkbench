@@ -1,6 +1,7 @@
 #include "aerosim/visualization/scene/VtkSceneViewer.h"
 
 #include <QApplication>
+#include <QKeyEvent>
 #include <QVTKOpenGLNativeWidget.h>
 #include <QWheelEvent>
 #include <vtkActor.h>
@@ -16,6 +17,7 @@
 #include <vtkRenderer.h>
 #include <vtkRendererCollection.h>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -33,7 +35,13 @@ static void scroll(QWidget *viewport, const QPoint &angle, const QPoint &pixels 
 
 static bool closeTo(double actual, double expected)
 {
-    return std::abs(actual - expected) < 1e-8 * expected;
+    return std::abs(actual - expected) <= 1e-8 * std::max(1.0, std::abs(expected));
+}
+
+static bool atFocus(vtkCamera *camera, double x, double y, double z)
+{
+    const auto *focus = camera->GetFocalPoint();
+    return closeTo(focus[0], x) && closeTo(focus[1], y) && closeTo(focus[2], z);
 }
 
 // Use separated triangles with nonzero coordinates on every axis. Centering
@@ -73,6 +81,19 @@ static bool atFileCoordinates(vtkActor *actor, const BoundaryMesh &mesh, double 
     return true;
 }
 
+static bool hasAppearance(vtkActor *actor, const QColor &color, double opacity,
+                          int representation, bool edges)
+{
+    auto *property = actor->GetProperty();
+    const auto *rgb = property->GetDiffuseColor();
+    return std::abs(rgb[0] - color.redF()) < 1e-6
+        && std::abs(rgb[1] - color.greenF()) < 1e-6
+        && std::abs(rgb[2] - color.blueF()) < 1e-6
+        && std::abs(property->GetOpacity() - opacity) < 1e-6
+        && property->GetRepresentation() == representation
+        && bool(property->GetEdgeVisibility()) == edges;
+}
+
 int main(int argc, char **argv)
 {
     VtkSceneViewer::configureSurface();
@@ -107,26 +128,77 @@ int main(int argc, char **argv)
 
     auto first = triangleAt(125);
     auto second = triangleAt(-470);
-    viewer.addBoundary("first", first);
-    auto *actors = renderer->GetActors();
-    auto *a = actors->GetLastActor();
-    if (!a || !a->GetProperty()->GetEdgeVisibility()) return 1;
-    viewer.setDisplayMode(1);
-    viewer.addBoundary("second", second);
+    const QColor initialColor(0xbc, 0xa9, 0xe4);
+    const QColor firstColor(0x18, 0x82, 0xc5);
+    const QColor secondColor(0xd5, 0x41, 0x23);
+    viewer.addBoundary("first", first, 2);
+    auto *a = renderer->GetActors()->GetLastActor();
+    if (!a || !hasAppearance(a, initialColor, 1.0, VTK_SURFACE, true)) return 1;
+    viewer.setObjectAppearance("first", firstColor, 35, 1);
+    // Mode supplied by the page for a large boundary, before the first render.
+    viewer.addBoundary("second", second, 0);
     auto *b = renderer->GetActors()->GetLastActor();
-    if (!b || a == b || a->GetProperty()->GetRepresentation() != VTK_WIREFRAME
-        || b->GetProperty()->GetRepresentation() != VTK_WIREFRAME) {
-        std::cerr << "Both current and newly imported meshes must share the view mode\n";
+    if (!b || a == b || !hasAppearance(a, firstColor, 0.35, VTK_WIREFRAME, false)
+        || !hasAppearance(b, initialColor, 1.0, VTK_SURFACE, false)) {
+        std::cerr << "A new surface-only mesh must start with its own appearance\n";
         return 1;
     }
-    viewer.setObjectVisible("first", false);
-    if (a->GetVisibility() || !b->GetVisibility()) return 1;
-    viewer.setDisplayMode(2);
-    viewer.setObjectVisible("first", true);
-    for (auto *actor : {a, b}) {
-        if (!actor->GetVisibility() || actor->GetProperty()->GetRepresentation() != VTK_SURFACE
-            || !actor->GetProperty()->GetEdgeVisibility()) return 1;
+    vtkNew<vtkActor> auxiliary;
+    auxiliary->SetMapper(b->GetMapper());
+    auxiliary->SetPosition(25000, 25000, 25000);
+    renderer->AddActor(auxiliary);
+    viewer.setCameraOrientation(QStringLiteral("fit"));
+    if (!atFocus(camera, -171, -1, 13.5)) {
+        std::cerr << "Fit should enclose only visible boundary meshes\n";
+        return 1;
     }
+    viewer.orbitCamera(13, -7);
+    const double visibleScale = camera->GetParallelScale();
+    const double visibleDistance = camera->GetDistance();
+    double direction[3];
+    camera->GetDirectionOfProjection(direction);
+    viewer.setObjectVisible("first", false);
+    const auto *newDirection = camera->GetDirectionOfProjection();
+    if (!atFocus(camera, -468.5, -1, 13.5) || !closeTo(camera->GetParallelScale(), visibleScale)
+        || !closeTo(camera->GetDistance(), visibleDistance)
+        || !closeTo(direction[0], newDirection[0]) || !closeTo(direction[1], newDirection[1])
+        || !closeTo(direction[2], newDirection[2])) {
+        std::cerr << "Hiding a mesh should recenter on the visible data and preserve the camera view\n";
+        return 1;
+    }
+    // Simulate a panned view, then invoke the explicit rotation-center command.
+    camera->SetFocalPoint(-460, 5, 10);
+    viewer.setCameraOrientation(QStringLiteral("center"));
+    auto *marker = viewport->findChild<QWidget *>(QStringLiteral("boundaryRotationCenterMarker"));
+    if (!atFocus(camera, -468.5, -1, 13.5) || !marker || marker->isHidden()
+        || !marker->testAttribute(Qt::WA_TransparentForMouseEvents)
+        || (marker->geometry().center() - viewport->rect().center()).manhattanLength() > 1) return 1;
+    viewer.setObjectVisible("second", false);
+    const double emptyScale = camera->GetParallelScale();
+    const double emptyDistance = camera->GetDistance();
+    viewer.setCameraOrientation(QStringLiteral("fit"));
+    viewer.setCameraOrientation(QStringLiteral("center"));
+    if (!marker->isHidden() || !atFocus(camera, -468.5, -1, 13.5)
+        || !closeTo(camera->GetParallelScale(), emptyScale)
+        || !closeTo(camera->GetDistance(), emptyDistance)) {
+        std::cerr << "An empty boundary selection must retain a valid camera\n";
+        return 1;
+    }
+    viewer.setObjectVisible("second", true);
+    viewer.setObjectAppearance("second", secondColor, 70, 2);
+    viewer.setObjectAppearance("missing", initialColor, 100, 0);
+    QKeyEvent wireframe(QEvent::KeyPress, Qt::Key_W, Qt::NoModifier, "w");
+    QApplication::sendEvent(viewport, &wireframe);
+    if (a->GetVisibility() || !b->GetVisibility()
+        || !hasAppearance(a, firstColor, 0.35, VTK_WIREFRAME, false)
+        || !hasAppearance(b, secondColor, 0.70, VTK_SURFACE, true)) {
+        std::cerr << "Appearance and visibility changes must affect only the named mesh\n";
+        return 1;
+    }
+    viewer.setObjectVisible("first", true);
+    if (!a->GetVisibility() || !hasAppearance(a, firstColor, 0.35, VTK_WIREFRAME, false)
+        || !atFocus(camera, -171, -1, 13.5))
+        return 1;
     viewer.setCameraOrientation(QStringLiteral("fit"));
     double previous[3];
     camera->GetPosition(previous);
@@ -143,5 +215,7 @@ int main(int argc, char **argv)
         std::cerr << "View controls must retain the original coordinates of both meshes\n";
         return 1;
     }
+    viewer.removeObject("second");
+    if (!atFocus(camera, 126.5, -1, 13.5)) return 1;
     return 0;
 }

@@ -12,7 +12,11 @@
 #include <SARibbonPanel.h>
 #include <QApplication>
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
+#include <QGroupBox>
+#include <QHash>
+#include <QImage>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -25,6 +29,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTableWidget>
@@ -33,6 +38,7 @@
 #include <QTreeWidgetItemIterator>
 #include <QTextDocument>
 #include <QTextStream>
+#include <QTimer>
 
 class Workflow final : public aerosim::IWorkflowService {
 public:
@@ -50,6 +56,7 @@ public:
 
 int main(int argc, char **argv)
 {
+    QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
     QApplication app(argc, argv);
     QTemporaryDir preferences;
     if (!preferences.isValid()) return 22;
@@ -67,6 +74,23 @@ int main(int argc, char **argv)
         auto *toolbar = page.findChild<QToolBar *>("meshViewerToolbar");
         if (!check(toolbar && toolbar->isMovable() && toolbar->allowedAreas() == Qt::AllToolBarAreas,
                    "Mesh toolbar must allow four-edge docking")) return 94;
+        QVector<QImage> glyphs;
+        for (auto *action : toolbar->actions()) {
+            if (action->isSeparator()) continue;
+            const QImage small = action->icon().pixmap(QSize(22, 22)).toImage();
+            const QImage large = action->icon().pixmap(QSize(64, 64)).toImage();
+            const QImage disabled = action->icon().pixmap(QSize(22, 22), QIcon::Disabled).toImage();
+            auto *button = toolbar->widgetForAction(action);
+            if (!check(button && (button->focusPolicy() & Qt::TabFocus) && !button->accessibleName().isEmpty()
+                       && !action->toolTip().isEmpty() && !small.isNull() && large.width() > small.width()
+                       && small.pixelColor(0, 0).alpha() == 0 && small != disabled && !glyphs.contains(small),
+                       "Each toolbar action needs a distinct scalable icon, disabled state and accessible label")) return 114;
+            glyphs.append(small);
+        }
+        const auto zoomInIndex = toolbar->actions().indexOf(toolbar->findChild<QAction *>("boundaryView_in"));
+        const auto zoomOutIndex = toolbar->actions().indexOf(toolbar->findChild<QAction *>("boundaryView_out"));
+        if (!check(glyphs.size() == 17 && zoomInIndex >= 0 && zoomOutIndex == zoomInIndex + 1,
+                   "The zoom controls must be adjacent in either docking orientation")) return 115;
         for (const auto area : {Qt::LeftToolBarArea, Qt::TopToolBarArea,
                                 Qt::BottomToolBarArea, Qt::RightToolBarArea}) {
             page.restoreLayoutState({{QStringLiteral("meshToolbarArea"), int(area)}});
@@ -106,51 +130,140 @@ int main(int argc, char **argv)
         auto *edges = toolbar->findChild<QAction *>("meshSurfaceEdgesButton");
         auto *surface = toolbar->findChild<QAction *>("meshSurfaceButton");
         auto *wire = toolbar->findChild<QAction *>("meshWireframeButton");
+        auto *center = toolbar->findChild<QAction *>("boundaryView_center");
+        auto *fit = toolbar->findChild<QAction *>("boundaryView_fit");
+        if (!check(center && fit && !center->isEnabled() && !fit->isEnabled(),
+                   "Center and fit need a visible boundary")) return 116;
         auto *meshList = page.findChild<QTableWidget *>("meshTable");
         auto *status = page.findChild<QLabel *>("meshViewerStatus");
         auto *removeMesh = page.findChild<QPushButton *>("deleteMeshButton");
-        if (!check(edges && surface && wire && meshList && status && removeMesh,
-                   "Missing scene display or mesh list controls")) return 96;
+        auto *properties = page.findChild<QGroupBox *>("meshDisplayProperties");
+        auto *name = page.findChild<QLineEdit *>("meshNameEditor");
+        auto *visible = page.findChild<QCheckBox *>("meshVisibleEditor");
+        auto *color = page.findChild<QPushButton *>("meshColorButton");
+        auto *opacity = page.findChild<QSlider *>("meshOpacityEditor");
+        auto *mode = page.findChild<QComboBox *>("meshDisplayModeEditor");
+        auto *unit = page.findChild<QComboBox *>("meshUnitEditor");
+        if (!check(edges && surface && wire && meshList && status && removeMesh && properties
+                   && name && visible && color && opacity && mode && unit,
+                   "Missing per-file mesh properties or viewer controls")) return 96;
 
-        QVector<int> modeChanges;
-        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryDisplayModeChanged,
-                         &page, [&](int mode) { modeChanges.append(mode); });
+        struct Appearance {
+            QColor color;
+            int opacity = -1;
+            int mode = -1;
+        };
+        QHash<QString, Appearance> rendered;
+        QStringList appearanceEdits;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryAppearanceChanged,
+                         &page, [&](const QString &id, const QColor &tint, int alpha, int displayMode) {
+            rendered.insert(id, {tint, alpha, displayMode});
+            appearanceEdits.append(id);
+        });
+        const auto finish = [&](const QString &id, const QString &summary, qint64 faces) {
+            const int initialMode = page.finishBoundary(id, summary, faces);
+            rendered.insert(id, {QColor(color->text()), opacity->value(), initialMode});
+        };
         page.beginBoundary(QStringLiteral("cube"), QStringLiteral("Cube.vtk"));
-        page.finishBoundary(QStringLiteral("cube"), QStringLiteral("Cube summary"), 9999999);
-        if (!check(edges->isChecked(), "Small imports should initially show surface and edges")) return 106;
+        if (!check(!center->isEnabled() && !fit->isEnabled(),
+                   "A loading row has no bounds for center or fit")) return 117;
+        finish(QStringLiteral("cube"), QStringLiteral("Cube summary"), 9999999);
+        if (!check(edges->isChecked() && mode->currentIndex() == 2 && rendered.value("cube").mode == 2,
+                   "Smaller imports should initially show surface and edges")) return 106;
+        const QColor cubeColor = rendered.value("cube").color;
         page.beginBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder.vtu"));
-        page.finishBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"), 10000000);
-        if (!check(surface->isChecked() && modeChanges.value(modeChanges.size() - 1, -1) == 0,
-                   "A large import must switch the automatic scene mode to surface")) return 108;
-
-        page.selectBoundary(QString());
-        if (!check(meshList->currentRow() == -1 && !removeMesh->isEnabled() && wire->isEnabled(),
-                   "Viewport display must remain available without a selected row")) return 101;
+        if (!check(!mode->isEnabled() && center->isEnabled() && fit->isEnabled(),
+                   "A pending selection must leave earlier visible bounds available")) return 107;
+        finish(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"), 10000000);
+        if (!check(surface->isChecked() && mode->currentIndex() == 0
+                   && rendered.value("cylinder").mode == 0 && rendered.value("cube").mode == 2,
+                   "At ten million faces only the new import should default to surface")) return 108;
+        appearanceEdits.clear();
         wire->trigger();
+        if (!check(mode->currentIndex() == 1 && appearanceEdits == QStringList{QStringLiteral("cylinder")}
+                   && rendered.value("cylinder").mode == 1 && rendered.value("cube").mode == 2
+                   && wire->shortcut() == QKeySequence(Qt::Key_W)
+                   && surface->shortcut() == QKeySequence(Qt::Key_S),
+                   "The viewport representation actions must target the selected mesh")) return 105;
         page.beginBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere.vtp"));
-        page.finishBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere summary"), 20000000);
-        if (!check(wire->isChecked() && modeChanges.value(modeChanges.size() - 1, -1) == 1,
-                   "An explicit scene mode must survive later imports")) return 109;
+        finish(QStringLiteral("sphere"), QStringLiteral("Sphere summary"), 20000000);
+        if (!check(surface->isChecked() && rendered.value("sphere").mode == 0
+                   && rendered.value("cylinder").mode == 1 && rendered.value("cube").mode == 2,
+                   "Later imports must preserve the representation of every previous mesh")) return 109;
 
-        const int modeChangeCount = modeChanges.size();
+        appearanceEdits.clear();
+        properties->setChecked(false);
         page.selectBoundary(QStringLiteral("cylinder"));
-        if (!check(meshList->currentRow() == 1 && status->text().contains(QStringLiteral("Cylinder summary"))
-                   && modeChanges.size() == modeChangeCount && wire->isChecked()
-                   && !(meshList->item(1, 1)->flags() & Qt::ItemIsEditable)
-                   && !page.findChild<QWidget *>("meshDisplayProperties")
-                   && !page.findChild<QWidget *>("meshScaleEditor"),
-                   "Picking a mesh must select its read-only information")) return 98;
+        if (!check(properties->isChecked() && opacity->isVisibleTo(&page) && opacity->isEnabled()
+                   && meshList->currentRow() == 1 && name->text() == QStringLiteral("Cylinder.vtu")
+                   && status->text().contains(QStringLiteral("Cylinder summary")) && wire->isChecked()
+                   && appearanceEdits.isEmpty(),
+                   "Picking a mesh in 3D must open its own properties without restyling it")) return 98;
         if (!check(page.metaObject()->indexOfSignal("boundaryAxisRotationRequested(QString,QVector3D)") < 0
-                   && page.metaObject()->indexOfSignal("boundaryDragRotationRequested(QString,int,int)") < 0,
-                   "The page must not expose object rotation gestures")) return 102;
+                   && page.metaObject()->indexOfSignal("boundaryDragRotationRequested(QString,int,int)") < 0
+                   && !page.findChild<QWidget *>("meshScaleEditor"),
+                   "Mesh placement must stay fixed in file coordinates")) return 102;
 
+        page.setAttribute(Qt::WA_DontShowOnScreen);
+        page.resize(1050, 780);
+        page.show();
+        app.processEvents();
+        const auto clickRow = [&](int row) {
+            const QPoint pos = meshList->visualItemRect(meshList->item(row, 1)).center();
+            QMouseEvent press(QEvent::MouseButtonPress, QPointF(pos), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(meshList->viewport(), &press);
+            QMouseEvent release(QEvent::MouseButtonRelease, QPointF(pos), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(meshList->viewport(), &release);
+        };
+        properties->setChecked(false);
+        clickRow(1);
+        if (!check(properties->isChecked() && unit->isVisibleTo(&page) && name->isEnabled(),
+                   "A single click on the current table row must reopen its properties")) return 110;
+
+        name->setText(QStringLiteral("Outer wall"));
+        QMetaObject::invokeMethod(name, "editingFinished", Qt::DirectConnection);
+        unit->setCurrentText(QStringLiteral("mm"));
+        if (!check(meshList->item(1, 1)->text() == QStringLiteral("Outer wall")
+                   && meshList->item(1, 1)->data(Qt::UserRole).toString() == QStringLiteral("cylinder")
+                   && appearanceEdits.isEmpty(),
+                   "Name and unit are metadata and must retain the original boundary ID")) return 111;
+        const QColor wallColor(19, 114, 151);
+        QTimer::singleShot(0, &page, [&] {
+            if (auto *picker = page.findChild<QColorDialog *>()) {
+                picker->setCurrentColor(wallColor);
+                picker->accept();
+            }
+        });
+        color->click();
+        mode->setCurrentIndex(2);
+        opacity->setValue(35);
         QStringList hiddenIds;
         QObject::connect(&page, &aerosim::MeshManagementPage::boundaryVisibilityChanged,
                          &page, [&](const QString &id, bool visible) { if (!visible) hiddenIds.append(id); });
+        visible->click();
+        if (!check(rendered.value("cylinder").color == wallColor && rendered.value("cylinder").mode == 2
+                   && rendered.value("cylinder").opacity == 35 && hiddenIds == QStringList{QStringLiteral("cylinder")}
+                   && meshList->item(1, 2)->checkState() == Qt::Unchecked,
+                   "Edits must change only the chosen boundary and synchronize table visibility")) return 104;
+
+        properties->setChecked(false);
+        appearanceEdits.clear();
+        clickRow(0);
+        if (!check(properties->isChecked() && name->text() == QStringLiteral("Cube.vtk")
+                   && unit->currentText() == QStringLiteral("m") && visible->isChecked()
+                   && opacity->value() == 100 && mode->currentIndex() == 2
+                   && rendered.value("cube").color == cubeColor && appearanceEdits.isEmpty(),
+                   "Clicking another row must restore its independent settings")) return 103;
+        surface->trigger();
         meshList->item(0, 2)->setCheckState(Qt::Unchecked);
-        if (!check(hiddenIds == QStringList{QStringLiteral("cube")}
-                   && meshList->item(1, 2)->checkState() == Qt::Checked,
-                   "Visibility must belong to the toggled row")) return 104;
+        if (!check(!visible->isChecked() && hiddenIds == QStringList{QStringLiteral("cylinder"), QStringLiteral("cube")}
+                   && appearanceEdits == QStringList{QStringLiteral("cube")} && rendered.value("cube").mode == 0,
+                   "The table checkbox and toolbar must affect their own boundary")) return 112;
+        page.selectBoundary(QStringLiteral("cylinder"));
+        if (!check(name->text() == QStringLiteral("Outer wall") && unit->currentText() == QStringLiteral("mm")
+                   && !visible->isChecked() && opacity->value() == 35 && mode->currentIndex() == 2
+                   && color->text().compare(wallColor.name(), Qt::CaseInsensitive) == 0,
+                   "Reselecting a file must restore every edited display property")) return 113;
 
         view.clear();
         drag = QPoint();
@@ -169,9 +282,23 @@ int main(int argc, char **argv)
         meshList->setCurrentCell(0, 1);
         removeMesh->click();
         if (!check(meshList->rowCount() == 2 && meshList->currentRow() == 0
-                   && meshList->item(0, 1)->text() == QStringLiteral("Cylinder.vtu")
+                   && meshList->item(0, 1)->text() == QStringLiteral("Outer wall") && opacity->value() == 35
                    && status->text().contains(QStringLiteral("Cylinder summary")),
                    "Removing a mesh must show the selected remaining mesh information")) return 97;
+        page.selectBoundary(QString());
+        if (!check(meshList->currentRow() == -1 && name->text().isEmpty() && !opacity->isEnabled()
+                   && !removeMesh->isEnabled() && !wire->isEnabled() && center->isEnabled() && fit->isEnabled(),
+                   "Clearing selection must disable per-object edits")) return 101;
+        meshList->item(1, 2)->setCheckState(Qt::Unchecked);
+        if (!check(!center->isEnabled() && !fit->isEnabled(),
+                   "Hiding the last visible boundary without a selection must disable center and fit")) return 118;
+        page.selectBoundary(QStringLiteral("sphere"));
+        visible->click();
+        if (!check(center->isEnabled() && fit->isEnabled(),
+                   "Showing a boundary in the property editor must immediately enable center and fit")) return 119;
+        removeMesh->click();
+        if (!check(!center->isEnabled() && !fit->isEnabled(),
+                   "Removing the last visible boundary must disable center and fit")) return 120;
     }
     // ASCII source with explicit UTF-16 expectations detects compiler/code-page corruption.
     const auto text = [](const char16_t *value) {
@@ -248,7 +375,8 @@ int main(int argc, char **argv)
                && meshTable->columnCount() == 3
                && meshCount && meshCount->text().contains("3 / 10")
                && importMesh && deleteMesh && historyTabs && history && historyCollapse
-               && !meshPage->findChild<QWidget *>("meshDisplayProperties")
+               && meshPage->findChild<QGroupBox *>("meshDisplayProperties")
+               && !meshPage->findChild<QWidget *>("meshScaleEditor")
                && workspaceTabs && workspaceTabs->count() == 1
                && workspaceTabs->tabText(0) == text(u"\u7f51\u683c\u89c6\u56fe")
                && window.findChild<QSplitter *>("meshWorkspaceMainSplitter")

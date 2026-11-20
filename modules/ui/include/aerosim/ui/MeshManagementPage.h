@@ -1,17 +1,23 @@
 #pragma once
 
+#include <QColor>
 #include <QStringList>
 #include <QVariantMap>
 #include <QVector>
 #include <QVector3D>
 #include <QWidget>
 
-class QAction;
+class QCheckBox;
+class QComboBox;
+class QActionGroup;
+class QGroupBox;
 class QLabel;
+class QLineEdit;
 class QListWidget;
 class QMainWindow;
 class QPushButton;
 class QRadioButton;
+class QSlider;
 class QSplitter;
 class QTabWidget;
 class QTableWidget;
@@ -34,7 +40,7 @@ public:
     void restoreDefaultLayout();
     void enableBoundaryMode(bool cgnsAvailable = false);
     void beginBoundary(const QString &id, const QString &path);
-    void finishBoundary(const QString &id, const QString &summary, qint64 boundaryFaces = 0);
+    int finishBoundary(const QString &id, const QString &summary, qint64 boundaryFaces = 0);
     void failBoundary(const QString &id, const QString &message);
     void setBoundaryBusy(bool busy);
     void setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up);
@@ -43,7 +49,7 @@ signals:
     void boundaryImportRequested(const QStringList &paths);
     void boundaryRemoveRequested(const QString &id);
     void boundaryVisibilityChanged(const QString &id, bool visible);
-    void boundaryDisplayModeChanged(int mode);
+    void boundaryAppearanceChanged(const QString &id, const QColor &color, int opacityPercent, int mode);
     void boundaryViewRequested(const QString &command);
     void boundaryOrbitRequested(int dx, int dy);
     void boundaryBackgroundRequested(int mode);
@@ -55,16 +61,23 @@ private:
         bool ready = true;
         QString name;
         bool visible = true;
+        int displayMode = 0;
+        QColor color;
+        int opacity = 100;
+        QString unit;
     };
 
     void addMesh();
     void removeCurrentMesh();
     void selectMesh(int row);
     void refreshTableRow(int row);
-    void refreshSelection();
+    void refreshEditor();
+    void updateCurrentMesh();
     void updateCount();
+    void refreshCameraActions();
     void appendHistory(const QString &message);
     void setHistoryCollapsed(bool collapsed);
+    void emitBoundaryAppearance(int row);
     int selectedRow() const;
     bool boundaryMode_ = false;
     bool boundaryBusy_ = false;
@@ -77,8 +90,15 @@ private:
     QPushButton *deleteMeshButton_ = nullptr;
     QRadioButton *solidModelRadio_ = nullptr;
     QRadioButton *planarModelRadio_ = nullptr;
-    QAction *surfaceAction_ = nullptr;
-    bool displayModeChosen_ = false;
+    QGroupBox *displayProperties_ = nullptr;
+    QActionGroup *displayActions_ = nullptr;
+    QLineEdit *nameEditor_ = nullptr;
+    QCheckBox *visibleEditor_ = nullptr;
+    QComboBox *displayModeEditor_ = nullptr;
+    QPushButton *colorButton_ = nullptr;
+    QSlider *opacityEditor_ = nullptr;
+    QLabel *opacityValue_ = nullptr;
+    QComboBox *unitEditor_ = nullptr;
     QLabel *viewerStatus_ = nullptr;
     // The orientation control is implemented in the page source file.
     QWidget *axisIndicator_ = nullptr;
@@ -93,6 +113,10 @@ private:
     QPushButton *historyCollapseButton_ = nullptr;
     int expandedHistoryHeight_ = 145;
     bool historyCollapsed_ = false;
+    // Nesting-aware guard: helpers such as refreshEditor() call refreshTableRow(),
+    // so a plain bool would clear the flag while the outer update is still running.
+    int editorUpdateDepth_ = 0;
+    bool isUpdatingEditor() const { return editorUpdateDepth_ > 0; }
 };
 
 } // namespace aerosim

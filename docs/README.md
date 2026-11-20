@@ -13,7 +13,7 @@
 
 | 文档 | 用途与适用范围 | 状态 |
 | --- | --- | --- |
-| [前处理网格管理](../modules/ui/README.md) · [历史版本图文记录](PreprocessMeshInteraction.md) | 当前版本按文件坐标定位，支持多文件显隐、视口显示与相机操作 | Windows x64 Debug |
+| [前处理网格管理](../modules/ui/README.md) · [历史版本图文记录](PreprocessMeshInteraction.md) | 按文件坐标定位、逐文件编辑外观、按可见网格确定相机中心 | Windows x64 Debug |
 | [第一阶段主工程集成说明](phase1-integration.md) | 当前 GUI/CLI、ApplicationController、contracts、Mock 和正式模块接入边界 | 现行骨架说明；正式业务目标尚未接入 |
 | [公共数据契约升级设计与实施计划](公共数据契约升级设计与实施计划.md) | 工作流、State/Batch/Task、多网格、资源与查询端口的增量升级规范及分 PR 计划 | PR 0 设计冻结；PR 1/2 已实现；PR 3～PR 7 数据模型已加入 `contracts/`，业务服务与查询端口未实现 |
 

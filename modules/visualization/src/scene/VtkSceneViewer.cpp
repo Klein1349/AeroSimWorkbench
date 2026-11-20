@@ -2,7 +2,10 @@
 #include "aerosim/visualization/scene/BoundaryPolyDataMapper.h"
 #include <QVTKOpenGLNativeWidget.h>
 #include <QApplication>
+#include <QKeyEvent>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QTimer>
 #include <QWheelEvent>
 #include <QVBoxLayout>
 #include <QThread>
@@ -12,6 +15,7 @@
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
 #include <vtkActor.h>
+#include <vtkBoundingBox.h>
 #include <vtkCamera.h>
 #include <vtkCallbackCommand.h>
 #include <vtkCellPicker.h>
@@ -27,6 +31,46 @@ VTK_MODULE_INIT(vtkInteractionStyle);
 #include <cmath>
 namespace aerosim { namespace visualization {
 namespace {
+class RotationCenterMarker final : public QWidget
+{
+public:
+    explicit RotationCenterMarker(QWidget *parent) : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("boundaryRotationCenterMarker"));
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setFixedSize(31, 31);
+        timer_.setSingleShot(true);
+        connect(&timer_, &QTimer::timeout, this, &QWidget::hide);
+        hide();
+    }
+
+    void indicateCenter()
+    {
+        move((parentWidget()->width() - width()) / 2, (parentWidget()->height() - height()) / 2);
+        raise();
+        show();
+        timer_.start(1500);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.translate(15.5, 15.5);
+        const QLine ticks[] = {{-13, 0, -5, 0}, {5, 0, 13, 0}, {0, -13, 0, -5}, {0, 5, 0, 13}};
+        for (const QPen &pen : {QPen(Qt::black, 3), QPen(Qt::white, 1)}) {
+            painter.setPen(pen);
+            painter.drawEllipse(QPointF(0, 0), 5, 5);
+            painter.drawLines(ticks, 4);
+            painter.drawPoint(QPointF(0, 0));
+        }
+    }
+
+private:
+    QTimer timer_;
+};
+
 void zoomCamera(vtkCamera *camera, double steps)
 {
     const double factor = std::pow(1.2, steps);
@@ -49,10 +93,42 @@ struct VtkSceneViewer::Impl {
         vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New();
     unsigned long interactionObserver = 0;
     QHash<QString, vtkSmartPointer<vtkActor>> objects;
-    int displayMode = 2;
+    vtkBoundingBox visibleBounds;
     QVTKOpenGLNativeWidget *viewport = nullptr;
+    RotationCenterMarker *centerMarker = nullptr;
     QPoint pickPressPosition;
     bool pickPending = false;
+
+    void updateVisibleBounds()
+    {
+        visibleBounds.Reset();
+        for (const auto &actor : objects) {
+            if (!actor->GetVisibility()) continue;
+            if (const auto *bounds = actor->GetBounds()) visibleBounds.AddBounds(bounds);
+        }
+    }
+
+    void centerVisibleMeshes()
+    {
+        if (!visibleBounds.IsValid()) return;
+        auto *camera = renderer->GetActiveCamera();
+        double center[3], focus[3], position[3];
+        visibleBounds.GetCenter(center);
+        camera->GetFocalPoint(focus);
+        camera->GetPosition(position);
+        for (int axis = 0; axis < 3; ++axis)
+            position[axis] += center[axis] - focus[axis];
+        camera->SetPosition(position);
+        camera->SetFocalPoint(center);
+    }
+
+    void updateClippingRange()
+    {
+        if (!visibleBounds.IsValid()) return;
+        double bounds[6];
+        visibleBounds.GetBounds(bounds);
+        renderer->ResetCameraClippingRange(bounds);
+    }
 };
 VtkSceneViewer::VtkSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl) {
     setObjectName(QStringLiteral("boundaryVtkViewer"));
@@ -60,6 +136,7 @@ VtkSceneViewer::VtkSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl) 
     auto* widget=new QVTKOpenGLNativeWidget(this); layout->addWidget(widget);
     impl_->window->AddRenderer(impl_->renderer); widget->SetRenderWindow(impl_->window);
     impl_->viewport = widget;
+    impl_->centerMarker = new RotationCenterMarker(widget);
     widget->installEventFilter(this);
     impl_->window->GetInteractor()->SetInteractorStyle(impl_->style);
     vtkNew<vtkCallbackCommand> interaction;
@@ -85,7 +162,7 @@ void VtkSceneViewer::render() {
     Q_ASSERT(QThread::currentThread()==thread());
     if(isVisible()) impl_->window->Render();
 }
-void VtkSceneViewer::addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh) {
+void VtkSceneViewer::addBoundary(const QString &id, std::shared_ptr<const BoundaryMesh> mesh, int initialMode) {
     if(!mesh || impl_->objects.contains(id)) return;
     vtkNew<BoundaryPolyDataMapper> mapper;
     mapper->SetInputData(mesh->surface);
@@ -99,34 +176,48 @@ void VtkSceneViewer::addBoundary(const QString& id,std::shared_ptr<const Boundar
     const QColor surfaceColor(0xbc, 0xa9, 0xe4);
     property->SetColor(surfaceColor.redF(), surfaceColor.greenF(), surfaceColor.blueF());
     property->SetEdgeColor(0.1, 0.15, 0.2);
-    applyDisplayMode(property, impl_->displayMode);
+    applyDisplayMode(property, initialMode);
     impl_->renderer->AddActor(actor);
     impl_->objects.insert(id, actor);
-    if (impl_->objects.size() == 1) setCameraOrientation(QStringLiteral("fit"));
-    else {
-        impl_->renderer->ResetCameraClippingRange();
-        render();
-    }
+    refreshVisibleBounds(impl_->objects.size() == 1);
 }
 void VtkSceneViewer::removeObject(const QString& id) {
     if(!impl_->objects.contains(id)) return;
-    impl_->renderer->RemoveActor(impl_->objects.take(id)); render();
+    const auto actor = impl_->objects.take(id);
+    impl_->renderer->RemoveActor(actor);
+    if (actor->GetVisibility()) refreshVisibleBounds(false);
+    else render();
 }
 void VtkSceneViewer::setObjectVisible(const QString &id, bool visible)
 {
     auto actor = impl_->objects.value(id);
     if (!actor || bool(actor->GetVisibility()) == visible) return;
     actor->SetVisibility(visible);
-    impl_->renderer->ResetCameraClippingRange();
+    refreshVisibleBounds(false);
+}
+
+void VtkSceneViewer::refreshVisibleBounds(bool fit)
+{
+    impl_->centerMarker->hide();
+    impl_->updateVisibleBounds();
+    if (fit) {
+        setCameraOrientation(QStringLiteral("fit"));
+        return;
+    }
+    impl_->centerVisibleMeshes();
+    impl_->updateClippingRange();
     render();
 }
 
-void VtkSceneViewer::setDisplayMode(int mode)
+void VtkSceneViewer::setObjectAppearance(const QString &id, const QColor &color,
+                                         int opacityPercent, int mode)
 {
-    if (mode < 0 || mode > 2 || mode == impl_->displayMode) return;
-    impl_->displayMode = mode;
-    for (const auto &actor : impl_->objects)
-        applyDisplayMode(actor->GetProperty(), mode);
+    auto actor = impl_->objects.value(id);
+    if (!actor || !color.isValid() || mode < 0 || mode > 2) return;
+    auto *property = actor->GetProperty();
+    property->SetColor(color.redF(), color.greenF(), color.blueF());
+    property->SetOpacity(qBound(0, opacityPercent, 100) / 100.0);
+    applyDisplayMode(property, mode);
     render();
 }
 void VtkSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
@@ -136,8 +227,21 @@ void VtkSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
 void VtkSceneViewer::setCameraOrientation(const QString &command)
 {
     auto *camera = impl_->renderer->GetActiveCamera();
-    if (command == QStringLiteral("fit")) {
-        impl_->renderer->ResetCamera();
+    const bool reset = command == QStringLiteral("reset");
+    if (command == QStringLiteral("center")) {
+        impl_->centerVisibleMeshes();
+        if (impl_->visibleBounds.IsValid()) impl_->centerMarker->indicateCenter();
+    } else if (command == QStringLiteral("fit") || reset) {
+        if (impl_->visibleBounds.IsValid()) {
+            double bounds[6];
+            impl_->visibleBounds.GetBounds(bounds);
+            if (reset) {
+                const auto *focus = camera->GetFocalPoint();
+                camera->SetPosition(focus[0], focus[1], focus[2] + camera->GetDistance());
+                camera->SetViewUp(0, 1, 0);
+            }
+            impl_->renderer->ResetCamera(bounds);
+        }
     } else if (command == QStringLiteral("in") || command == QStringLiteral("out")) {
         zoomCamera(camera, command == QStringLiteral("in") ? 1.0 : -1.0);
     } else {
@@ -164,7 +268,7 @@ void VtkSceneViewer::setCameraOrientation(const QString &command)
             break;
         }
     }
-    impl_->renderer->ResetCameraClippingRange();
+    impl_->updateClippingRange();
     publishCameraOrientation();
     render();
 }
@@ -176,7 +280,7 @@ void VtkSceneViewer::orbitCamera(int dx, int dy)
     camera->Azimuth(-dx * degreesPerPixel);
     camera->Elevation(-dy * degreesPerPixel);
     camera->OrthogonalizeViewUp();
-    impl_->renderer->ResetCameraClippingRange();
+    impl_->updateClippingRange();
     publishCameraOrientation();
     render();
 }
@@ -185,6 +289,23 @@ bool VtkSceneViewer::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched != impl_->viewport) return QWidget::eventFilter(watched, event);
     switch (event->type()) {
+    case QEvent::Resize:
+        impl_->centerMarker->hide();
+        break;
+    case QEvent::KeyPress: {
+        auto *key = static_cast<QKeyEvent *>(event);
+        // The page handles W/S for the selected mesh. VTK's fallback is scene-wide.
+        if (key->key() == Qt::Key_W || key->key() == Qt::Key_S) {
+            key->accept();
+            return true;
+        }
+        if (key->key() == Qt::Key_R && key->modifiers() == Qt::NoModifier) {
+            setCameraOrientation(QStringLiteral("fit"));
+            key->accept();
+            return true;
+        }
+        break;
+    }
     case QEvent::Wheel: {
         auto *wheel = static_cast<QWheelEvent *>(event);
         // A conventional wheel notch is 120 angle units. Keep fractional
@@ -193,13 +314,14 @@ bool VtkSceneViewer::eventFilter(QObject *watched, QEvent *event)
         const double steps = double(delta) / QWheelEvent::DefaultDeltasPerStep;
         if (steps != 0.0) {
             zoomCamera(impl_->renderer->GetActiveCamera(), steps);
-            impl_->renderer->ResetCameraClippingRange();
+            impl_->updateClippingRange();
             render();
         }
         wheel->accept();
         return true;
     }
     case QEvent::MouseButtonPress: {
+        impl_->centerMarker->hide();
         auto *mouse = static_cast<QMouseEvent *>(event);
         impl_->pickPending = mouse->button() == Qt::LeftButton && mouse->modifiers() == Qt::NoModifier;
         impl_->pickPressPosition = mouse->pos();

@@ -34,8 +34,8 @@ bool installMeshViewer(MainWindow &window)
                      viewer, &VtkSceneViewer::removeObject);
     QObject::connect(page, &MeshManagementPage::boundaryVisibilityChanged,
                      viewer, &VtkSceneViewer::setObjectVisible);
-    QObject::connect(page, &MeshManagementPage::boundaryDisplayModeChanged,
-                     viewer, &VtkSceneViewer::setDisplayMode);
+    QObject::connect(page, &MeshManagementPage::boundaryAppearanceChanged,
+                     viewer, &VtkSceneViewer::setObjectAppearance);
     QObject::connect(page, &MeshManagementPage::boundaryViewRequested,
                      viewer, &VtkSceneViewer::setCameraOrientation);
     QObject::connect(page, &MeshManagementPage::boundaryOrbitRequested,
@@ -58,8 +58,8 @@ bool installMeshViewer(MainWindow &window)
         const auto mesh = service->mesh(id);
         if (!mesh) return;
         // Choose the large-mesh display mode before the actor's first render.
-        page->finishBoundary(id, summary, mesh->boundaryFaces);
-        viewer->addBoundary(id, mesh);
+        const int initialMode = page->finishBoundary(id, summary, mesh->boundaryFaces);
+        if (initialMode >= 0) viewer->addBoundary(id, mesh, initialMode);
     });
     QObject::connect(service, &BoundaryLoadService::batchImported, viewer, [viewer] {
         viewer->setCameraOrientation(QStringLiteral("fit"));

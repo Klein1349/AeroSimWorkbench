@@ -10,12 +10,12 @@ class VtkSceneViewer final : public QWidget {
 public:
     explicit VtkSceneViewer(QWidget* parent=nullptr);
     ~VtkSceneViewer() override;
-    void addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh);
+    void addBoundary(const QString &id, std::shared_ptr<const BoundaryMesh> mesh, int initialMode);
     static void configureSurface();
 public slots:
     void removeObject(const QString& id);
     void setObjectVisible(const QString &id, bool visible);
-    void setDisplayMode(int mode);
+    void setObjectAppearance(const QString &id, const QColor &color, int opacityPercent, int mode);
     void setBackground(const QColor& bottom,const QColor& top,bool gradient);
     void setCameraOrientation(const QString& command);
     void orbitCamera(int dx, int dy);
@@ -28,6 +28,7 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
     void render();
+    void refreshVisibleBounds(bool fit);
     void publishCameraOrientation();
     void pickBoundary(const QPoint &position);
 };
