@@ -32,16 +32,14 @@ bool installMeshViewer(MainWindow &window)
                      service, &BoundaryLoadService::remove);
     QObject::connect(page, &MeshManagementPage::boundaryRemoveRequested,
                      viewer, &VtkSceneViewer::removeObject);
-    QObject::connect(page, &MeshManagementPage::boundaryStyleChanged,
-                     viewer, &VtkSceneViewer::setObjectStyle);
+    QObject::connect(page, &MeshManagementPage::boundaryVisibilityChanged,
+                     viewer, &VtkSceneViewer::setObjectVisible);
+    QObject::connect(page, &MeshManagementPage::boundaryDisplayModeChanged,
+                     viewer, &VtkSceneViewer::setDisplayMode);
     QObject::connect(page, &MeshManagementPage::boundaryViewRequested,
                      viewer, &VtkSceneViewer::setCameraOrientation);
     QObject::connect(page, &MeshManagementPage::boundaryOrbitRequested,
                      viewer, &VtkSceneViewer::orbitCamera);
-    QObject::connect(page, &MeshManagementPage::boundaryAxisRotationRequested,
-                     viewer, &VtkSceneViewer::rotateObjectAroundAxis);
-    QObject::connect(page, &MeshManagementPage::boundaryDragRotationRequested,
-                     viewer, &VtkSceneViewer::rotateObjectByDrag);
     QObject::connect(viewer, &VtkSceneViewer::boundaryPicked,
                      page, &MeshManagementPage::selectBoundary);
     QObject::connect(viewer, &VtkSceneViewer::cameraOrientationChanged,
@@ -59,8 +57,9 @@ bool installMeshViewer(MainWindow &window)
                      [page, viewer, service](const QString &id, const QString &, const QString &summary) {
         const auto mesh = service->mesh(id);
         if (!mesh) return;
-        viewer->addBoundary(id, mesh);
+        // Choose the large-mesh display mode before the actor's first render.
         page->finishBoundary(id, summary, mesh->boundaryFaces);
+        viewer->addBoundary(id, mesh);
     });
     QObject::connect(service, &BoundaryLoadService::batchImported, viewer, [viewer] {
         viewer->setCameraOrientation(QStringLiteral("fit"));

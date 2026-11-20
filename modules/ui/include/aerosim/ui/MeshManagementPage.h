@@ -1,22 +1,17 @@
 #pragma once
 
-#include <QColor>
 #include <QStringList>
 #include <QVariantMap>
 #include <QVector>
 #include <QVector3D>
 #include <QWidget>
 
-class QCheckBox;
-class QComboBox;
-class QDoubleSpinBox;
+class QAction;
 class QLabel;
-class QLineEdit;
 class QListWidget;
 class QMainWindow;
 class QPushButton;
 class QRadioButton;
-class QSlider;
 class QSplitter;
 class QTabWidget;
 class QTableWidget;
@@ -47,11 +42,10 @@ public:
 signals:
     void boundaryImportRequested(const QStringList &paths);
     void boundaryRemoveRequested(const QString &id);
-    void boundaryStyleChanged(const QString &id, const QVariantMap &style);
+    void boundaryVisibilityChanged(const QString &id, bool visible);
+    void boundaryDisplayModeChanged(int mode);
     void boundaryViewRequested(const QString &command);
     void boundaryOrbitRequested(int dx, int dy);
-    void boundaryAxisRotationRequested(const QString &id, const QVector3D &axis);
-    void boundaryDragRotationRequested(const QString &id, int dx, int dy);
     void boundaryBackgroundRequested(int mode);
 
 private:
@@ -61,23 +55,16 @@ private:
         bool ready = true;
         QString name;
         bool visible = true;
-        QString displayMode;
-        QColor color;
-        int opacity = 100;
-        double scale = 1.0;
-        QString unit;
     };
 
     void addMesh();
     void removeCurrentMesh();
     void selectMesh(int row);
     void refreshTableRow(int row);
-    void refreshEditor();
-    void updateCurrentMesh();
+    void refreshSelection();
     void updateCount();
     void appendHistory(const QString &message);
     void setHistoryCollapsed(bool collapsed);
-    void emitBoundaryStyle(int row);
     int selectedRow() const;
     bool boundaryMode_ = false;
     bool boundaryBusy_ = false;
@@ -90,14 +77,8 @@ private:
     QPushButton *deleteMeshButton_ = nullptr;
     QRadioButton *solidModelRadio_ = nullptr;
     QRadioButton *planarModelRadio_ = nullptr;
-    QLineEdit *nameEditor_ = nullptr;
-    QCheckBox *visibleEditor_ = nullptr;
-    QComboBox *displayModeEditor_ = nullptr;
-    QPushButton *colorButton_ = nullptr;
-    QSlider *opacityEditor_ = nullptr;
-    QLabel *opacityValue_ = nullptr;
-    QDoubleSpinBox *scaleEditor_ = nullptr;
-    QComboBox *unitEditor_ = nullptr;
+    QAction *surfaceAction_ = nullptr;
+    bool displayModeChosen_ = false;
     QLabel *viewerStatus_ = nullptr;
     // The orientation control is implemented in the page source file.
     QWidget *axisIndicator_ = nullptr;
@@ -112,10 +93,6 @@ private:
     QPushButton *historyCollapseButton_ = nullptr;
     int expandedHistoryHeight_ = 145;
     bool historyCollapsed_ = false;
-    // Nesting-aware guard: helpers such as refreshEditor() call refreshTableRow(),
-    // so a plain bool would clear the flag while the outer update is still running.
-    int editorUpdateDepth_ = 0;
-    bool isUpdatingEditor() const { return editorUpdateDepth_ > 0; }
 };
 
 } // namespace aerosim

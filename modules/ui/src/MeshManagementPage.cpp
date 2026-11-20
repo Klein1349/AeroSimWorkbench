@@ -3,23 +3,15 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QColorDialog>
-#include <QComboBox>
 #include <QDateTime>
-#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QFontDatabase>
-#include <QFormLayout>
 #include <QFrame>
 #include <QGridLayout>
-#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QKeySequence>
 #include <QLabel>
-#include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
 #include <QIcon>
@@ -34,9 +26,7 @@
 #include <QQuaternion>
 #include <QRadioButton>
 #include <QResizeEvent>
-#include <QScrollArea>
 #include <QSignalBlocker>
-#include <QSlider>
 #include <QSplitter>
 #include <QStyle>
 #include <QTabWidget>
@@ -54,18 +44,6 @@
 
 namespace aerosim {
 namespace {
-// Raises the page's update guard for the enclosing scope and restores the
-// previous depth on exit, so nested refresh helpers never clear it early.
-class EditorUpdateScope {
-public:
-    explicit EditorUpdateScope(int &depth) : depth_(depth) { ++depth_; }
-    ~EditorUpdateScope() { --depth_; }
-    EditorUpdateScope(const EditorUpdateScope &) = delete;
-    EditorUpdateScope &operator=(const EditorUpdateScope &) = delete;
-private:
-    int &depth_;
-};
-
 template <std::size_t N>
 QString uiText(const char16_t (&value)[N])
 {
@@ -150,10 +128,9 @@ const std::array<QVector3D, 3> worldAxes = {{QVector3D(1, 0, 0), QVector3D(0, 1,
 
 class AxisTriad final : public QWidget {
 public:
-    AxisTriad(QWidget *parent, std::function<QString()> target,
-              std::function<void(const QString &, int, int)> orbit,
-              std::function<void(const QString &, const QString &, const QVector3D &)> snap)
-        : QWidget(parent), target_(std::move(target)), orbit_(std::move(orbit)), snap_(std::move(snap))
+    AxisTriad(QWidget *parent, std::function<void(int, int)> orbit,
+              std::function<void(const QString &)> snap)
+        : QWidget(parent), orbit_(std::move(orbit)), snap_(std::move(snap))
     {
         setObjectName(QStringLiteral("axisIndicator"));
         setFixedSize(88, 88);
@@ -165,7 +142,7 @@ public:
     {
         setAttribute(Qt::WA_TransparentForMouseEvents, false);
         setCursor(Qt::OpenHandCursor);
-        setToolTip(QString::fromUtf8("选中网格后拖动旋转该网格，点击轴端点转 90°。点击视口空白处可取消选中。"));
+        setToolTip(QString::fromUtf8("拖动可旋转视角，点击轴端点可切换到相应视图。"));
     }
 
     void setView(const QVector3D &from, const QVector3D &up)
@@ -182,7 +159,6 @@ protected:
         if (QPointF::dotProduct(offset, offset) > 44 * 44) return QWidget::mousePressEvent(event);
         pressed_ = true;
         dragging_ = false;
-        targetId_ = target_();
         lastPos_ = pressPos_ = event->pos();
         setCursor(Qt::ClosedHandCursor);
         event->accept();
@@ -196,7 +172,7 @@ protected:
         dragging_ = true;
         const auto delta = event->pos() - lastPos_;
         lastPos_ = event->pos();
-        orbit_(targetId_, delta.x(), delta.y());
+        orbit_(delta.x(), delta.y());
         event->accept();
     }
 
@@ -210,8 +186,7 @@ protected:
             for (auto end = points.crbegin(); end != points.crend(); ++end) {
                 const auto offset = QPointF(event->pos()) - end->tip;
                 if (QPointF::dotProduct(offset, offset) <= end->radius * end->radius) {
-                    const auto axis = worldAxes[end->axis];
-                    snap_(targetId_, QString::fromLatin1(end->command), end->positive ? axis : -axis);
+                    snap_(QString::fromLatin1(end->command));
                     break;
                 }
             }
@@ -277,10 +252,8 @@ private:
         return points;
     }
 
-    std::function<QString()> target_;
-    std::function<void(const QString &, int, int)> orbit_;
-    std::function<void(const QString &, const QString &, const QVector3D &)> snap_;
-    QString targetId_;
+    std::function<void(int, int)> orbit_;
+    std::function<void(const QString &)> snap_;
     QQuaternion worldToView_;
     QPoint pressPos_;
     QPoint lastPos_;
@@ -352,9 +325,7 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         "#meshWorkspaceTabs QTabBar::tab { background:#2b285f; color:#ffffff; "
         "padding:6px 13px; margin:0; border:0; }"
         "#meshWorkspaceTabs QTabBar::tab:hover:!selected { background:#47447c; }"
-        "#meshWorkspaceTabs QTabBar::tab:selected { background:#ffffff; color:#16132f; }"
-        "QGroupBox { font-weight:600; margin-top:8px; }"
-        "QGroupBox::title { subcontrol-origin:margin; left:8px; padding:0 3px; }"));
+        "#meshWorkspaceTabs QTabBar::tab:selected { background:#ffffff; color:#16132f; }"));
 
     auto *pageLayout = new QVBoxLayout(this);
     pageLayout->setContentsMargins(8, 8, 8, 8);
@@ -443,64 +414,6 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     listActions->addWidget(deleteMeshButton_);
     objectLayout->addLayout(listActions);
 
-    // The reference settings panel contains only 网格信息. Keep the display
-    // properties available but collapsed by default so the panel matches that
-    // compact proportion; expanding it exposes the per-object style editors.
-    auto *properties = new QGroupBox(uiText(u"\u663e\u793a\u5c5e\u6027"), objectPanel);
-    properties->setObjectName(QStringLiteral("meshDisplayProperties"));
-    properties->setCheckable(true);
-    properties->setChecked(false);
-    properties->setToolTip(uiText(u"\u5c55\u5f00\u540e\u53ef\u7f16\u8f91\u5f53\u524d\u7f51\u683c\u7684\u663e\u793a\u5c5e\u6027"));
-    auto *propertyScroll = new QScrollArea(properties);
-    propertyScroll->setObjectName(QStringLiteral("meshPropertyScroll"));
-    propertyScroll->setWidgetResizable(true);
-    propertyScroll->setFrameShape(QFrame::NoFrame);
-    propertyScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    propertyScroll->setMinimumHeight(120);
-    auto *fields = new QWidget(propertyScroll);
-    auto *form = new QFormLayout(fields);
-    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
-    nameEditor_ = new QLineEdit(fields);
-    nameEditor_->setObjectName(QStringLiteral("meshNameEditor"));
-    visibleEditor_ = new QCheckBox(uiText(u"\u53ef\u89c1\uff08Mock\uff09"), fields);
-    visibleEditor_->setObjectName(QStringLiteral("meshVisibleEditor"));
-    displayModeEditor_ = new QComboBox(fields);
-    displayModeEditor_->setObjectName(QStringLiteral("meshDisplayModeEditor"));
-    displayModeEditor_->addItems({uiText(u"\u8868\u9762"), uiText(u"\u7ebf\u6846"), uiText(u"\u8868\u9762 + \u8fb9\u7ebf")});
-    colorButton_ = new QPushButton(fields);
-    colorButton_->setObjectName(QStringLiteral("meshColorButton"));
-    colorButton_->setToolTip(uiText(u"\u70b9\u51fb\u5faa\u73af\u5207\u6362 Mock \u663e\u793a\u989c\u8272"));
-    auto *opacityRow = new QWidget(fields);
-    auto *opacityLayout = new QHBoxLayout(opacityRow);
-    opacityLayout->setContentsMargins(0, 0, 0, 0);
-    opacityEditor_ = new QSlider(Qt::Horizontal, opacityRow);
-    opacityEditor_->setObjectName(QStringLiteral("meshOpacityEditor"));
-    opacityEditor_->setRange(0, 100);
-    opacityValue_ = new QLabel(opacityRow);
-    opacityValue_->setMinimumWidth(36);
-    opacityLayout->addWidget(opacityEditor_, 1);
-    opacityLayout->addWidget(opacityValue_);
-    scaleEditor_ = new QDoubleSpinBox(fields);
-    scaleEditor_->setObjectName(QStringLiteral("meshScaleEditor"));
-    scaleEditor_->setRange(0.001, 1000.0);
-    scaleEditor_->setDecimals(3);
-    scaleEditor_->setSingleStep(0.1);
-    unitEditor_ = new QComboBox(fields);
-    unitEditor_->setObjectName(QStringLiteral("meshUnitEditor"));
-    unitEditor_->addItems({QStringLiteral("m"), QStringLiteral("mm"), QStringLiteral("cm"), QStringLiteral("in")});
-    form->addRow(uiText(u"\u7f51\u683c\u540d\u79f0"), nameEditor_);
-    form->addRow(uiText(u"\u53ef\u89c1\u6027"), visibleEditor_);
-    form->addRow(uiText(u"\u663e\u793a\u6a21\u5f0f"), displayModeEditor_);
-    form->addRow(uiText(u"\u663e\u793a\u989c\u8272"), colorButton_);
-    form->addRow(uiText(u"\u900f\u660e\u5ea6"), opacityRow);
-    form->addRow(uiText(u"\u6bd4\u4f8b\u56e0\u5b50"), scaleEditor_);
-    form->addRow(uiText(u"\u5355\u4f4d\u6807\u8bb0"), unitEditor_);
-    propertyScroll->setWidget(fields);
-    auto *propertiesLayout = new QVBoxLayout(properties);
-    propertiesLayout->addWidget(propertyScroll);
-    objectLayout->addWidget(properties);
-    propertyScroll->setVisible(properties->isChecked());
-
     // The preprocessing workspace contains only the mesh view.
     workspaceTabs_ = new QTabWidget(settingsSplitter_);
     workspaceTabs_->setObjectName(QStringLiteral("meshWorkspaceTabs"));
@@ -529,18 +442,8 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
     canvasLayout->addWidget(viewportHost, 0, 0);
 
     auto *axis = new AxisTriad(canvas,
-        [this] {
-            const int row = selectedRow();
-            return row < 0 ? QString() : meshes_[row].id;
-        },
-        [this](const QString &id, int dx, int dy) {
-            if (id.isEmpty()) emit boundaryOrbitRequested(dx, dy);
-            else emit boundaryDragRotationRequested(id, dx, dy);
-        },
-        [this](const QString &id, const QString &command, const QVector3D &rotationAxis) {
-            if (id.isEmpty()) emit boundaryViewRequested(command);
-            else emit boundaryAxisRotationRequested(id, rotationAxis);
-        });
+        [this](int dx, int dy) { emit boundaryOrbitRequested(dx, dy); },
+        [this](const QString &command) { emit boundaryViewRequested(command); });
     axisIndicator_ = axis;
     canvas->setOrientationControl(axis);
     viewportWindow_->setCentralWidget(canvas);
@@ -599,20 +502,27 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
 
     auto *displayModes = new QActionGroup(toolbar);
     displayModes->setExclusive(true);
-    const auto addDisplayMode = [&](const QString &name, int index, const QIcon &icon) {
-        auto *action = addViewAction(toolbar, name, displayModeEditor_->itemText(index), icon);
-        connect(action, &QAction::triggered, this, [this, index] {
-            if (displayModeEditor_->isEnabled()) displayModeEditor_->setCurrentIndex(index);
-        });
-        connect(displayModeEditor_, QOverload<int>::of(&QComboBox::currentIndexChanged), action,
-                [action, index](int current) { action->setChecked(current == index); });
+    const auto addDisplayMode = [&](const QString &name, const QString &label, int mode, const QIcon &icon) {
+        auto *action = addViewAction(toolbar, name, label, icon);
         action->setCheckable(true);
         displayModes->addAction(action);
-        action->setChecked(displayModeEditor_->currentIndex() == index);
+        connect(action, &QAction::triggered, this, [this, mode] {
+            displayModeChosen_ = true;
+            emit boundaryDisplayModeChanged(mode);
+        });
+        return action;
     };
-    addDisplayMode(QStringLiteral("meshSurfaceEdgesButton"), 2, cubeIcon(6, true));
-    addDisplayMode(QStringLiteral("meshSurfaceButton"), 0, cubeIcon(6));
-    addDisplayMode(QStringLiteral("meshWireframeButton"), 1, cubeIcon(-1));
+    auto *edges = addDisplayMode(QStringLiteral("meshSurfaceEdgesButton"), QString::fromUtf8("表面 + 边线"), 2, cubeIcon(6, true));
+    surfaceAction_ = addDisplayMode(QStringLiteral("meshSurfaceButton"), QString::fromUtf8("表面"), 0, cubeIcon(6));
+    auto *wire = addDisplayMode(QStringLiteral("meshWireframeButton"), QString::fromUtf8("线框"), 1, cubeIcon(-1));
+    edges->setChecked(true);
+    // Route VTK's display shortcuts through the same viewport-wide actions.
+    surfaceAction_->setShortcut(QKeySequence(Qt::Key_S));
+    wire->setShortcut(QKeySequence(Qt::Key_W));
+    for (auto *action : {surfaceAction_, wire}) {
+        action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+        viewportWindow_->addAction(action);
+    }
     addRenderCommand(QStringLiteral("out"), QString::fromUtf8("缩小"),
                      toolbarIcon(QStringLiteral("view-zoom-out")));
     toolbar->addSeparator();
@@ -717,64 +627,30 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
 
     connect(importMeshButton_, &QPushButton::clicked, this, &MeshManagementPage::addMesh);
     connect(deleteMeshButton_, &QPushButton::clicked, this, &MeshManagementPage::removeCurrentMesh);
-    connect(properties, &QGroupBox::toggled, this, [propertyScroll](bool expanded) {
-        propertyScroll->setVisible(expanded);
-    });
     connect(meshTable_, &QTableWidget::currentCellChanged, this,
         [this](int row, int, int, int) { selectMesh(row); });
     connect(meshTable_, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *item) {
-        if (isUpdatingEditor() || !item || item->column() != 2) return;
+        if (!item || item->column() != 2) return;
         const int row = item->row();
-        if (row < 0 || row >= meshes_.size()) return;
+        if (row < 0 || row >= meshes_.size() || !meshes_[row].ready) return;
         meshes_[row].visible = item->checkState() == Qt::Checked;
-        emitBoundaryStyle(row);
-        if (row == selectedRow()) refreshEditor();
+        if (boundaryMode_) emit boundaryVisibilityChanged(meshes_[row].id, meshes_[row].visible);
         appendHistory((meshes_[row].visible ? uiText(u"\u663e\u793a ") : uiText(u"\u9690\u85c5 ")) + meshes_[row].name);
-    });
-    connect(nameEditor_, &QLineEdit::editingFinished, this, &MeshManagementPage::updateCurrentMesh);
-    connect(visibleEditor_, &QCheckBox::toggled, this, &MeshManagementPage::updateCurrentMesh);
-    connect(displayModeEditor_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeshManagementPage::updateCurrentMesh);
-    connect(opacityEditor_, &QSlider::valueChanged, this, &MeshManagementPage::updateCurrentMesh);
-    connect(scaleEditor_, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeshManagementPage::updateCurrentMesh);
-    connect(unitEditor_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeshManagementPage::updateCurrentMesh);
-    connect(colorButton_, &QPushButton::clicked, this, [this] {
-        const int row = selectedRow();
-        if (row < 0 || row >= meshes_.size()) return;
-        const QString id = meshes_.at(row).id;
-        QColor color = meshes_.at(row).color;
-        if (boundaryMode_) {
-            color = QColorDialog::getColor(color, this, QString::fromUtf8("设置网格颜色"));
-        } else {
-            const QVector<QColor> colors = {QColor("#3b82c4"), QColor("#e58b2a"), QColor("#4d9d69"), QColor("#8c63b8")};
-            color = colors.at((colors.indexOf(color) + 1) % colors.size());
-        }
-        if (!color.isValid() || row >= meshes_.size() || meshes_.at(row).id != id) return;
-        meshes_[row].color = color;
-        emitBoundaryStyle(row);
-        refreshEditor();
-        appendHistory(QString::fromUtf8("修改 %1 的显示颜色为 %2")
-                      .arg(meshes_.at(row).name, color.name().toUpper()));
     });
     connect(historyCollapseButton_, &QPushButton::clicked, this,
         [this] { setHistoryCollapsed(!historyCollapsed_); });
 
-    const QVector<QColor> colors = {QColor("#3b82c4"), QColor("#e58b2a"), QColor("#4d9d69")};
     for (int i = 0; i < 3; ++i) {
         MeshUiState state;
         state.name = QStringLiteral("Mesh_%1").arg(i + 1, 3, 10, QLatin1Char('0'));
         state.visible = i != 2;
-        state.displayMode = i == 1 ? uiText(u"\u7ebf\u6846") : uiText(u"\u8868\u9762");
-        state.color = colors[i];
-        state.opacity = i == 2 ? 65 : 100;
-        state.scale = 1.0;
-        state.unit = QStringLiteral("m");
         meshes_.append(state);
         meshTable_->insertRow(meshTable_->rowCount());
         {
             // Assigning a checkable item emits itemChanged while its check
             // state is still unset; without this guard that would be read as
             // the user hiding the mesh.
-            EditorUpdateScope updateGuard(editorUpdateDepth_);
+            const QSignalBlocker block(meshTable_);
             auto *indexItem = new QTableWidgetItem;
             indexItem->setFlags(indexItem->flags() & ~Qt::ItemIsEditable);
             auto *nameItem = new QTableWidgetItem;
@@ -808,16 +684,13 @@ void MeshManagementPage::addMesh()
     if (meshes_.size() >= 10) return;
     MeshUiState state;
     state.name = QStringLiteral("Mesh_%1").arg(meshes_.size() + 1, 3, 10, QLatin1Char('0'));
-    state.displayMode = uiText(u"\u8868\u9762");
-    state.color = QColor("#3b82c4");
-    state.unit = QStringLiteral("m");
     meshes_.append(state);
     const int row = meshTable_->rowCount();
     meshTable_->insertRow(row);
     {
         // Building a checkable cell emits itemChanged before its initial check
         // state is assigned. Do not interpret that as a user hiding the mesh.
-        EditorUpdateScope updateGuard(editorUpdateDepth_);
+        const QSignalBlocker block(meshTable_);
         auto *indexItem = new QTableWidgetItem;
         indexItem->setFlags(indexItem->flags() & ~Qt::ItemIsEditable);
         auto *nameItem = new QTableWidgetItem;
@@ -849,14 +722,14 @@ void MeshManagementPage::removeCurrentMesh()
         for (int index = 0; index < meshes_.size(); ++index) refreshTableRow(index);
         if (!meshes_.isEmpty()) meshTable_->setCurrentCell(qMin(row, meshes_.size() - 1), 1);
     }
-    refreshEditor();
+    refreshSelection();
     appendHistory(uiText(u"\u79fb\u9664\u7f51\u683c %1\uff08\u4ec5\u5f71\u54cd\u5f53\u524d\u754c\u9762\uff09").arg(name));
     updateCount();
 }
 
 void MeshManagementPage::selectMesh(int row)
 {
-    refreshEditor();
+    refreshSelection();
     if (row < 0 || row >= meshes_.size()) return;
     appendHistory(uiText(u"\u9009\u62e9\u7f51\u683c %1").arg(meshes_[row].name));
 }
@@ -868,67 +741,25 @@ void MeshManagementPage::refreshTableRow(int row)
     auto *nameItem = meshTable_->item(row, 1);
     auto *visibleItem = meshTable_->item(row, 2);
     if (!indexItem || !nameItem || !visibleItem) return;
-    EditorUpdateScope updateGuard(editorUpdateDepth_);
+    const QSignalBlocker block(meshTable_);
     indexItem->setText(QString::number(row + 1));
     indexItem->setTextAlignment(Qt::AlignCenter);
     nameItem->setText(meshes_[row].name + (meshes_[row].ready ? QString() : QString::fromUtf8(" · 加载中")));
     if (!meshes_[row].id.isEmpty()) nameItem->setData(Qt::UserRole, meshes_[row].id);
+    visibleItem->setFlags(visibleItem->flags().setFlag(Qt::ItemIsUserCheckable, meshes_[row].ready));
     visibleItem->setCheckState(meshes_[row].visible ? Qt::Checked : Qt::Unchecked);
     visibleItem->setTextAlignment(Qt::AlignCenter);
 
 }
 
-void MeshManagementPage::refreshEditor()
+void MeshManagementPage::refreshSelection()
 {
     const int row = selectedRow();
-    const bool valid = row >= 0 && row < meshes_.size();
-    const QVector<QWidget *> editors = {nameEditor_, visibleEditor_, displayModeEditor_, colorButton_,
-                                        opacityEditor_, scaleEditor_, unitEditor_};
-    for (auto *widget : editors) widget->setEnabled(valid && meshes_[row].ready);
-    deleteMeshButton_->setEnabled(valid);
-    EditorUpdateScope updateGuard(editorUpdateDepth_);
-    if (valid) {
-        const auto &state = meshes_[row];
-        nameEditor_->setText(state.name);
-        visibleEditor_->setChecked(state.visible);
-        displayModeEditor_->setCurrentText(state.displayMode);
-        opacityEditor_->setValue(state.opacity);
-        opacityValue_->setText(QStringLiteral("%1%").arg(state.opacity));
-        scaleEditor_->setValue(state.scale);
-        unitEditor_->setCurrentText(state.unit);
-        colorButton_->setText(state.color.name().toUpper());
-        colorButton_->setStyleSheet(QStringLiteral("QPushButton { border-left:16px solid %1; }").arg(state.color.name()));
-        viewerStatus_->setText(uiText(u"\u5f53\u524d\u7f16\u8f91\uff1a%1 · %2 · 前端 Mock 状态")
-            .arg(state.name, state.visible ? uiText(u"\u53ef\u89c1") : uiText(u"\u9690\u85c5")));
-    } else {
-        nameEditor_->clear();
-        opacityValue_->clear();
-        colorButton_->setText(uiText(u"\u65e0\u9009\u62e9"));
-        viewerStatus_->setText(uiText(u"\u5c1a\u672a\u9009\u62e9\u7f51\u683c\u5bf9\u8c61 · VTKViewer \u63d2\u69fd\u4fdd\u6301\u4e0d\u53d8"));
+    deleteMeshButton_->setEnabled(row >= 0);
+    if (boundaryMode_) {
+        viewerStatus_->setText(row >= 0 ? meshes_[row].summary
+                                       : QString::fromUtf8("请选择网格文件以显示边界。"));
     }
-    if (boundaryMode_) viewerStatus_->setText(valid ? meshes_[row].summary
-        : QString::fromUtf8("请选择网格文件以显示边界。"));
-
-}
-
-void MeshManagementPage::updateCurrentMesh()
-{
-    if (isUpdatingEditor()) return;
-    const int row = selectedRow();
-    if (row < 0 || row >= meshes_.size()) return;
-    auto &state = meshes_[row];
-    const QString oldName = state.name;
-    const QString requestedName = nameEditor_->text().trimmed();
-    state.name = requestedName.isEmpty() ? oldName : requestedName;
-    state.visible = visibleEditor_->isChecked();
-    state.displayMode = displayModeEditor_->currentText();
-    state.opacity = opacityEditor_->value();
-    state.scale = scaleEditor_->value();
-    state.unit = unitEditor_->currentText();
-    emitBoundaryStyle(row);
-    refreshTableRow(row);
-    refreshEditor();
-    appendHistory(uiText(u"\u66f4\u65b0 %1 \u663e\u793a\u5c5e\u6027\uff08Mock\uff09").arg(state.name));
 }
 
 void MeshManagementPage::updateCount()
@@ -1029,19 +860,6 @@ void MeshManagementPage::enableBoundaryMode(bool cgnsAvailable)
         meshes_.clear();
     }
     historyList_->clear();
-    meshCount_->setText(QString::fromUtf8("B-Rep · 网格边界显示"));
-    auto *displayGroup = findChild<QGroupBox *>("meshDisplayProperties");
-    displayGroup->setTitle(QString::fromUtf8("显示属性"));
-    displayGroup->setChecked(true);
-    visibleEditor_->setText(QString::fromUtf8("可见"));
-    colorButton_->setToolTip(QString::fromUtf8("自定义当前网格颜色"));
-    auto *opacityRow=opacityEditor_->parentWidget();
-    if (auto *form=qobject_cast<QFormLayout *>(opacityRow->parentWidget()->layout())) {
-        if (auto *label=qobject_cast<QLabel *>(form->labelForField(opacityRow)))
-            label->setText(QString::fromUtf8("不透明度"));
-    }
-    scaleEditor_->setToolTip(QString::fromUtf8("仅缩放显示，不修改原始网格坐标"));
-    unitEditor_->setToolTip(QString::fromUtf8("单位标记，不执行坐标或物理量换算"));
     for (auto *action : viewToolbar_->actions()) {
         if (action->property("boundaryCommand").isValid()) action->setEnabled(true);
     }
@@ -1049,8 +867,8 @@ void MeshManagementPage::enableBoundaryMode(bool cgnsAvailable)
     emit boundaryBackgroundRequested(canvas->property("backgroundMode").toInt());
     viewerStatus_->setWordWrap(true);
     viewerStatus_->show();
-    refreshEditor(); updateCount();
-    viewerStatus_->setText(QString::fromUtf8("导入后可在视口或列表选中网格，再用 XYZ 方向球旋转。"));
+    refreshSelection(); updateCount();
+    viewerStatus_->setText(QString::fromUtf8("网格按文件坐标定位。拖动 XYZ 方向球可旋转视角。"));
 }
 void MeshManagementPage::setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up)
 {
@@ -1068,7 +886,6 @@ void MeshManagementPage::selectBoundary(const QString &id)
         if (meshes_[row].id != id) continue;
         meshTable_->setCurrentCell(row, 1);
         meshTable_->scrollToItem(meshTable_->item(row, 1));
-        findChild<QGroupBox *>(QStringLiteral("meshDisplayProperties"))->setChecked(true);
         return;
     }
 }
@@ -1077,15 +894,13 @@ void MeshManagementPage::beginBoundary(const QString &id,const QString &path)
 {
     MeshUiState state; state.id=id; state.ready=false; state.name=QFileInfo(path).fileName();
     state.summary=QString::fromUtf8("正在后台读取并提取边界…");
-    state.displayMode=displayModeEditor_->itemText(2); state.color=QColor("#bca9e4"); state.unit="m";
     meshes_.append(state);
     const int row = meshTable_->rowCount();
     meshTable_->insertRow(row);
     {
         // Building a checkable cell emits itemChanged before its initial check
         // state is assigned. Do not interpret that as a user hiding the mesh.
-        QSignalBlocker block(meshTable_);
-        EditorUpdateScope updateGuard(editorUpdateDepth_);
+        const QSignalBlocker block(meshTable_);
         auto *indexItem = new QTableWidgetItem;
         indexItem->setFlags(indexItem->flags() & ~Qt::ItemIsEditable);
         auto *nameItem = new QTableWidgetItem;
@@ -1099,37 +914,36 @@ void MeshManagementPage::beginBoundary(const QString &id,const QString &path)
 
     }
     refreshTableRow(row);
-    meshTable_->setCurrentCell(row, 1); refreshEditor(); updateCount();
+    meshTable_->setCurrentCell(row, 1); refreshSelection(); updateCount();
 }
 void MeshManagementPage::finishBoundary(const QString &id, const QString &summary, qint64 boundaryFaces)
 {
-    for(int i=0;i<meshes_.size();++i) if(meshes_[i].id==id) {
-        // Edge drawing needs an additional index buffer. Large imports start
-        // with the full surface; the display editor can enable edges on demand.
-        constexpr qint64 largeSurfaceFaces = 10000000;
-        if (!meshes_[i].ready && boundaryFaces >= largeSurfaceFaces)
-            meshes_[i].displayMode = displayModeEditor_->itemText(0);
-        meshes_[i].ready=true; meshes_[i].summary=summary;
-        refreshTableRow(i); refreshEditor(); emitBoundaryStyle(i); appendHistory(summary); return;
+    constexpr qint64 largeSurfaceFaces = 10000000;
+    for (int row = 0; row < meshes_.size(); ++row) {
+        auto &mesh = meshes_[row];
+        if (mesh.id != id) continue;
+        if (!mesh.ready && !displayModeChosen_ && boundaryFaces >= largeSurfaceFaces && !surfaceAction_->isChecked()) {
+            surfaceAction_->setChecked(true);
+            emit boundaryDisplayModeChanged(0);
+        }
+        mesh.ready = true;
+        mesh.summary = summary;
+        refreshTableRow(row);
+        refreshSelection();
+        appendHistory(summary);
+        return;
     }
 }
+
 void MeshManagementPage::failBoundary(const QString &id,const QString &message)
 {
     for(int i=0;i<meshes_.size();++i) if(meshes_[i].id==id) {
         meshes_.remove(i); meshTable_->removeRow(i); break;
     }
     for(int i=0;i<meshes_.size();++i) refreshTableRow(i);
-    refreshEditor(); updateCount(); viewerStatus_->setText(message); appendHistory(message);
+    refreshSelection(); updateCount(); viewerStatus_->setText(message); appendHistory(message);
 }
 void MeshManagementPage::setBoundaryBusy(bool busy) {boundaryBusy_=busy;updateCount();}
-void MeshManagementPage::emitBoundaryStyle(int row)
-{
-    if(!boundaryMode_ || row<0 || row>=meshes_.size() || !meshes_[row].ready) return;
-    const auto &s=meshes_[row];
-    emit boundaryStyleChanged(s.id,{{"visible",s.visible},{"color",s.color},{"opacity",s.opacity},
-        {"scale",s.scale},{"mode",displayModeEditor_->findText(s.displayMode)}});
-}
-
 int MeshManagementPage::selectedRow() const
 {
     if (!meshTable_) return -1;

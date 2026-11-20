@@ -22,12 +22,9 @@
 #include <QDockWidget>
 #include <QDialog>
 #include <QDoubleSpinBox>
-#include <QGroupBox>
-#include <QHash>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
-#include <QSlider>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTableWidget>
@@ -106,93 +103,75 @@ int main(int argc, char **argv)
         if (!check(view.isEmpty() && drag == QPoint(offset, 2),
                    "Dragging the orientation control must orbit without snapping")) return 93;
 
-        auto *displayMode = page.findChild<QComboBox *>("meshDisplayModeEditor");
-        if (!check(displayMode, "Missing display mode editor")) return 105;
-        QHash<QString, int> sceneModes;
-        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryStyleChanged, &page,
-                         [&](const QString &id, const QVariantMap &style) {
-            sceneModes.insert(id, style.value(QStringLiteral("mode")).toInt());
-        });
+        auto *edges = toolbar->findChild<QAction *>("meshSurfaceEdgesButton");
+        auto *surface = toolbar->findChild<QAction *>("meshSurfaceButton");
+        auto *wire = toolbar->findChild<QAction *>("meshWireframeButton");
+        auto *meshList = page.findChild<QTableWidget *>("meshTable");
+        auto *status = page.findChild<QLabel *>("meshViewerStatus");
+        auto *removeMesh = page.findChild<QPushButton *>("deleteMeshButton");
+        if (!check(edges && surface && wire && meshList && status && removeMesh,
+                   "Missing scene display or mesh list controls")) return 96;
+
+        QVector<int> modeChanges;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryDisplayModeChanged,
+                         &page, [&](int mode) { modeChanges.append(mode); });
         page.beginBoundary(QStringLiteral("cube"), QStringLiteral("Cube.vtk"));
         page.finishBoundary(QStringLiteral("cube"), QStringLiteral("Cube summary"), 9999999);
-        if (!check(displayMode->currentIndex() == 2 && sceneModes.value("cube", -1) == 2,
-                   "Smaller imports retain surface and edges")) return 106;
+        if (!check(edges->isChecked(), "Small imports should initially show surface and edges")) return 106;
         page.beginBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder.vtu"));
-        if (!check(!displayMode->isEnabled(), "Pending mesh mode cannot be edited")) return 107;
         page.finishBoundary(QStringLiteral("cylinder"), QStringLiteral("Cylinder summary"), 10000000);
-        if (!check(displayMode->isEnabled() && displayMode->currentIndex() == 0 && sceneModes.value("cylinder", -1) == 0,
-                   "Ten million faces must initially render as a surface")) return 108;
-        displayMode->setCurrentIndex(2);
+        if (!check(surface->isChecked() && modeChanges.value(modeChanges.size() - 1, -1) == 0,
+                   "A large import must switch the automatic scene mode to surface")) return 108;
+
+        page.selectBoundary(QString());
+        if (!check(meshList->currentRow() == -1 && !removeMesh->isEnabled() && wire->isEnabled(),
+                   "Viewport display must remain available without a selected row")) return 101;
+        wire->trigger();
         page.beginBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere.vtp"));
         page.finishBoundary(QStringLiteral("sphere"), QStringLiteral("Sphere summary"), 20000000);
-        if (!check(displayMode->currentIndex() == 0 && sceneModes.value("sphere", -1) == 0 &&
-                   sceneModes.value("cylinder", -1) == 2, "Each mesh keeps its edited display mode")) return 109;
-        auto *meshList = page.findChild<QTableWidget *>("meshTable");
-        auto *removeMesh = page.findChild<QPushButton *>("deleteMeshButton");
-        auto *meshName = page.findChild<QLineEdit *>("meshNameEditor");
-        if (!check(meshList && removeMesh && meshName, "Mesh removal controls are missing")) return 96;
-        meshList->setCurrentCell(0, 1);
-        removeMesh->click();
-        if (!check(meshList->rowCount() == 2 && meshList->currentRow() == 0
-                   && meshList->item(0, 1)->text() == QStringLiteral("Cylinder.vtu")
-                   && meshName->text() == QStringLiteral("Cylinder.vtu"),
-                   "Removing a mesh must refresh the properties of the selected remaining mesh")) return 97;
+        if (!check(wire->isChecked() && modeChanges.value(modeChanges.size() - 1, -1) == 1,
+                   "An explicit scene mode must survive later imports")) return 109;
 
-        QString rotationTarget;
-        QVector3D rotationAxis;
-        QPoint meshDrag;
-        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryAxisRotationRequested, &page,
-                         [&](const QString &id, const QVector3D &direction) {
-            rotationTarget = id;
-            rotationAxis = direction;
-        });
-        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryDragRotationRequested, &page,
-                         [&](const QString &id, int dx, int dy) {
-            rotationTarget = id;
-            meshDrag += QPoint(dx, dy);
-        });
+        const int modeChangeCount = modeChanges.size();
+        page.selectBoundary(QStringLiteral("cylinder"));
+        if (!check(meshList->currentRow() == 1 && status->text().contains(QStringLiteral("Cylinder summary"))
+                   && modeChanges.size() == modeChangeCount && wire->isChecked()
+                   && !(meshList->item(1, 1)->flags() & Qt::ItemIsEditable)
+                   && !page.findChild<QWidget *>("meshDisplayProperties")
+                   && !page.findChild<QWidget *>("meshScaleEditor"),
+                   "Picking a mesh must select its read-only information")) return 98;
+        if (!check(page.metaObject()->indexOfSignal("boundaryAxisRotationRequested(QString,QVector3D)") < 0
+                   && page.metaObject()->indexOfSignal("boundaryDragRotationRequested(QString,int,int)") < 0,
+                   "The page must not expose object rotation gestures")) return 102;
+
+        QStringList hiddenIds;
+        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryVisibilityChanged,
+                         &page, [&](const QString &id, bool visible) { if (!visible) hiddenIds.append(id); });
+        meshList->item(0, 2)->setCheckState(Qt::Unchecked);
+        if (!check(hiddenIds == QStringList{QStringLiteral("cube")}
+                   && meshList->item(1, 2)->checkState() == Qt::Checked,
+                   "Visibility must belong to the toggled row")) return 104;
+
         view.clear();
         drag = QPoint();
-        auto *properties = page.findChild<QGroupBox *>("meshDisplayProperties");
-        auto *opacity = page.findChild<QSlider *>("meshOpacityEditor");
-        if (!check(properties && opacity, "Missing per-mesh properties")) return 102;
-        properties->setChecked(false);
-        page.selectBoundary(QStringLiteral("sphere"));
-        if (!check(meshName->text() == QStringLiteral("Sphere.vtp") && properties->isChecked()
-                   && opacity->isVisibleTo(&page) && opacity->isEnabled(),
-                   "Picking a mesh must reveal its editable properties")) return 98;
-        QStringList editedIds;
-        QObject::connect(&page, &aerosim::MeshManagementPage::boundaryStyleChanged,
-                         &page, [&](const QString &id, const QVariantMap &) { editedIds << id; });
-        opacity->setValue(35);
-        page.selectBoundary(QStringLiteral("cylinder"));
-        if (!check(opacity->value() == 100, "Editing the sphere must preserve cylinder opacity")) return 103;
-        opacity->setValue(70);
-        page.selectBoundary(QStringLiteral("sphere"));
-        if (!check(opacity->value() == 35
-                   && editedIds == QStringList{QStringLiteral("sphere"), QStringLiteral("cylinder")},
-                   "Only the edited mesh should receive a style change")) return 104;
         mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
         mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
-        if (!check(view.isEmpty() && rotationTarget == QStringLiteral("sphere")
-                   && rotationAxis == QVector3D(1, 0, 0),
-                   "Clicking X must rotate only the picked mesh")) return 99;
-
-        meshList->setCurrentCell(0, 1);
+        if (!check(view == QStringLiteral("right") && drag.isNull(),
+                   "With a mesh selected the X endpoint must still move the camera")) return 99;
+        view.clear();
         mouse(QEvent::MouseButtonPress, QPoint(44, 44), Qt::LeftButton, Qt::LeftButton);
         page.selectBoundary(QStringLiteral("sphere"));
         mouse(QEvent::MouseMove, QPoint(44 + offset, 46), Qt::NoButton, Qt::LeftButton);
         mouse(QEvent::MouseButtonRelease, QPoint(44 + offset, 46), Qt::LeftButton, Qt::NoButton);
-        if (!check(drag.isNull() && rotationTarget == QStringLiteral("cylinder")
-                   && meshDrag == QPoint(offset, 2),
-                   "A direction-ball drag must keep the original mesh target")) return 100;
+        if (!check(view.isEmpty() && drag == QPoint(offset, 2),
+                   "Changing mesh selection during a drag must preserve the camera orbit")) return 100;
 
-        page.selectBoundary(QString());
-        mouse(QEvent::MouseButtonPress, QPoint(77, 44), Qt::LeftButton, Qt::LeftButton);
-        mouse(QEvent::MouseButtonRelease, QPoint(77, 44), Qt::LeftButton, Qt::NoButton);
-        if (!check(meshList->currentRow() == -1 && meshName->text().isEmpty()
-                   && view == QStringLiteral("right"),
-                   "Clearing selection must return the direction ball to camera control")) return 101;
+        meshList->setCurrentCell(0, 1);
+        removeMesh->click();
+        if (!check(meshList->rowCount() == 2 && meshList->currentRow() == 0
+                   && meshList->item(0, 1)->text() == QStringLiteral("Cylinder.vtu")
+                   && status->text().contains(QStringLiteral("Cylinder summary")),
+                   "Removing a mesh must show the selected remaining mesh information")) return 97;
     }
     // ASCII source with explicit UTF-16 expectations detects compiler/code-page corruption.
     const auto text = [](const char16_t *value) {
@@ -261,7 +240,6 @@ int main(int argc, char **argv)
     auto *meshCount = window.findChild<QLabel *>("meshObjectCount");
     auto *importMesh = window.findChild<QPushButton *>("importMeshButton");
     auto *deleteMesh = window.findChild<QPushButton *>("deleteMeshButton");
-    auto *scaleEditor = window.findChild<QDoubleSpinBox *>("meshScaleEditor");
     auto *historyTabs = window.findChild<QTabWidget *>("meshHistoryTabs");
     auto *history = window.findChild<QListWidget *>("meshOperationHistory");
     auto *historyCollapse = window.findChild<QPushButton *>("meshHistoryCollapseButton");
@@ -269,7 +247,8 @@ int main(int argc, char **argv)
     if (!check(meshPage && meshTable && meshTable->rowCount() == 3
                && meshTable->columnCount() == 3
                && meshCount && meshCount->text().contains("3 / 10")
-               && importMesh && deleteMesh && scaleEditor && historyTabs && history && historyCollapse
+               && importMesh && deleteMesh && historyTabs && history && historyCollapse
+               && !meshPage->findChild<QWidget *>("meshDisplayProperties")
                && workspaceTabs && workspaceTabs->count() == 1
                && workspaceTabs->tabText(0) == text(u"\u7f51\u683c\u89c6\u56fe")
                && window.findChild<QSplitter *>("meshWorkspaceMainSplitter")
@@ -303,15 +282,14 @@ int main(int argc, char **argv)
                    .contains(text(u"\u9690\u85c5 Mesh_001")),
                "Seeding the table must not log a spurious hide")) return 88;
     meshTable->setCurrentCell(1, 1);
-    scaleEditor->setValue(2.5);
     meshTable->item(1, 2)->setCheckState(Qt::Unchecked);
     meshTable->setCurrentCell(0, 1);
     meshTable->setCurrentCell(1, 1);
     app.processEvents();
-    if (!check(scaleEditor->value() == 2.5
-               && !window.findChild<QCheckBox *>("meshVisibleEditor")->isChecked()
-               && history->count() >= 3,
-               "Per-mesh mock display state was not retained")) return 58;
+    if (!check(meshTable->item(0, 2)->checkState() == Qt::Checked
+               && meshTable->item(1, 2)->checkState() == Qt::Unchecked
+               && history->count() >= 1,
+               "Mock visibility must survive row changes")) return 58;
     for (int i = meshTable->rowCount(); i < 10; ++i) importMesh->click();
     if (!check(meshTable->rowCount() == 10 && !importMesh->isEnabled()
                && meshCount->text().contains("10 / 10"),

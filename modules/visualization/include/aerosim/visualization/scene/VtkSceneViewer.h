@@ -1,7 +1,6 @@
 #pragma once
 #include <QWidget>
 #include <QColor>
-#include <QVariantMap>
 #include <QVector3D>
 #include <memory>
 #include "aerosim/visualization/features/BoundarySurfaceExtractor.h"
@@ -15,12 +14,11 @@ public:
     static void configureSurface();
 public slots:
     void removeObject(const QString& id);
-    void setObjectStyle(const QString& id,const QVariantMap& style);
+    void setObjectVisible(const QString &id, bool visible);
+    void setDisplayMode(int mode);
     void setBackground(const QColor& bottom,const QColor& top,bool gradient);
     void setCameraOrientation(const QString& command);
     void orbitCamera(int dx, int dy);
-    void rotateObjectAroundAxis(const QString &id, const QVector3D &axis);
-    void rotateObjectByDrag(const QString &id, int dx, int dy);
 signals:
     void boundaryPicked(const QString &id);
     void cameraOrientationChanged(const QVector3D &from, const QVector3D &up);

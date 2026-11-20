@@ -35,6 +35,12 @@ void zoomCamera(vtkCamera *camera, double steps)
     else
         camera->Dolly(factor);
 }
+
+void applyDisplayMode(vtkProperty *property, int mode)
+{
+    property->SetRepresentation(mode == 1 ? VTK_WIREFRAME : VTK_SURFACE);
+    property->SetEdgeVisibility(mode == 2);
+}
 }
 struct VtkSceneViewer::Impl {
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> window=vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
@@ -43,6 +49,7 @@ struct VtkSceneViewer::Impl {
         vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New();
     unsigned long interactionObserver = 0;
     QHash<QString, vtkSmartPointer<vtkActor>> objects;
+    int displayMode = 2;
     QVTKOpenGLNativeWidget *viewport = nullptr;
     QPoint pickPressPosition;
     bool pickPending = false;
@@ -86,10 +93,13 @@ void VtkSceneViewer::addBoundary(const QString& id,std::shared_ptr<const Boundar
     mapper->ScalarVisibilityOff();
     vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
     actor->SetMapper(mapper);
-    double center[3];
-    mesh->surface->GetCenter(center);
-    actor->SetOrigin(center);
-    actor->GetProperty()->SetEdgeColor(0.1, 0.15, 0.2);
+    // File coordinates are world coordinates for every mesh in the scene.
+    actor->DragableOff();
+    auto *property = actor->GetProperty();
+    const QColor surfaceColor(0xbc, 0xa9, 0xe4);
+    property->SetColor(surfaceColor.redF(), surfaceColor.greenF(), surfaceColor.blueF());
+    property->SetEdgeColor(0.1, 0.15, 0.2);
+    applyDisplayMode(property, impl_->displayMode);
     impl_->renderer->AddActor(actor);
     impl_->objects.insert(id, actor);
     if (impl_->objects.size() == 1) setCameraOrientation(QStringLiteral("fit"));
@@ -102,26 +112,22 @@ void VtkSceneViewer::removeObject(const QString& id) {
     if(!impl_->objects.contains(id)) return;
     impl_->renderer->RemoveActor(impl_->objects.take(id)); render();
 }
-void VtkSceneViewer::setObjectStyle(const QString& id,const QVariantMap& s) {
-    if(!impl_->objects.contains(id)) return;
-    auto* a=impl_->objects.value(id).GetPointer(); auto* p=a->GetProperty();
-    if(s.contains("visible")) a->SetVisibility(s.value("visible").toBool());
-    if(s.contains("color")) { QColor c=s.value("color").value<QColor>(); if(c.isValid()) p->SetColor(c.redF(),c.greenF(),c.blueF()); }
-    if(s.contains("opacity")) p->SetOpacity(qBound(0.0,s.value("opacity").toDouble()/100.0,1.0));
-    if (s.contains("scale")) {
-        const double scale = s.value("scale").toDouble();
-        if (std::isfinite(scale) && scale > 0) {
-            const auto *origin = a->GetOrigin();
-            // Retain world-origin scaling while using the mesh center as the rotation pivot.
-            a->SetPosition((scale - 1) * origin[0], (scale - 1) * origin[1], (scale - 1) * origin[2]);
-            a->SetScale(scale);
-        }
-    }
-    if(s.contains("mode")) {
-        const int m=s.value("mode").toInt();
-        p->SetRepresentation(m==1?VTK_WIREFRAME:VTK_SURFACE); p->SetEdgeVisibility(m==2);
-    }
-    impl_->renderer->ResetCameraClippingRange(); render();
+void VtkSceneViewer::setObjectVisible(const QString &id, bool visible)
+{
+    auto actor = impl_->objects.value(id);
+    if (!actor || bool(actor->GetVisibility()) == visible) return;
+    actor->SetVisibility(visible);
+    impl_->renderer->ResetCameraClippingRange();
+    render();
+}
+
+void VtkSceneViewer::setDisplayMode(int mode)
+{
+    if (mode < 0 || mode > 2 || mode == impl_->displayMode) return;
+    impl_->displayMode = mode;
+    for (const auto &actor : impl_->objects)
+        applyDisplayMode(actor->GetProperty(), mode);
+    render();
 }
 void VtkSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
     impl_->renderer->SetBackground(b.redF(),b.greenF(),b.blueF());
@@ -172,33 +178,6 @@ void VtkSceneViewer::orbitCamera(int dx, int dy)
     camera->OrthogonalizeViewUp();
     impl_->renderer->ResetCameraClippingRange();
     publishCameraOrientation();
-    render();
-}
-
-void VtkSceneViewer::rotateObjectAroundAxis(const QString &id, const QVector3D &axis)
-{
-    auto actor = impl_->objects.value(id);
-    if (!actor || !actor->GetVisibility()) return;
-    actor->RotateWXYZ(90.0, axis.x(), axis.y(), axis.z());
-    impl_->renderer->ResetCameraClippingRange();
-    render();
-}
-
-void VtkSceneViewer::rotateObjectByDrag(const QString &id, int dx, int dy)
-{
-    auto actor = impl_->objects.value(id);
-    if (!actor || !actor->GetVisibility()) return;
-    auto *camera = impl_->renderer->GetActiveCamera();
-    const auto *direction = camera->GetDirectionOfProjection();
-    const auto *viewUp = camera->GetViewUp();
-    const QVector3D forward(direction[0], direction[1], direction[2]);
-    const QVector3D up(viewUp[0], viewUp[1], viewUp[2]);
-    const auto right = QVector3D::crossProduct(forward, up).normalized();
-    const auto screenUp = QVector3D::crossProduct(right, forward).normalized();
-    constexpr double degreesPerPixel = 0.65;
-    if (dx) actor->RotateWXYZ(dx * degreesPerPixel, screenUp.x(), screenUp.y(), screenUp.z());
-    if (dy) actor->RotateWXYZ(dy * degreesPerPixel, right.x(), right.y(), right.z());
-    impl_->renderer->ResetCameraClippingRange();
     render();
 }
 
