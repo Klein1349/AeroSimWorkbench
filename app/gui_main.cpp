@@ -18,6 +18,10 @@
 #include "aerosim/ui/intelligent/ResultDataTablePage.h"
 #endif
 #include <QPixmap>
+#ifdef AEROSIM_HAS_CALCULATION_MONITOR
+#include "aerosim/ui/CalculationTaskPage.h"
+#include "aerosim/ui/intelligent/CalculationCurveMonitor.h"
+#endif
 
 #ifdef AEROSIM_HAS_MESH_VIEWER
 #include "MeshViewerBinding.h"
@@ -69,6 +73,10 @@ int main(int argc, char *argv[])
         controller.workflow(), controller.tasks(), nullptr, nullptr, nullptr, nullptr};
 #ifndef AEROSIM_POSTPROCESS_STANDALONE
     window.bindServices(bindings);
+#ifdef AEROSIM_HAS_CALCULATION_MONITOR
+    for (auto *page : window.findChildren<aerosim::CalculationTaskPage *>())
+        page->attachMonitor(new aerosim::CalculationCurveMonitor);
+#endif
 #ifdef AEROSIM_HAS_MONITOR_CURVES
     // The curve slot is filled here, in the assembly layer, and not inside the
     // window: the page owns the slot and accepts exactly one widget, so a test
@@ -112,6 +120,12 @@ int main(int argc, char *argv[])
         postprocess.raise();
         postprocess.activateWindow();
     });
+    QObject::connect(&window, &aerosim::MainWindow::saveAuxiliaryLayoutsRequested,
+                     &postprocess, &aerosim::PostProcessWorkbenchWindow::saveUserLayout);
+    QObject::connect(&window, &aerosim::MainWindow::restoreAuxiliaryLayoutsRequested,
+                     &postprocess, &aerosim::PostProcessWorkbenchWindow::restoreUserLayout);
+    QObject::connect(&window, &aerosim::MainWindow::restoreDefaultAuxiliaryLayoutsRequested,
+                     &postprocess, &aerosim::PostProcessWorkbenchWindow::restoreDefaultLayout);
     QObject::connect(&landing, &aerosim::StartupLandingPage::enterWorkbenchRequested,
                      &window, [&landing, &window](const QString &) {
         landing.setReturnAvailable(true);
@@ -127,6 +141,21 @@ int main(int argc, char *argv[])
         window.raise();
         window.activateWindow();
     });
+    QObject::connect(&window, &aerosim::MainWindow::xcfProjectChanged,
+                     &landing, &aerosim::StartupLandingPage::setWorkspaceStatus);
+    QObject::connect(&landing, &aerosim::StartupLandingPage::openWorkspaceRequested,
+                     &window, [&landing, &window] {
+        if (!window.chooseXcfProject(&landing)) return;
+        landing.setReturnAvailable(true);
+        window.show();
+        landing.hide();
+        window.raise();
+        window.activateWindow();
+    });
+    QObject::connect(&landing, &aerosim::StartupLandingPage::saveWorkspaceRequested,
+                     &window, [&landing, &window] { window.saveXcfProjectDialog(false, &landing); });
+    QObject::connect(&landing, &aerosim::StartupLandingPage::saveWorkspaceAsRequested,
+                     &window, [&landing, &window] { window.saveXcfProjectDialog(true, &landing); });
     QObject::connect(&window, &aerosim::MainWindow::showStartupRequested,
                      &landing, [&landing, &window] {
         window.hide();
@@ -196,5 +225,9 @@ int main(int argc, char *argv[])
     }
     const int code = app.exec();
     controller.shutdown();
-    return smoke && !smokePassed ? 7 : code;
+    if (smoke && !smokePassed) {
+        QTextStream(stderr) << "GUI smoke failed: mock task did not report completion before the event loop exited\n";
+        return 7;
+    }
+    return code;
 }

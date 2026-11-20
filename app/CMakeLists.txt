@@ -31,6 +31,10 @@ if(AEROSIM_BUILD_GUI)
         target_link_libraries(aerosim_gui PRIVATE aerosim_intelligent_curve)
         target_compile_definitions(aerosim_gui PRIVATE AEROSIM_HAS_RESULT_CURVES=1)
     endif()
+    if(TARGET aerosim_calculation_monitor)
+        target_link_libraries(aerosim_gui PRIVATE aerosim_calculation_monitor)
+        target_compile_definitions(aerosim_gui PRIVATE AEROSIM_HAS_CALCULATION_MONITOR=1)
+    endif()
     # Keep the application-level injection point. The scene target is absent
     # while visualization is only a skeleton, and is linked again as soon as
     # the new scene module provides it.
@@ -45,8 +49,7 @@ if(AEROSIM_BUILD_GUI)
     endif()
     set_target_properties(aerosim_gui PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
-    # The standalone workbench has its own EXE and deployment directory so a
-    # running main window does not lock its binary or its Qt runtime files.
+    # The standalone workbench builds into its own output directory.
     add_executable(aerosim_postprocess WIN32 gui_main.cpp)
     target_link_libraries(aerosim_postprocess PRIVATE
         aerosim_application aerosim_mock aerosim_ui Qt5::Widgets)

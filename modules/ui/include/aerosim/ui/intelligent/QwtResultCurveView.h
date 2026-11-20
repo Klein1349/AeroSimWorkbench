@@ -8,7 +8,10 @@
 
 class QComboBox;
 class QDoubleSpinBox;
+class QFormLayout;
 class QLabel;
+class QLineEdit;
+class QHideEvent;
 class QPushButton;
 class QSpinBox;
 
@@ -34,15 +37,24 @@ public:
     // settings that were requested.
     monitor::MonitorChartView *chart() const { return chart_; }
 
+protected:
+    void hideEvent(QHideEvent *event) override;
+
 private:
+    bool appendSeries(const QVector<monitor::MonitorCurve> &curves, const QString &axisLabel);
     void refreshCurveChoices();
     void loadControls();
     void chooseColor();
+    void editLegend(const QString &id);
+    void applyLegendName();
+    void editAxisRanges();
     void applyControls();
     void selectCurve();
 
     QPointer<QWidget> settingsPanel_;
+    QFormLayout *drawingForm_ = nullptr;
     QComboBox *curveChoice_ = nullptr;
+    QLineEdit *legendName_ = nullptr;
     QPushButton *color_ = nullptr;
     QComboBox *lineStyle_ = nullptr;
     QDoubleSpinBox *lineWidth_ = nullptr;
@@ -54,7 +66,10 @@ private:
     QLabel *fitFeedback_ = nullptr;
     monitor::MonitorChartView *chart_ = nullptr;
     QHash<QString, monitor::MonitorCurveStyle> styles_;
+    QHash<QString, QString> defaultLegendNames_;
     bool loadingControls_ = false;
+    QVector<monitor::MonitorCurve> seriesMetadata_;
+    QString seriesAxisLabel_;
 };
 
 } // namespace aerosim

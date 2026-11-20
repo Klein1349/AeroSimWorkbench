@@ -2,6 +2,7 @@
 
 #include "aerosim/ui/intelligent/ResultDataSource.h"
 
+#include <QVariantMap>
 #include <QWidget>
 
 class QHBoxLayout;
@@ -18,7 +19,7 @@ namespace aerosim {
 
 // "结果数据表": the table and the curves of one opened result file on one page.
 //
-// The tree filters the table. Selecting table rows chooses Y series, while the
+// The tree filters the table. Selecting variable columns chooses Y series, while the
 // X selector offers the file's coordinates and numeric variables. The plot sits
 // below the table so changing either selection needs no page switch.
 class ResultDataTablePage final : public QWidget {
@@ -52,6 +53,12 @@ public:
     QTreeWidget *variableTree() const { return tree_; }
     QLabel *statusLabel() const { return status_; }
 
+    // UI-only splitter preferences. No result data or business state is
+    // included, so this map is safe to embed in the main-window layout record.
+    QVariantMap layoutState() const;
+    void restoreLayoutState(const QVariantMap &state);
+    void restoreDefaultLayout();
+
 signals:
     void fileLoaded(const QString &path);
 
@@ -76,6 +83,8 @@ private:
     QLabel *status_ = nullptr;
     QTreeWidget *tree_ = nullptr;
     QTableWidget *tableWidget_ = nullptr;
+    QSplitter *mainSplitter_ = nullptr;
+    QSplitter *rightSplitter_ = nullptr;
     QWidget *curveHost_ = nullptr;
     QLabel *curveHint_ = nullptr;
     QHBoxLayout *contentLayout_ = nullptr;

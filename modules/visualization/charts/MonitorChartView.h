@@ -191,7 +191,23 @@ public:
     void setCurves(const QVector<MonitorCurve> &curves);
     void clearCurves();
     void enableViewNavigation();
+    void enableLegendClicks();
     void resetView();
+    struct AxisRange {
+        int id;
+        QString name;
+        double lower;
+        double upper;
+        bool logarithmic;
+        double majorStep = 0.0;
+        int minorTicks = 5;
+        int labelPrecision = 6;
+    };
+    QVector<AxisRange> axisRanges() const;
+    bool hasFixedAxisRanges() const { return !fixedAxisRanges_.isEmpty(); }
+    // An empty list restores automatic ranges for every axis.
+    bool setFixedAxisRanges(const QVector<AxisRange> &ranges);
+    bool setAxisConfiguration(const QVector<AxisRange> &ranges, bool fixedRanges);
 
     // ---- Live appends ------------------------------------------------------
     // Adds samples to one existing curve without rebuilding the drawing.
@@ -370,6 +386,7 @@ public:
 signals:
     // A curve was clicked anywhere on its marks or joining line.
     void curveClicked(const QString &curveId);
+    void legendClicked(const QString &curveId);
     // A specific sample was clicked; sampleIndex indexes the curve's own points.
     void pointClicked(const QString &curveId, int sampleIndex, const QPointF &value);
     // setCurveStyle()/setCurveLabel() actually changed something.
@@ -379,8 +396,11 @@ signals:
 
 private:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void configureClickableLegend();
+    void showPointToolTip(const QPoint &position, const QPoint &globalPosition);
     void transformView(const QPointF &anchor, double factor, const QPointF &translation);
-    void setAutomaticAxisScale(int axis, double lower, double upper);
+    void setAutomaticAxisScale(int axis, double lower, double upper, bool logarithmic = false);
+    void applyAxisScale(int axis, double lower, double upper);
     void setAutomaticYAxisRange(int axis, bool logarithmic, double lower, double upper);
 
     // Lets the plot finish laying out series and axes before pixels are taken.
@@ -433,10 +453,14 @@ private:
     QwtPlot *plot_ = nullptr;
     QwtPlotPicker *picker_ = nullptr;
     bool viewNavigationEnabled_ = false;
+    bool legendClicksEnabled_ = false;
     bool panning_ = false;
     QPointF lastPanPosition_;
     double zoomSteps_ = 0.0;
     QHash<int, QPair<double, double>> fullAxisRanges_;
+    QHash<int, QPair<double, double>> automaticAxisRanges_;
+    QHash<int, QPair<double, double>> fixedAxisRanges_;
+    QHash<int, AxisRange> axisConfiguration_;
     // Created on first use so a widget that never sees live data never owns a
     // timer. Single shot at one frame interval: the flag below is what actually
     // coalesces, the timer only decides when the coalesced frame is drawn.

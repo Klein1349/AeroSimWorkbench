@@ -1,5 +1,22 @@
 # Windows 第一阶段骨架部署
 
+## 从源码构建和启动
+
+在已配置依赖的 VS2017 x64 开发者命令提示符中构建，随后用启动脚本打开主界面。
+
+```bat
+scripts\build-windows.cmd all Debug
+scripts\run-gui-windows.cmd
+```
+
+构建只生成程序和编译产物。启动脚本从本机依赖目录加载 DLL 和 Qt 插件，环境变量只传给本次启动的进程。它从默认的 `build-windows` 或 `AEROSIM_BUILD_DIR` 指定的构建目录定位 EXE，兼容工作台入口使用的 `AEROSIM_WINDOWS_BUILD_DIR`。使用 `scripts\run-gui-windows.cmd -Postprocess` 可打开已编译的独立后处理程序。
+
+依赖路径优先读取环境变量或仓库根目录下的 `aerosim-windows.local.cmd`，缺省时复用构建目录下的 CMake 缓存。Qt 使用 `AEROSIM_QT_ROOT` 或缓存中的 `Qt5_DIR`。启用 VTK 时，可用 `AEROSIM_VTK_BIN` 指定 DLL 目录，或由 VTK 的 CMake 包位置查找标准 `bin` 目录。CGNS 使用 `AEROSIM_CGNS_ROOT` 或已链接导入库附近的目录，也支持直接指定 `AEROSIM_CGNS_BIN`。若 HDF5 DLL 单独安装，可设置 `AEROSIM_HDF5_BIN`。相对路径以仓库根目录为基准。
+
+从其他电脑取得构建产物时，运行机器也需要相同架构和配置的依赖。用全新的构建目录可避免旧构建留下的 DLL 优先加载。完整 Release 技术栈仍需匹配的 VTK Release 依赖和目标机验收。
+
+## 历史 Release 骨架打包流程
+
 以 Visual Studio 2017 x64、Qt 5.12.12 `msvc2017_64`、CMake 3.18+ 为例。命令在开发者命令提示符中运行；`F:\AeroSimWorkbench` 为源码目录。此过程以 **Release 只部署不链接 VTK 的 Qt 骨架**；正式 VTK 8.2/SARibbon 集成当前只在 Debug 配置下验证，不能按下述 Release 命令部署完整技术栈。
 
 ```bat

@@ -4,14 +4,17 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QImage>
+#include <QHelpEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPen>
 #include <QPixmap>
 #include <QTimer>
+#include <QToolTip>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
+#include <algorithm>
 #include <cmath>
 
 #include <qwt_graphic.h>
@@ -23,6 +26,8 @@
 #include <qwt_plot_dict.h>
 #include <qwt_plot_picker.h>
 #include <qwt_plot_renderer.h>
+#include <qwt_scale_draw.h>
+#include <qwt_scale_div.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
 #include <qwt_spline_curve_fitter.h>
@@ -32,6 +37,27 @@
 namespace aerosim {
 namespace monitor {
 namespace {
+
+class NumericScaleDraw final : public QwtScaleDraw {
+public:
+    explicit NumericScaleDraw(int precision) : precision_(precision) {}
+
+    void setPrecision(int precision)
+    {
+        if (precision_ != precision) {
+            precision_ = precision;
+            invalidateCache();
+        }
+    }
+
+    QwtText label(double value) const override
+    {
+        return QwtText(QString::number(value, 'g', precision_));
+    }
+
+private:
+    int precision_;
+};
 
 // Same encoding-safe literal helper the rest of the project uses, so this file
 // compiles identically whether or not the compiler assumes UTF-8 source.
@@ -314,15 +340,160 @@ void MonitorChartView::enableViewNavigation()
     plot_->canvas()->installEventFilter(this);
 }
 
+void MonitorChartView::enableLegendClicks()
+{
+    if (legendClicksEnabled_)
+        return;
+    legendClicksEnabled_ = true;
+    configureClickableLegend();
+}
+
+void MonitorChartView::configureClickableLegend()
+{
+    auto *legend = qobject_cast<QwtLegend *>(plot_->legend());
+    if (!legend)
+        return;
+    legend->setDefaultItemMode(QwtLegendData::Clickable);
+    connect(legend, &QwtLegend::clicked, this, [this](const QVariant &info, int) {
+        const auto *item = plot_->infoToItem(info);
+        if (!item)
+            return;
+        for (auto it = curveItemsById_.constBegin(); it != curveItemsById_.constEnd(); ++it) {
+            if (item == it.value().marks || item == it.value().joining) {
+                emit legendClicked(it.key());
+                return;
+            }
+        }
+    });
+    plot_->updateLegend();
+}
+
 void MonitorChartView::resetView()
 {
     if (fullAxisRanges_.isEmpty())
         return;
     for (auto range = fullAxisRanges_.constBegin(); range != fullAxisRanges_.constEnd(); ++range)
-        plot_->setAxisScale(range.key(), range.value().first, range.value().second);
+        applyAxisScale(range.key(), range.value().first, range.value().second);
     fullAxisRanges_.clear();
     zoomSteps_ = 0.0;
     flushReplot();
+}
+
+QVector<MonitorChartView::AxisRange> MonitorChartView::axisRanges() const
+{
+    QVector<AxisRange> ranges;
+    const auto append = [this, &ranges](int axis, const QString &name, bool logarithmic) {
+        const auto automatic = automaticAxisRanges_.constFind(axis);
+        if (automatic == automaticAxisRanges_.constEnd())
+            return;
+        auto bounds = fixedAxisRanges_.value(axis, automatic.value());
+        if (logarithmic && bounds.first <= 0.0)
+            bounds = automatic.value();
+        AxisRange range{axis, name, bounds.first, bounds.second, logarithmic};
+        const auto settings = axisConfiguration_.constFind(axis);
+        if (settings != axisConfiguration_.constEnd()) {
+            range.majorStep = settings->majorStep;
+            range.minorTicks = settings->minorTicks;
+            range.labelPrecision = settings->labelPrecision;
+        }
+        ranges.append(range);
+    };
+    append(QwtAxis::XBottom, uiText(u"横轴"), false);
+    for (const auto &axis : axes_)
+        append(axis.onRight ? QwtAxis::YRight : QwtAxis::YLeft,
+               axis.onRight ? uiText(u"右纵轴") : uiText(u"左纵轴"), axis.logarithmic);
+    return ranges;
+}
+
+bool MonitorChartView::setFixedAxisRanges(const QVector<AxisRange> &ranges)
+{
+    const auto available = axisRanges();
+    QHash<int, QPair<double, double>> fixed;
+    for (const auto &range : ranges) {
+        const auto axis = std::find_if(available.cbegin(), available.cend(),
+            [&range](const AxisRange &candidate) { return candidate.id == range.id; });
+        if (axis == available.cend() || fixed.contains(range.id)
+            || !std::isfinite(range.lower) || !std::isfinite(range.upper)
+            || range.lower >= range.upper || (axis->logarithmic && range.lower <= 0.0))
+            return false;
+        fixed.insert(range.id, qMakePair(range.lower, range.upper));
+    }
+    if (!ranges.isEmpty() && ranges.size() != available.size())
+        return false;
+
+    fixedAxisRanges_ = fixed;
+    fullAxisRanges_.clear();
+    zoomSteps_ = 0.0;
+    for (const auto &axis : axisRanges())
+        applyAxisScale(axis.id, axis.lower, axis.upper);
+    flushReplot();
+    return true;
+}
+
+bool MonitorChartView::setAxisConfiguration(const QVector<AxisRange> &ranges, bool fixedRanges)
+{
+    const auto available = axisRanges();
+    if (ranges.size() != available.size())
+        return false;
+    QHash<int, AxisRange> settings;
+    for (const auto &range : ranges) {
+        const auto axis = std::find_if(available.cbegin(), available.cend(),
+            [&range](const AxisRange &candidate) { return candidate.id == range.id; });
+        if (axis == available.cend() || settings.contains(range.id)
+            || !std::isfinite(range.majorStep) || range.majorStep < 0
+            || range.minorTicks < 0 || range.minorTicks > 100
+            || range.labelPrecision < 1 || range.labelPrecision > 17
+            || (axis->logarithmic && range.majorStep > 0 && range.majorStep < 1))
+            return false;
+        const auto &division = plot_->axisScaleDiv(range.id);
+        auto bounds = qMakePair(division.lowerBound(), division.upperBound());
+        if (fixedRanges)
+            bounds = qMakePair(range.lower, range.upper);
+        else if (hasFixedAxisRanges())
+            bounds = automaticAxisRanges_.value(range.id);
+        if (!std::isfinite(bounds.first) || !std::isfinite(bounds.second)
+            || bounds.first >= bounds.second || (axis->logarithmic && bounds.first <= 0))
+            return false;
+        const double span = axis->logarithmic
+            ? std::log10(bounds.second) - std::log10(bounds.first) : bounds.second - bounds.first;
+        // Qwt caps a scale at 10,000 ticks. Keep its integer tick calculation in range.
+        if (range.majorStep > 0 && span / range.majorStep > 9998)
+            return false;
+        settings.insert(range.id, range);
+    }
+    if (fixedRanges || hasFixedAxisRanges()) {
+        if (!setFixedAxisRanges(fixedRanges ? ranges : QVector<AxisRange>{}))
+            return false;
+    }
+    axisConfiguration_ = settings;
+    for (const auto &axis : axisRanges()) {
+        const auto &division = plot_->axisScaleDiv(axis.id);
+        applyAxisScale(axis.id, division.lowerBound(), division.upperBound());
+    }
+    flushReplot();
+    return true;
+}
+
+void MonitorChartView::applyAxisScale(int axis, double lower, double upper)
+{
+    auto settings = axisConfiguration_.find(axis);
+    if (settings == axisConfiguration_.end()) {
+        plot_->setAxisScale(axis, lower, upper);
+        return;
+    }
+    const bool logarithmic = dynamic_cast<const QwtLogScaleEngine *>(plot_->axisScaleEngine(axis));
+    const double span = logarithmic ? std::log10(upper) - std::log10(lower) : upper - lower;
+    // A later data/axis change may make a previously valid interval too dense.
+    if (settings->majorStep > 0 && (span / settings->majorStep > 9998
+        || (logarithmic && settings->majorStep < 1)))
+        settings->majorStep = 0;
+    plot_->setAxisMaxMinor(axis, settings->minorTicks);
+    auto *draw = dynamic_cast<NumericScaleDraw *>(plot_->axisScaleDraw(axis));
+    if (draw)
+        draw->setPrecision(settings->labelPrecision);
+    else
+        plot_->setAxisScaleDraw(axis, new NumericScaleDraw(settings->labelPrecision));
+    plot_->setAxisScale(axis, lower, upper, settings->majorStep);
 }
 
 bool MonitorChartView::eventFilter(QObject *watched, QEvent *event)
@@ -330,7 +501,7 @@ bool MonitorChartView::eventFilter(QObject *watched, QEvent *event)
     const auto type = event->type();
     if (type != QEvent::Wheel && type != QEvent::MouseButtonPress
         && type != QEvent::MouseButtonRelease && type != QEvent::MouseMove
-        && type != QEvent::UngrabMouse) {
+        && type != QEvent::UngrabMouse && type != QEvent::ToolTip) {
         return QWidget::eventFilter(watched, event);
     }
 
@@ -348,6 +519,23 @@ bool MonitorChartView::eventFilter(QObject *watched, QEvent *event)
     if (!plot_->isEnabled())
         return QWidget::eventFilter(watched, event);
 
+    if (type == QEvent::ToolTip) {
+        const auto *help = static_cast<QHelpEvent *>(event);
+        if (panning_)
+            QToolTip::hideText();
+        else
+            showPointToolTip(help->pos(), help->globalPos());
+        return true;
+    }
+
+    if (hasFixedAxisRanges()
+        && (type == QEvent::Wheel
+            || (type == QEvent::MouseButtonPress
+                && static_cast<QMouseEvent *>(event)->button() == Qt::MiddleButton))) {
+        event->accept();
+        return true;
+    }
+
     if (type == QEvent::Wheel) {
         auto *wheel = static_cast<QWheelEvent *>(event);
         const int delta = wheel->angleDelta().y() != 0
@@ -357,6 +545,7 @@ bool MonitorChartView::eventFilter(QObject *watched, QEvent *event)
 
         const double next = qBound(-12.0, zoomSteps_ + delta / 120.0, 28.0);
         if (next != zoomSteps_) {
+            QToolTip::hideText();
             const double factor = std::pow(1.2, zoomSteps_ - next);
             zoomSteps_ = next;
             transformView(wheel->posF(), factor, {});
@@ -364,6 +553,7 @@ bool MonitorChartView::eventFilter(QObject *watched, QEvent *event)
     } else {
         auto *mouse = static_cast<QMouseEvent *>(event);
         if (type == QEvent::MouseButtonPress && mouse->button() == Qt::MiddleButton) {
+            QToolTip::hideText();
             panning_ = true;
             lastPanPosition_ = mouse->screenPos();
             canvas->setCursor(Qt::ClosedHandCursor);
@@ -381,6 +571,47 @@ bool MonitorChartView::eventFilter(QObject *watched, QEvent *event)
     }
     event->accept();
     return true;
+}
+
+void MonitorChartView::showPointToolTip(const QPoint &position, const QPoint &globalPosition)
+{
+    const auto xMap = plot_->canvasMap(QwtAxis::XBottom);
+    const QRect canvasRect = plot_->canvas()->contentsRect();
+    QPointF nearest;
+    QPoint nearestPixel;
+    QString id;
+    double distanceSquared = kPickRadiusPx * kPickRadiusPx;
+    for (auto it = curveItemsById_.constBegin(); it != curveItemsById_.constEnd(); ++it) {
+        const auto *marks = it.value().marks;
+        if (!marks || !marks->isVisible() || !marks->symbol())
+            continue;
+        const auto yMap = plot_->canvasMap(it.value().axisId);
+        for (size_t i = 0; i < marks->dataSize(); ++i) {
+            const QPointF point = marks->sample(i);
+            const QPointF pixel(xMap.transform(point.x()), yMap.transform(point.y()));
+            if (!QRectF(canvasRect).contains(pixel))
+                continue;
+            const QPointF delta = pixel - QPointF(position);
+            const double squared = delta.x() * delta.x() + delta.y() * delta.y();
+            if (squared < distanceSquared) {
+                distanceSquared = squared;
+                nearest = point;
+                nearestPixel = pixel.toPoint();
+                id = it.key();
+            }
+        }
+    }
+    if (id.isEmpty()) {
+        QToolTip::hideText();
+        return;
+    }
+    const QString name = labelFor(curvesById_.value(id)).toHtmlEscaped();
+    const QString axis = (axisLabel_.isEmpty() ? QStringLiteral("X") : axisLabel_).toHtmlEscaped();
+    const QString tooltip = QStringLiteral("<b>%1</b><br>%2: %3<br>Y: %4")
+        .arg(name, axis, QString::number(nearest.x(), 'g', 10), QString::number(nearest.y(), 'g', 10));
+    const int radius = static_cast<int>(kPickRadiusPx);
+    QToolTip::showText(globalPosition, tooltip, plot_->canvas(),
+                       QRect(nearestPixel - QPoint(radius, radius), QSize(2 * radius + 1, 2 * radius + 1)));
 }
 
 void MonitorChartView::transformView(const QPointF &anchor, double factor, const QPointF &translation)
@@ -401,7 +632,7 @@ void MonitorChartView::transformView(const QPointF &anchor, double factor, const
             continue;
         if (!fullAxisRanges_.contains(axis))
             fullAxisRanges_.insert(axis, qMakePair(map.s1(), map.s2()));
-        plot_->setAxisScale(axis, lower, upper);
+        applyAxisScale(axis, lower, upper);
     }
     flushReplot();
 }
@@ -1120,9 +1351,12 @@ void MonitorChartView::setCurves(const QVector<MonitorCurve> &curves)
         plot->show();
     }
     plot_ = plot;
+    if (legendClicksEnabled_)
+        configureClickableLegend();
     panning_ = false;
     zoomSteps_ = 0.0;
     fullAxisRanges_.clear();
+    automaticAxisRanges_.clear();
     if (viewNavigationEnabled_)
         plot_->canvas()->installEventFilter(this);
     picker_ = new QwtPlotPicker(QwtAxis::XBottom, QwtAxis::YLeft, QwtPicker::NoRubberBand,
@@ -1370,13 +1604,19 @@ void MonitorChartView::rescaleForCurve(const QString &id)
     rescaleYAxis(axisId);
 }
 
-void MonitorChartView::setAutomaticAxisScale(int axis, double lower, double upper)
+void MonitorChartView::setAutomaticAxisScale(int axis, double lower, double upper, bool logarithmic)
 {
+    automaticAxisRanges_.insert(axis, qMakePair(lower, upper));
+    const auto fixed = fixedAxisRanges_.constFind(axis);
+    if (fixed != fixedAxisRanges_.constEnd() && (!logarithmic || fixed.value().first > 0.0)) {
+        applyAxisScale(axis, fixed.value().first, fixed.value().second);
+        return;
+    }
     auto range = fullAxisRanges_.find(axis);
     if (range != fullAxisRanges_.end())
         range.value() = qMakePair(lower, upper);
     else
-        plot_->setAxisScale(axis, lower, upper);
+        applyAxisScale(axis, lower, upper);
 }
 
 void MonitorChartView::setAutomaticYAxisRange(int axis, bool logarithmic, double low, double high)
@@ -1389,7 +1629,7 @@ void MonitorChartView::setAutomaticYAxisRange(int axis, bool logarithmic, double
         low -= pad;
         high += pad;
     }
-    setAutomaticAxisScale(axis, low, high);
+    setAutomaticAxisScale(axis, low, high, logarithmic);
 }
 
 void MonitorChartView::rescaleYAxis(int axisId)

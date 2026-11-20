@@ -57,10 +57,47 @@ set "AEROSIM_QT_ROOT=C:\Qt\5.12.12\msvc2017_64"
 set "AEROSIM_SARIBBON_SOURCE_DIR=<本机 SARibbon 2.9.3 源码目录>"
 scripts\build-windows.cmd all Debug
 build-windows\Debug\aerosim_cli.exe --mock-once
-build-windows\Debug\aerosim_gui.exe
+scripts\run-gui-windows.cmd
 ```
 
-默认脚本配置、编译全部当前模块并运行 CTest。仅编译公共契约或 Mock 等目标：
+默认脚本配置、编译全部当前模块并运行 CTest。
+
+### 工作台快速构建入口
+
+Eigen 由 `cmake/EigenDependency.cmake` 统一查找。优先使用标准 Eigen3 包，否则复用项目中的 `.tools/vtk-src/VTK-8.2.0/ThirdParty/eigen/vtkeigen`、相邻共享 `.tools` 中的同一路径、`third_party/VTK/ThirdParty/eigen/vtkeigen` 或 `third_party/eigen`；也会检查配置的 VTK 源码与安装目录。`AEROSIM_EIGEN_ROOT` 支持以本仓库根目录为基准的相对路径，查找结果也按相对位置保存。复制源码时保持依赖的相对目录布局，重新配置即可复用；CMake 为编译器生成的实际头文件路径会按当前源码位置重新计算。
+
+实验室电脑首次配置 Qwt 时运行 `scripts\setup-qwt-windows.cmd`。脚本将固定为 Qwt 7.5.2（提交 `29d0b994b54f92777b8d60e0ebe6c3d62d70db74`）的源码下载到 `third_party\QWT`，校验下载内容，再使用 Qt 5.12.12、项目所选的 MSVC x64 工具链生成 Debug 静态库 `third_party\QWT\lib\qwt7.lib`。默认沿用 `build-windows` 中保存的工具和 Qt 路径；新电脑需先设置 `AEROSIM_QT_ROOT`，在 VS2017 x64 开发者命令提示符中运行，或配置 `AEROSIM_WINDOWS_VS_DIR`。新配置默认选择 v141，现有构建复用其已配置工具集。本机额外验证采用 MSVC 14.44，v141 仍需在对应机器验证。
+
+随后运行 `scripts\run-postprocess-windows.cmd` 会优先使用项目内的 Qwt；首次找不到 Qwt 配置时也会调用安装脚本。源码目录保留上游许可证，下载文件、静态库和 `build-qwt` 构建目录由 Git 忽略。联网下载只在源码缺失时执行，准备好源码后可离线重新编译。
+
+直接运行 Qwt 安装入口后，窗口会保留完成或失败提示，完整日志位于 `build-qwt\setup-last.log`；自动调用可加 `--no-pause`。下载优先使用 `curl.exe`，失败后尝试 Windows PowerShell，并保留下载重试和 SHA256 校验。实验室网络无法访问 GitHub 时，可把已下载并通过校验的 `build-qwt\downloads\qwt-29d0b994b54f92777b8d60e0ebe6c3d62d70db74.zip` 复制到目标电脑的同一相对位置，再重新运行脚本进行离线配置。
+
+后处理统一使用 `scripts\run-postprocess-windows.cmd` 构建并启动。脚本从现有构建缓存读取 Qwt 路径，支持在脚本顶部配置 `AEROSIM_QWT_ROOT`，也可通过同名环境变量或仓库根目录的 `aerosim-windows.local.cmd` 覆盖。Qt、SARibbon、Eigen 等依赖沿用现有构建配置；首次构建按下方示例设置。已有构建复用生成器与编译器，启动时自动识别 Ninja 和 Visual Studio 的程序目录。
+
+`scripts\build-workbench-windows.cmd full [run]` 构建带曲线的工作台，`no-qwt [run]` 关闭 Qwt 绘图。两种模式都需要分析模块使用的 Eigen。加 `run` 会通过 GUI 启动脚本设置运行库路径并打开工作台。
+
+`full` 与统一后处理入口使用的 `postprocess` 模式会显式设置 `AEROSIM_BUILD_CHARTS=ON` 和 `AEROSIM_BUILD_CURVES=ON`，覆盖旧缓存中的关闭设置；`no-qwt` 模式将这两个选项设为 `OFF`。
+
+首次构建可在 VS2017 x64 开发者命令提示符中配置本机依赖位置后运行：
+
+```bat
+set "AEROSIM_QT_ROOT=<Qt 5.12.12 msvc2017_64 目录>"
+set "AEROSIM_SARIBBON_SOURCE_DIR=<SARibbon 2.9.3 源码目录>"
+set "AEROSIM_QWT_ROOT=<Qwt 安装或源码目录>"
+set "AEROSIM_EIGEN_ROOT=<包含 Eigen/Dense 或 eigen/Dense 的目录>"
+scripts\build-workbench-windows.cmd full run
+```
+
+该入口按以下规则选择本机工具和配置。
+
+- CMake 优先使用 `AEROSIM_CMAKE_EXE`，然后读取现有构建缓存中的 CMake 位置，最后从 `PATH` 查找。开发基线为 CMake 3.18.2。
+- 依赖变量传递到 CMake；未设置的变量由现有构建缓存或 CMake 的标准查找机制处理。`AEROSIM_WINDOWS_SEED_CACHE` 仅在调用者显式设置时使用。
+- 新构建默认选择 VS2017 x64 和 Debug；可用 `AEROSIM_WINDOWS_GENERATOR` 显式选择其他生成器。已有构建复用原生成器；若尚未进入开发者环境，会尝试根据缓存中的 MSVC 编译器位置初始化其对应的已安装工具集。新建 Ninja 构建需要开发者环境中可用的编译器和 Ninja。
+- 可通过 `AEROSIM_WINDOWS_VS_DIR` 显式指定 VS 安装目录并调用其中的 `vcvars64.bat`，默认选择 v141 对应的 `14.1` 工具集。`AEROSIM_WINDOWS_VCVARS_VER` 可用于显式指定已验证的其他工具集；依赖必须与所选编译器、架构和配置兼容。
+- `AEROSIM_WINDOWS_BUILD_DIR` 指定构建目录，也兼容通用的 `AEROSIM_BUILD_DIR`；默认位于当前源码的 `build-windows`。启动时支持 Ninja 的根目录和 Visual Studio 的 `Debug` 子目录。
+- 原有 `AEROSIM_WINDOWS_TOOLS_DIR` 仍可由调用者显式提供，以兼容其下的 `cmake-3.18.2-win64-x64` 和 `Qt/5.12.12/msvc2017_64` 布局。
+
+### 单目标构建
 
 ```bat
 scripts\build-windows.cmd aerosim_contracts Debug

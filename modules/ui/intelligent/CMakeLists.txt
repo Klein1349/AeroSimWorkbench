@@ -9,6 +9,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         add_compile_options(/utf-8)
     endif()
     option(AEROSIM_BUILD_TESTS "Build intelligent data page tests" ON)
+    option(AEROSIM_BUILD_MACHINE_LEARNING "Enable result forecasting" OFF)
     if(AEROSIM_BUILD_TESTS)
         enable_testing()
     endif()
@@ -16,7 +17,25 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../../contracts" contracts)
 endif()
 
+if(AEROSIM_BUILD_MACHINE_LEARNING)
+    if(NOT TARGET aerosim_machine_learning)
+        add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../machine_learning" machine_learning)
+    endif()
+    find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Concurrent)
+    add_library(aerosim_intelligent_forecast STATIC
+        ../src/intelligent/ResultForecastPanel.cpp
+        ../include/aerosim/ui/intelligent/ResultForecastPanel.h)
+    target_include_directories(aerosim_intelligent_forecast PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../include")
+    target_link_libraries(aerosim_intelligent_forecast
+        PUBLIC Qt5::Widgets PRIVATE Qt5::Concurrent aerosim::machine_learning)
+    if(MSVC)
+        target_compile_options(aerosim_intelligent_forecast PRIVATE /utf-8)
+    endif()
+endif()
+
 add_library(aerosim_intelligent_data STATIC
+    ../src/intelligent/CsvResultReader.cpp
+    ../include/aerosim/ui/intelligent/CsvResultReader.h
     ../src/intelligent/ResultDataTablePage.cpp
     ../src/intelligent/ResultSummaryTablePage.cpp
     ../include/aerosim/ui/intelligent/ResultDataSource.h
@@ -24,6 +43,10 @@ add_library(aerosim_intelligent_data STATIC
     ../include/aerosim/ui/intelligent/ResultSummaryTablePage.h)
 target_include_directories(aerosim_intelligent_data PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../include")
 target_link_libraries(aerosim_intelligent_data PUBLIC aerosim_contracts Qt5::Widgets)
+if(TARGET aerosim_intelligent_forecast)
+    target_link_libraries(aerosim_intelligent_data PRIVATE aerosim_intelligent_forecast)
+    target_compile_definitions(aerosim_intelligent_data PRIVATE AEROSIM_HAS_MACHINE_LEARNING=1)
+endif()
 if(MSVC)
     target_compile_options(aerosim_intelligent_data PRIVATE /utf-8)
 endif()
@@ -31,7 +54,7 @@ endif()
 # The concrete reader needs the monitor data/analysis layers, and those only
 # exist when the visualization module was configured. The pages above keep
 # talking to the abstract ResultDataSource, so turning visualization off still
-# builds and tests the workbench -- it just cannot open a file.
+# builds and tests the workbench. CSV summaries use the independent reader above.
 if(TARGET aerosim_monitor_analysis)
     add_library(aerosim_intelligent_source STATIC
         ../src/intelligent/MonitorResultDataSource.cpp
@@ -57,6 +80,17 @@ if(TARGET aerosim_monitor_charts)
     endif()
 endif()
 
+if(TARGET aerosim_intelligent_source AND TARGET aerosim_intelligent_curve)
+    add_library(aerosim_calculation_monitor STATIC
+        ../src/intelligent/CalculationCurveMonitor.cpp
+        ../include/aerosim/ui/intelligent/CalculationCurveMonitor.h)
+    target_include_directories(aerosim_calculation_monitor PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../include")
+    target_link_libraries(aerosim_calculation_monitor PUBLIC aerosim_intelligent_source aerosim_intelligent_curve)
+    if(MSVC)
+        target_compile_options(aerosim_calculation_monitor PRIVATE /utf-8)
+    endif()
+endif()
+
 if(AEROSIM_BUILD_TESTS)
     find_package(Qt5 5.12.12 EXACT REQUIRED COMPONENTS Test)
     add_executable(aerosim_intelligent_data_test tests/ResultDataPagesTest.cpp)
@@ -67,12 +101,23 @@ if(AEROSIM_BUILD_TESTS)
     endif()
     add_test(NAME intelligent_data_pages COMMAND aerosim_intelligent_data_test)
     set_tests_properties(intelligent_data_pages PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    if(TARGET aerosim_intelligent_forecast)
+        add_executable(aerosim_result_forecast_test tests/ResultForecastTest.cpp)
+        target_link_libraries(aerosim_result_forecast_test PRIVATE aerosim_intelligent_data Qt5::Test)
+        target_compile_definitions(aerosim_result_forecast_test PRIVATE
+            AEROSIM_FORECAST_FIXTURE_DIR="${CMAKE_CURRENT_LIST_DIR}/../../../tests/fixtures/postprocess")
+        if(MSVC)
+            target_compile_options(aerosim_result_forecast_test PRIVATE /utf-8)
+        endif()
+        add_test(NAME intelligent_result_forecast COMMAND aerosim_result_forecast_test)
+        set_tests_properties(intelligent_result_forecast PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endif()
 endif()
 
 if(AEROSIM_BUILD_TESTS AND TARGET aerosim_intelligent_source AND TARGET aerosim_intelligent_curve)
     add_executable(aerosim_result_adapters_test tests/ResultAdaptersTest.cpp)
     target_link_libraries(aerosim_result_adapters_test PRIVATE
-        aerosim_intelligent_source aerosim_intelligent_curve Qt5::Test)
+        aerosim_intelligent_source aerosim_intelligent_curve aerosim_calculation_monitor Qt5::Test)
     target_compile_definitions(aerosim_result_adapters_test PRIVATE
         AEROSIM_RESULT_FIXTURE_DIR="${CMAKE_CURRENT_LIST_DIR}/../../../tests/fixtures/postprocess")
     set_target_properties(aerosim_result_adapters_test PROPERTIES AUTOMOC ON)

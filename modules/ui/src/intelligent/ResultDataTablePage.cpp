@@ -22,7 +22,30 @@ namespace {
 // A result file can carry thousands of iterations. The grid is a reading aid,
 // not a data store, so the sample columns stop here and the status line says so
 // rather than silently hiding the tail.
-constexpr int kMaxSampleColumns = 400;
+constexpr int kMaxSampleRows = 400;
+constexpr double kDefaultTreeRatio = 260.0 / 1160.0;
+constexpr double kDefaultTableRatio = 160.0 / 600.0;
+
+double splitterRatio(const QSplitter *splitter)
+{
+    const QList<int> sizes = splitter ? splitter->sizes() : QList<int>();
+    if (sizes.size() != 2 || sizes.at(0) + sizes.at(1) <= 0)
+        return 0.0;
+    return double(sizes.at(0)) / double(sizes.at(0) + sizes.at(1));
+}
+
+void restoreSplitterRatio(QSplitter *splitter, double ratio, double fallback,
+                          double minimum, double maximum)
+{
+    if (!std::isfinite(ratio)) ratio = fallback;
+    ratio = qBound(minimum, ratio, maximum);
+    const QList<int> currentSizes = splitter->sizes();
+    int extent = currentSizes.size() == 2 ? currentSizes.at(0) + currentSizes.at(1) : 0;
+    if (extent <= 0)
+        extent = splitter->orientation() == Qt::Horizontal ? splitter->width() : splitter->height();
+    if (extent <= 0) extent = 1000;
+    splitter->setSizes({qRound(extent * ratio), qRound(extent * (1.0 - ratio))});
+}
 
 QString numberText(double value)
 {
@@ -79,10 +102,10 @@ void ResultDataTablePage::buildUi()
     });
     outer->addLayout(bar);
 
-    auto *split = new QSplitter(Qt::Horizontal, this);
-    split->setObjectName(QStringLiteral("resultDataSplit"));
+    mainSplitter_ = new QSplitter(Qt::Horizontal, this);
+    mainSplitter_->setObjectName(QStringLiteral("resultDataSplit"));
 
-    tree_ = new QTreeWidget(split);
+    tree_ = new QTreeWidget(mainSplitter_);
     tree_->setObjectName(QStringLiteral("resultDataVariableTree"));
     tree_->setHeaderLabels({QStringLiteral(u"变量"), QStringLiteral(u"单位")});
     tree_->setColumnWidth(0, 220);
@@ -93,12 +116,12 @@ void ResultDataTablePage::buildUi()
         updateCurveView();
         updateStatus();
     });
-    split->addWidget(tree_);
+    mainSplitter_->addWidget(tree_);
 
-    auto *right = new QSplitter(Qt::Vertical, split);
-    right->setObjectName(QStringLiteral("resultDataRightSplit"));
+    rightSplitter_ = new QSplitter(Qt::Vertical, mainSplitter_);
+    rightSplitter_->setObjectName(QStringLiteral("resultDataRightSplit"));
 
-    curveHost_ = new QWidget(right);
+    curveHost_ = new QWidget(rightSplitter_);
     curveLayout_ = new QVBoxLayout(curveHost_);
     curveLayout_->setContentsMargins(0, 0, 0, 0);
     curveHint_ = new QLabel(
@@ -109,32 +132,35 @@ void ResultDataTablePage::buildUi()
     curveHint_->setAlignment(Qt::AlignCenter);
     curveLayout_->addWidget(curveHint_);
 
-    tableWidget_ = new QTableWidget(right);
+    tableWidget_ = new QTableWidget(rightSplitter_);
     tableWidget_->setObjectName(QStringLiteral("resultDataTable"));
     tableWidget_->setMinimumHeight(96);
     tableWidget_->verticalHeader()->hide();
+    tableWidget_->horizontalHeader()->setSectionsClickable(true);
+    tableWidget_->verticalHeader()->setDefaultSectionSize(22);
     tableWidget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    tableWidget_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    tableWidget_->setSelectionBehavior(QAbstractItemView::SelectColumns);
     tableWidget_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     connect(tableWidget_, &QTableWidget::itemSelectionChanged, this, [this] {
         updateCurveView();
         updateStatus();
     });
     tableWidget_->setAlternatingRowColors(true);
-    right->addWidget(tableWidget_);
-    // Selecting rows above immediately draws the corresponding curves below.
-    right->addWidget(curveHost_);
-    right->setChildrenCollapsible(false);
-    right->setStretchFactor(0, 0);
-    right->setStretchFactor(1, 1);
-    right->setSizes({160, 440});
+    rightSplitter_->addWidget(tableWidget_);
+    // Selecting variable columns above immediately draws the corresponding curves below.
+    rightSplitter_->addWidget(curveHost_);
+    rightSplitter_->setChildrenCollapsible(false);
+    rightSplitter_->setStretchFactor(0, 0);
+    rightSplitter_->setStretchFactor(1, 1);
+    rightSplitter_->setSizes({160, 440});
 
-    split->addWidget(right);
-    split->setStretchFactor(0, 0);
-    split->setStretchFactor(1, 1);
-    split->setSizes({260, 900});
+    mainSplitter_->addWidget(rightSplitter_);
+    mainSplitter_->setChildrenCollapsible(false);
+    mainSplitter_->setStretchFactor(0, 0);
+    mainSplitter_->setStretchFactor(1, 1);
+    mainSplitter_->setSizes({260, 900});
     contentLayout_ = new QHBoxLayout;
-    contentLayout_->addWidget(split, 1);
+    contentLayout_->addWidget(mainSplitter_, 1);
     outer->addLayout(contentLayout_, 1);
 
     status_ = new QLabel(this);
@@ -144,6 +170,28 @@ void ResultDataTablePage::buildUi()
     outer->addWidget(status_);
 
     updateStatus();
+}
+
+QVariantMap ResultDataTablePage::layoutState() const
+{
+    QVariantMap state;
+    state.insert(QStringLiteral("treeRatio"), splitterRatio(mainSplitter_));
+    state.insert(QStringLiteral("tableRatio"), splitterRatio(rightSplitter_));
+    return state;
+}
+
+void ResultDataTablePage::restoreLayoutState(const QVariantMap &state)
+{
+    restoreSplitterRatio(mainSplitter_, state.value(QStringLiteral("treeRatio"), kDefaultTreeRatio).toDouble(),
+                         kDefaultTreeRatio, 0.15, 0.45);
+    restoreSplitterRatio(rightSplitter_, state.value(QStringLiteral("tableRatio"), kDefaultTableRatio).toDouble(),
+                         kDefaultTableRatio, 0.15, 0.75);
+}
+
+void ResultDataTablePage::restoreDefaultLayout()
+{
+    restoreSplitterRatio(mainSplitter_, kDefaultTreeRatio, kDefaultTreeRatio, 0.15, 0.45);
+    restoreSplitterRatio(rightSplitter_, kDefaultTableRatio, kDefaultTableRatio, 0.15, 0.75);
 }
 
 void ResultDataTablePage::setDataSource(ResultDataSource *source)
@@ -171,7 +219,8 @@ bool ResultDataTablePage::setCurveView(ResultCurveView *view)
     curve_ = view;
     curveHint_->hide();
     curveLayout_->addWidget(curve_, 1);
-    if (auto *panel = curve_->settingsPanel()) {
+    auto *panel = curve_->settingsPanel();
+    if (panel && !panel->isWindow()) {
         contentLayout_->addWidget(panel);
         panel->show();
     }
@@ -309,40 +358,30 @@ void ResultDataTablePage::populateTable()
         return;
     }
 
-    // One row per variable, one column per sample. The file is the transpose of
-    // this, and that transpose is the whole point of the page: a variable's
-    // entire trace reads left to right on a single line.
-    const int samples = qMin(table_.sampleCount(), kMaxSampleColumns);
-    QStringList headers;
-    headers.reserve(samples + 1);
-    headers << QStringLiteral(u"变量");
-    for (int i = 0; i < samples; ++i)
-        headers << QString::number(table_.axisValues.at(i), 'g', 6);
+    const int samples = qMin(table_.sampleCount(), kMaxSampleRows);
+    const QString axis = table_.axisLabel.isEmpty() ? QStringLiteral(u"采样坐标") : table_.axisLabel;
+    const QStringList headers = QStringList{axis} + keys;
 
     tableWidget_->clear();
     tableWidget_->setColumnCount(headers.size());
-    tableWidget_->setRowCount(keys.size());
+    tableWidget_->setRowCount(samples);
     tableWidget_->setHorizontalHeaderLabels(headers);
-    tableWidget_->verticalHeader()->setVisible(true);
-    tableWidget_->verticalHeader()->setDefaultSectionSize(22);
-
-    const int dataColumns = headers.size() - 1;
-    for (int row = 0; row < keys.size(); ++row) {
-        const QString &key = keys.at(row);
-        tableWidget_->setItem(row, 0, readOnlyItem(key));
+    for (int row = 0; row < samples; ++row) {
+        auto *coordinate = readOnlyItem(numberText(table_.axisValues.at(row)));
+        coordinate->setFlags(coordinate->flags() & ~Qt::ItemIsSelectable);
+        tableWidget_->setItem(row, 0, coordinate);
+    }
+    for (int column = 1; column < headers.size(); ++column) {
+        const QString &key = headers.at(column);
         const QVector<double> values = table_.samples.value(key);
-        for (int column = 0; column < dataColumns; ++column) {
-            tableWidget_->setItem(row, column + 1,
-                                  readOnlyItem(numberText(values.value(column, std::numeric_limits<double>::quiet_NaN()))));
+        for (int row = 0; row < samples; ++row) {
+            tableWidget_->setItem(row, column,
+                                  readOnlyItem(numberText(values.value(row, std::numeric_limits<double>::quiet_NaN()))));
         }
+        if (previous.contains(key))
+            tableWidget_->setRangeSelected(QTableWidgetSelectionRange(0, column, samples - 1, column), true);
     }
-    for (int row = 0; row < keys.size(); ++row) {
-        if (previous.contains(keys.at(row)))
-            tableWidget_->setRangeSelected(
-                QTableWidgetSelectionRange(row, 0, row, headers.size() - 1), true);
-    }
-    tableWidget_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
-    tableWidget_->horizontalHeader()->resizeSection(0, 180);
+    tableWidget_->horizontalHeader()->resizeSection(0, 140);
 }
 
 void ResultDataTablePage::populateAxes()
@@ -363,10 +402,10 @@ void ResultDataTablePage::populateAxes()
 QStringList ResultDataTablePage::curveKeys() const
 {
     QStringList keys;
-    for (int row = 0; row < tableWidget_->rowCount(); ++row) {
-        const auto *item = tableWidget_->item(row, 0);
+    for (int column = 1; column < tableWidget_->columnCount(); ++column) {
+        const auto *item = tableWidget_->item(0, column);
         if (item && item->isSelected())
-            keys.append(item->text());
+            keys.append(tableWidget_->horizontalHeaderItem(column)->text());
     }
     return keys;
 }
@@ -397,20 +436,20 @@ void ResultDataTablePage::updateCurveView()
 void ResultDataTablePage::updateStatus()
 {
     if (table_.isEmpty()) {
-        status_->setText(QStringLiteral(u"打开一个结果文件后，这里按「每行一个变量」列出采样值。"));
+        status_->setText(QStringLiteral(u"打开一个结果文件后，这里按「每列一个变量」列出采样值。"));
         return;
     }
 
-    QString text = QStringLiteral(u"%1 个变量 · %2 个采样点 · 当前勾选 %3 个 · 选中 %4 行绘图")
+    QString text = QStringLiteral(u"%1 个变量 · %2 个采样点 · 当前勾选 %3 个 · 选中 %4 列绘图")
                        .arg(table_.variables.size())
                        .arg(table_.sampleCount())
                        .arg(selectedKeys().size())
                        .arg(curveKeys().size());
     if (curveKeys().isEmpty())
-        text += QStringLiteral(u" · 请选择表格行以绘图，Ctrl/Shift 可多选");
-    if (table_.sampleCount() > kMaxSampleColumns) {
+        text += QStringLiteral(u" · 请选择变量列以绘图，Ctrl/Shift 可多选");
+    if (table_.sampleCount() > kMaxSampleRows) {
         text += QStringLiteral(u" · 表格只显示前 %1 个采样点")
-                    .arg(kMaxSampleColumns);
+                    .arg(kMaxSampleRows);
     }
     if (!table_.warnings.isEmpty())
         text += QStringLiteral(u" · %1").arg(table_.warnings.join(QStringLiteral("；")));
