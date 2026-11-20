@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<VTKFile type="ImageData" version="0.1" byte_order="LittleEndian">
+  <ImageData WholeExtent="0 2 0 1 0 1" Origin="0 0 0" Spacing="1 1 1">
+    <Piece Extent="0 2 0 1 0 1">
+      <PointData Scalars="Pressure">
+        <DataArray type="Float32" Name="Pressure" format="ascii">
+          100000 100100 100200
+          100300 100400 100500
+          100600 100700 100800
+          100900 101000 101100
+        </DataArray>
+      </PointData>
+      <CellData Scalars="ZoneId">
+        <DataArray type="Int32" Name="ZoneId" format="ascii">
+          10 20
+        </DataArray>
+      </CellData>
+    </Piece>
+  </ImageData>
+</VTKFile>

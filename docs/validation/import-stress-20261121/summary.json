@@ -1,0 +1,853 @@
+{
+  "commit": "c3365431a4f089337a131567ed04cfd02b3f09ed",
+  "generatedAt": "2026-11-21T02:16:19.728179+08:00",
+  "scope": "BoundaryLoadService import only; no renderer in performance measurements",
+  "configuration": "Windows x64 Debug / MSVC v141 / Qt 5.12.12 / VTK 8.2.0",
+  "runStatusCounts": {
+    "pass": 85,
+    "observation": 9,
+    "resource_limited": 2,
+    "fail": 2
+  },
+  "independentImports": [
+    {
+      "label": "small",
+      "runs": 3,
+      "meanSeconds": 0.018333333333333333,
+      "minSeconds": 0.018,
+      "maxSeconds": 0.019,
+      "peakPrivateGiB": 0.003414154052734375
+    },
+    {
+      "label": "100MB",
+      "runs": 3,
+      "meanSeconds": 0.5516666666666666,
+      "minSeconds": 0.525,
+      "maxSeconds": 0.598,
+      "peakPrivateGiB": 0.17258453369140625
+    },
+    {
+      "label": "500MB",
+      "runs": 3,
+      "meanSeconds": 2.9363333333333332,
+      "minSeconds": 2.893,
+      "maxSeconds": 3.015,
+      "peakPrivateGiB": 0.6395645141601562
+    },
+    {
+      "label": "1GB",
+      "runs": 3,
+      "meanSeconds": 5.987333333333333,
+      "minSeconds": 5.968,
+      "maxSeconds": 6.005,
+      "peakPrivateGiB": 1.2757568359375
+    },
+    {
+      "label": "2GB",
+      "runs": 3,
+      "meanSeconds": 12.081999999999999,
+      "minSeconds": 12.04,
+      "maxSeconds": 12.107,
+      "peakPrivateGiB": 2.5482139587402344
+    }
+  ],
+  "singleLimitImports": [
+    {
+      "label": "3GB",
+      "runs": 1,
+      "meanSeconds": 17.455,
+      "peakPrivateGiB": 3.820720672607422
+    },
+    {
+      "label": "4GB",
+      "runs": 1,
+      "meanSeconds": 25.113,
+      "peakPrivateGiB": 5.093212127685547
+    }
+  ],
+  "cycles": [
+    {
+      "name": "repeat-small-100",
+      "cycles": 100,
+      "firstReleasedMiB": 3.1953125,
+      "lastReleasedMiB": 3.23828125,
+      "minReleasedMiB": 3.18359375,
+      "maxReleasedMiB": 3.23828125,
+      "status": "pass"
+    },
+    {
+      "name": "repeat-1GB-10",
+      "cycles": 10,
+      "firstReleasedMiB": 3.46875,
+      "lastReleasedMiB": 3.23046875,
+      "minReleasedMiB": 3.23046875,
+      "maxReleasedMiB": 4.25,
+      "status": "pass"
+    },
+    {
+      "name": "repeat-2GB-10",
+      "cycles": 10,
+      "firstReleasedMiB": 3.4921875,
+      "lastReleasedMiB": 3.2421875,
+      "minReleasedMiB": 3.234375,
+      "maxReleasedMiB": 3.87890625,
+      "status": "pass"
+    }
+  ],
+  "limits": [
+    {
+      "name": "extension-uppercase",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 19,
+          "faces": 1,
+          "name": "uppercase",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\uppercase.VTP",
+          "points": 3,
+          "privateBytes": 3375104,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 16,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3403776,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8509849600,
+        "initialAvailableCommitBytes": 16052649984,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.089,
+        "peakPrivateCommitBytes": 3448832,
+        "peakWorkingSetBytes": 23113728
+      }
+    },
+    {
+      "name": "extension-xml-as-legacy",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 56,
+          "error": "xml-as-legacy.vtk 鈥?VTK 读取失败：文件损坏、类型不支持或路径编码不兼容",
+          "name": "xml-as-legacy",
+          "passed": true,
+          "privateBytes": 3981312,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 4046848,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8516841472,
+        "initialAvailableCommitBytes": 16052408320,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.129,
+        "peakPrivateCommitBytes": 4096000,
+        "peakWorkingSetBytes": 30834688
+      }
+    },
+    {
+      "name": "extension-poly-as-vtu",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 8,
+          "faces": 1,
+          "name": "poly-as-vtu",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\poly-as-vtu.vtu",
+          "points": 3,
+          "privateBytes": 3383296,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3416064,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8516124672,
+        "initialAvailableCommitBytes": 16049582080,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.08,
+        "peakPrivateCommitBytes": 3469312,
+        "peakWorkingSetBytes": 23076864
+      }
+    },
+    {
+      "name": "extension-no-extension",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 1,
+          "error": "no-extension 鈥?支持的格式为 .vtk、.vtu、.vtp、.vti",
+          "name": "no-extension",
+          "passed": true,
+          "privateBytes": 3256320,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 14,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3395584,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8522231808,
+        "initialAvailableCommitBytes": 16052469760,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.075,
+        "peakPrivateCommitBytes": 3436544,
+        "peakWorkingSetBytes": 23179264
+      }
+    },
+    {
+      "name": "path-chinese",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 9,
+          "faces": 1,
+          "name": "中文 空格网格",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\中文 空格网格.vtp",
+          "points": 3,
+          "privateBytes": 3383296,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3416064,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8511496192,
+        "initialAvailableCommitBytes": 16047640576,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.081,
+        "peakPrivateCommitBytes": 3461120,
+        "peakWorkingSetBytes": 23085056
+      }
+    },
+    {
+      "name": "path-special",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 8,
+          "faces": 1,
+          "name": "spaces and (brackets) # &",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\spaces and (brackets) # &.vtp",
+          "points": 3,
+          "privateBytes": 3403776,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3428352,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8514007040,
+        "initialAvailableCommitBytes": 16048304128,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.08,
+        "peakPrivateCommitBytes": 3481600,
+        "peakWorkingSetBytes": 23121920
+      }
+    },
+    {
+      "name": "path-unicode-emoji",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 1,
+          "error": "emoji-🚀.vtp 鈥?VTK 8.2 无法表示此文件路径",
+          "name": "emoji-🚀",
+          "passed": true,
+          "privateBytes": 3260416,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 7,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3403776,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8508739584,
+        "initialAvailableCommitBytes": 16050053120,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.063,
+        "peakPrivateCommitBytes": 3448832,
+        "peakWorkingSetBytes": 23154688
+      }
+    },
+    {
+      "name": "path-length-240",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 11,
+          "faces": 1,
+          "name": "long-path",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\long\\segment_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\segment_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\segment_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.vtp",
+          "points": 3,
+          "privateBytes": 3387392,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3420160,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8511242240,
+        "initialAvailableCommitBytes": 16049721344,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.085,
+        "peakPrivateCommitBytes": 3461120,
+        "peakWorkingSetBytes": 23101440
+      }
+    },
+    {
+      "name": "path-length-259",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 8,
+          "faces": 1,
+          "name": "long-path",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\long\\segment_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\segment_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\segment_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.vtp",
+          "points": 3,
+          "privateBytes": 3399680,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 3428352,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8513748992,
+        "initialAvailableCommitBytes": 16046419968,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.082,
+        "peakPrivateCommitBytes": 3473408,
+        "peakWorkingSetBytes": 23080960
+      }
+    },
+    {
+      "name": "path-length-280",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 88,
+          "error": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.vtp 鈥?VTK 读取失败：文件损坏、类型不支持或路径编码不兼容",
+          "name": "long-path",
+          "passed": true,
+          "privateBytes": 3993600,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 4038656,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8495767552,
+        "initialAvailableCommitBytes": 16023769088,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.158,
+        "peakPrivateCommitBytes": 4079616,
+        "peakWorkingSetBytes": 30568448
+      }
+    },
+    {
+      "name": "path-length-400",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 57,
+          "error": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.vtp 鈥?VTK 读取失败：文件损坏、类型不支持或路径编码不兼容",
+          "name": "long-path",
+          "passed": true,
+          "privateBytes": 4009984,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "valid-after-test",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 4063232,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8494653440,
+        "initialAvailableCommitBytes": 16029978624,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.13,
+        "peakPrivateCommitBytes": 4104192,
+        "peakWorkingSetBytes": 30613504
+      }
+    },
+    {
+      "name": "capacity-2GB-x2",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 22727258,
+          "elapsedMs": 12169,
+          "faces": 22727258,
+          "name": "mesh-0",
+          "passed": true,
+          "path": "<generated-samples>\\boundary-2GB.vtp",
+          "points": 11363631,
+          "privateBytes": 2292678656,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 22727258,
+          "elapsedMs": 12513,
+          "faces": 22727258,
+          "name": "mesh-1",
+          "passed": true,
+          "path": "<generated-samples>\\boundary-2GB.vtp",
+          "points": 11363631,
+          "privateBytes": 4581548032,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8653529088,
+        "initialAvailableCommitBytes": 16059293696,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 25.12,
+        "peakPrivateCommitBytes": 5025058816,
+        "peakWorkingSetBytes": 5033218048
+      }
+    },
+    {
+      "name": "capacity-2GB-x3",
+      "status": "resource_limited",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 22727258,
+          "elapsedMs": 12109,
+          "faces": 22727258,
+          "name": "mesh-0",
+          "passed": true,
+          "path": "<generated-samples>\\boundary-2GB.vtp",
+          "points": 11363631,
+          "privateBytes": 2292674560,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 22727258,
+          "elapsedMs": 12307,
+          "faces": 22727258,
+          "name": "mesh-1",
+          "passed": true,
+          "path": "<generated-samples>\\boundary-2GB.vtp",
+          "points": 11363631,
+          "privateBytes": 4581412864,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8705302528,
+        "initialAvailableCommitBytes": 16116994048,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "job_memory_limit",
+        "exitCode": 222,
+        "elapsedSeconds": 25.204,
+        "peakPrivateCommitBytes": 6038380544,
+        "peakWorkingSetBytes": 6045745152
+      }
+    },
+    {
+      "name": "path-length-260",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 94,
+          "error": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.vtp 鈥?VTK 读取失败：文件损坏、类型不支持或路径编码不兼容",
+          "name": "long-path",
+          "passed": true,
+          "privateBytes": 3985408,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 13,
+          "faces": 1,
+          "name": "recovery",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 4038656,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8747057152,
+        "initialAvailableCommitBytes": 16263778304,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.167,
+        "peakPrivateCommitBytes": 4087808,
+        "peakWorkingSetBytes": 30588928
+      }
+    },
+    {
+      "name": "path-length-261",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": false,
+          "elapsedMs": 68,
+          "error": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.vtp 鈥?VTK 读取失败：文件损坏、类型不支持或路径编码不兼容",
+          "name": "long-path",
+          "passed": true,
+          "privateBytes": 4001792,
+          "record": "case"
+        },
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 15,
+          "faces": 1,
+          "name": "recovery",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\minimal.vtp",
+          "points": 3,
+          "privateBytes": 4059136,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8747544576,
+        "initialAvailableCommitBytes": 16261681152,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.14,
+        "peakPrivateCommitBytes": 4100096,
+        "peakWorkingSetBytes": 30617600
+      }
+    },
+    {
+      "name": "collinear-triangle",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 1,
+          "elapsedMs": 25,
+          "faces": 1,
+          "name": "collinear-triangle",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\collinear-triangle.vtp",
+          "points": 3,
+          "privateBytes": 3403776,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8671694848,
+        "initialAvailableCommitBytes": 16180228096,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 0.08,
+        "peakPrivateCommitBytes": 3444736,
+        "peakWorkingSetBytes": 23130112
+      }
+    },
+    {
+      "name": "limit-3GB",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 34090894,
+          "elapsedMs": 17455,
+          "faces": 34090894,
+          "name": "3GB",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\boundary-3GB.vtp",
+          "points": 17045449,
+          "privateBytes": 3436298240,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8259641344,
+        "initialAvailableCommitBytes": 16184172544,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 17.762,
+        "peakPrivateCommitBytes": 4102467584,
+        "peakWorkingSetBytes": 4112007168
+      }
+    },
+    {
+      "name": "limit-4GB",
+      "status": "pass",
+      "cases": [
+        {
+          "accepted": true,
+          "cells": 45454532,
+          "elapsedMs": 25113,
+          "faces": 45454532,
+          "name": "4GB",
+          "passed": true,
+          "path": "<test-output>\\fixtures\\boundary-4GB.vtp",
+          "points": 22727268,
+          "privateBytes": 4580605952,
+          "record": "case"
+        }
+      ],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8410968064,
+        "initialAvailableCommitBytes": 16218947584,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "passed",
+        "exitCode": 0,
+        "elapsedSeconds": 25.595,
+        "peakPrivateCommitBytes": 5468794880,
+        "peakWorkingSetBytes": 5475684352
+      }
+    },
+    {
+      "name": "limit-5GB",
+      "status": "resource_limited",
+      "cases": [],
+      "guard": {
+        "record": "guard",
+        "initialAvailablePhysicalBytes": 8464146432,
+        "initialAvailableCommitBytes": 16234504192,
+        "reservedPhysicalBytes": 1610612736,
+        "reservedCommitBytes": 2147483648,
+        "appliedCommitLimitBytes": 6442450944,
+        "timeoutSeconds": 300.0,
+        "status": "job_memory_limit",
+        "exitCode": 222,
+        "elapsedSeconds": 4.966,
+        "peakPrivateCommitBytes": 5013774336,
+        "peakWorkingSetBytes": 5026226176
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{"label": "3GB", "path": "<test-output>\\fixtures\\boundary-3GB.vtp", "bytes": 3000000016, "points": 17045449, "faces": 34090894, "sha256": "61468a5aee1821e4f01d64eaedfdafd3f780315e38b60672c2d64f19a5a9499a"}
+{"label": "4GB", "path": "<test-output>\\fixtures\\boundary-4GB.vtp", "bytes": 4000000160, "points": 22727268, "faces": 45454532, "sha256": "fc721127a263a530e14a95bc67d7c2d08054b2aff173759f4a83e5e1d511b1e7"}
+{"label": "3GB", "path": "<test-output>\\fixtures\\boundary-3GB.vtp", "bytes": 3000000016, "points": 17045449, "faces": 34090894, "sha256": "61468a5aee1821e4f01d64eaedfdafd3f780315e38b60672c2d64f19a5a9499a"}
+{"label": "4GB", "path": "<test-output>\\fixtures\\boundary-4GB.vtp", "bytes": 4000000160, "points": 22727268, "faces": 45454532, "sha256": "fc721127a263a530e14a95bc67d7c2d08054b2aff173759f4a83e5e1d511b1e7"}
+{"label": "5GB", "path": "<test-output>\\fixtures\\boundary-5GB.vtp", "bytes": 5000000128, "points": 28409086, "faces": 56818168, "sha256": "872102e3801497b3d8236a5f6eddb1312cec67292676af5b9f5f3260ff32d034"}

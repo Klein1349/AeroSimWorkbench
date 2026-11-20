@@ -1,0 +1,33 @@
+# vtk DataFile Version 3.0
+AeroSim mesh fixture: two tetrahedra sharing one interior face
+ASCII
+DATASET UNSTRUCTURED_GRID
+POINTS 5 float
+0 0 0
+1 0 0
+0 1 0
+0 0 1
+0 0 -1
+
+CELLS 2 10
+4 0 1 2 3
+4 0 2 1 4
+
+CELL_TYPES 2
+10
+10
+
+POINT_DATA 5
+SCALARS Pressure float 1
+LOOKUP_TABLE default
+100000
+100100
+100200
+100300
+100400
+
+CELL_DATA 2
+SCALARS ZoneId int 1
+LOOKUP_TABLE default
+10
+20

@@ -1,0 +1,11 @@
+﻿file,format,dataset,points,cells,expected_boundary_faces,unique_boundary_points,volume,expected_result
+tetra_pair.vtk,vtk,UNSTRUCTURED_GRID,5,2,6,5,true,ok
+hex_single.vtu,vtu,UNSTRUCTURED_GRID,8,1,6,8,true,ok
+voxel_pair.vtu,vtu,UNSTRUCTURED_GRID,12,2,10,12,true,ok
+wedge_single.vtu,vtu,UNSTRUCTURED_GRID,6,1,5,6,true,ok
+pyramid_single.vtu,vtu,UNSTRUCTURED_GRID,5,1,5,5,true,ok
+volume_image.vti,vti,IMAGE_DATA,12,2,10,12,true,ok
+surface_quad.vtp,vtp,POLYDATA,8,6,6,8,false,ok
+surface_tri.vtp,vtp,POLYDATA,6,8,8,6,false,ok
+broken.vtk,vtk,-,0,0,0,0,false,read_error
+broken_truncated.vtu,vtu,-,0,0,0,0,false,read_error

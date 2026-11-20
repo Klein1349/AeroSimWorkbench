@@ -28,6 +28,8 @@
 
 ## 测试数据与验证
 
+文件导入专项测试见 [2026-11-21 压力与边界验证](validation/import-stress-20261121/README.md)，复跑入口见 [导入测试工具](../tests/import_stress/README.md)。
+
 | 文档 | 用途与适用范围 | 状态 |
 | --- | --- | --- |
 | [后处理测试数据](PostProcessTestData.md) | 小型解析夹具、CMake 完整性检查及数值预期 | 数据已提交并有无 Python 的 CTest 检查；正式 C++ VTK 8.2 读取尚未验证 |

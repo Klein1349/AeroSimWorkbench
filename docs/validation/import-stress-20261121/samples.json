@@ -1,0 +1,42 @@
+[
+  {
+    "label": "small",
+    "path": "<generated-samples>\\boundary-100000B.vtp",
+    "bytes": 100047,
+    "points": 563,
+    "faces": 1122,
+    "sha256": "5ee2115cc3ebda909359c10b80c8562e7e3c178f6660748015def3f9dbfbfbb9"
+  },
+  {
+    "label": "100MB",
+    "path": "<test-output>\\fixtures\\boundary-100000000B.vtp",
+    "bytes": 100000132,
+    "points": 568177,
+    "faces": 1136350,
+    "sha256": "78f34f1dea2638e37d6006d1544d1bb6ee99146ba7b6d63c3c19330148b64edf"
+  },
+  {
+    "label": "500MB",
+    "path": "<test-output>\\fixtures\\boundary-500000000B.vtp",
+    "bytes": 500000089,
+    "points": 2840904,
+    "faces": 5681804,
+    "sha256": "7dfe13e98b3c8f845b20895191f3d0bfcf97033cb01f0f89c914a5cd134cdb51"
+  },
+  {
+    "label": "1GB",
+    "path": "<generated-samples>\\boundary-1GB.vtp",
+    "bytes": 1000000075,
+    "points": 5681813,
+    "faces": 11363622,
+    "sha256": "5440fb6437ccb04b502f3409d7f52003f50fb0d72ab7821b6c49767545e1b15a"
+  },
+  {
+    "label": "2GB",
+    "path": "<generated-samples>\\boundary-2GB.vtp",
+    "bytes": 2000000046,
+    "points": 11363631,
+    "faces": 22727258,
+    "sha256": "0df1243998bd4f09e2b7d1b4014e7fd84a97cd37ce03ec6dfffca3ec67295cf8"
+  }
+]
