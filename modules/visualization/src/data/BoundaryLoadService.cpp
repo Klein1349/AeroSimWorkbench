@@ -48,6 +48,7 @@ void BoundaryLoadService::startNext() {
         worker->wait();
         if(!job->cancelled && job->result) {
             meshes_.insert(job->id,job->result);
+            importedThisBatch_.insert(job->id);
             emit loaded(job->id,job->path,job->result->summary());
         } else {
             const auto reason = job->cancelled ? QString::fromUtf8("已取消导入") : job->error;
@@ -56,8 +57,14 @@ void BoundaryLoadService::startNext() {
         thread_=nullptr;
         job_.reset();
         worker->deleteLater();
-        if (pending_.isEmpty()) emit busyChanged(false);
-        else startNext();
+        if (pending_.isEmpty()) {
+            const bool addedMeshes = !importedThisBatch_.isEmpty();
+            importedThisBatch_.clear();
+            if (addedMeshes) emit batchImported();
+            emit busyChanged(false);
+        } else {
+            startNext();
+        }
     },Qt::QueuedConnection);
     emit started(job->id,job->path);
     worker->start();
@@ -66,5 +73,6 @@ void BoundaryLoadService::remove(const QString& id) {
     Q_ASSERT(QThread::currentThread()==thread());
     if(job_ && job_->id==id) job_->cancelled=true;
     meshes_.remove(id);
+    importedThisBatch_.remove(id);
 }
 } }

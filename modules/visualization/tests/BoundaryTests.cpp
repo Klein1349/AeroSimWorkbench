@@ -1,4 +1,5 @@
 #include "aerosim/visualization/features/BoundarySurfaceExtractor.h"
+#include "aerosim/visualization/features/SharedPolygonEdges.h"
 #include "aerosim/visualization/data/BoundaryMeshReader.h"
 #include "aerosim/visualization/data/BoundaryLoadService.h"
 #include <QCoreApplication>
@@ -8,9 +9,11 @@
 #include <QThread>
 #include <QTimer>
 #include <vtkCell.h>
+#include <vtkCellArray.h>
 #include <vtkCellData.h>
 #include <vtkCellType.h>
 #include <vtkDoubleArray.h>
+#include <vtkIdList.h>
 #include <vtkIdTypeArray.h>
 #include <vtkImageData.h>
 #include <vtkNew.h>
@@ -22,6 +25,7 @@
 #include <vtkXMLPolyDataWriter.h>
 #include <vtkXMLUnstructuredGridWriter.h>
 #include <cmath>
+#include <initializer_list>
 #include <iostream>
 #include <stdexcept>
 #include <set>
@@ -37,9 +41,82 @@ static vtkSmartPointer<vtkUnstructuredGrid> pairOfTetra() {
     vtkNew<vtkDoubleArray> zones; zones->SetName("ZoneId");zones->InsertNextValue(10);zones->InsertNextValue(20);
     grid->GetCellData()->AddArray(zones); return grid;
 }
+static vtkSmartPointer<vtkPolyData> makeSurface(
+        std::initializer_list<std::initializer_list<vtkIdType>> polygons) {
+    vtkNew<vtkPoints> points;
+    const double xyz[][3] = {{-1,0,0}, {0,0,0}, {0,1,0}, {1,1,0}, {1,0,0}, {2,2,0}};
+    for (const auto& p : xyz) points->InsertNextPoint(p);
+    vtkNew<vtkCellArray> cells;
+    for (const auto& face : polygons) {
+        cells->InsertNextCell(static_cast<vtkIdType>(face.size()), face.begin());
+    }
+    auto input = vtkSmartPointer<vtkPolyData>::New();
+    input->SetPoints(points);
+    input->SetPolys(cells);
+    return input;
+}
+
+static void testPolygonValidationAndMapping() {
+    auto input = makeSurface({{0,1,2}, {1,4,3,2}});
+    vtkNew<vtkDoubleArray> pressure;
+    pressure->SetName("Pressure");
+    for (int i = 0; i < 6; ++i) pressure->InsertNextValue(100.0 + i);
+    input->GetPointData()->SetScalars(pressure);
+    vtkNew<vtkDoubleArray> zone;
+    zone->SetName("Zone");
+    zone->InsertNextValue(12);
+    zone->InsertNextValue(45);
+    input->GetCellData()->SetScalars(zone);
+
+    const auto mesh = BoundarySurfaceExtractor::extract(input);
+    require(mesh->sharedEdges && mesh->sharedEdges->edgeCount() == 6, "mixed polygons share one edge");
+    require(!mesh->volume && mesh->inputCells == 2 && mesh->boundaryFaces == 2, "mixed polygon counts");
+    require(mesh->inputPoints == 6 && mesh->surface->GetNumberOfPoints() == 6 &&
+            mesh->uniqueBoundaryPoints == 6, "PolyData keeps the unused source point");
+    auto* pointIds = vtkIdTypeArray::SafeDownCast(mesh->surface->GetPointData()->GetArray("vtkOriginalPointIds"));
+    auto* cellIds = vtkIdTypeArray::SafeDownCast(mesh->surface->GetCellData()->GetArray("vtkOriginalCellIds"));
+    require(pointIds && pointIds->GetNumberOfTuples() == 6 && cellIds && cellIds->GetNumberOfTuples() == 2,
+            "polygon provenance arrays");
+    auto* outPressure = mesh->surface->GetPointData()->GetScalars();
+    auto* outZone = mesh->surface->GetCellData()->GetScalars();
+    require(outPressure && outZone, "active polygon fields");
+    for (vtkIdType i = 0; i < 6; ++i)
+        require(pointIds->GetValue(i) == i && outPressure->GetTuple1(i) == pressure->GetValue(i),
+                "polygon point identity and field");
+    const vtkIdType expected[][4] = {{0,1,2,-1}, {1,4,3,2}};
+    vtkNew<vtkIdList> ids;
+    for (vtkIdType i = 0; i < 2; ++i) {
+        require(cellIds->GetValue(i) == i && outZone->GetTuple1(i) == zone->GetValue(i), "polygon cell identity and field");
+        mesh->surface->GetCellPoints(i, ids);
+        require(ids->GetNumberOfIds() == 3 + i, "polygon arity");
+        for (vtkIdType j = 0; j < ids->GetNumberOfIds(); ++j)
+            require(ids->GetId(j) == expected[i][j], "polygon winding");
+    }
+    require(!input->GetPointData()->HasArray("vtkOriginalPointIds") &&
+            !input->GetCellData()->HasArray("vtkOriginalCellIds"), "source arrays mutated");
+
+    rejects([] { BoundarySurfaceExtractor::extract(makeSurface({{0,1,2}, {1,4,3,2}, {2,1,0}})); });
+    rejects([] { BoundarySurfaceExtractor::extract(makeSurface({{1,4,3,2}, {2,3,4,1}})); });
+    rejects([] { BoundarySurfaceExtractor::extract(makeSurface({{0,1,0}})); });
+    rejects([] { BoundarySurfaceExtractor::extract(makeSurface({{0,1,-1}})); });
+    rejects([] { BoundarySurfaceExtractor::extract(makeSurface({{0,1,6}})); });
+    rejects([] { BoundarySurfaceExtractor::extract(makeSurface({{0,1,2,3,4}})); });
+    auto withLine = makeSurface({{0,1,2}});
+    vtkNew<vtkCellArray> lines;
+    const vtkIdType endpoints[] = {0, 1};
+    lines->InsertNextCell(2, endpoints);
+    withLine->SetLines(lines);
+    rejects([&] { BoundarySurfaceExtractor::extract(withLine); });
+    auto withDeletedCell = makeSurface({{0,1,2}, {1,4,3,2}});
+    withDeletedCell->BuildCells();
+    withDeletedCell->DeleteCell(0);
+    rejects([&] { BoundarySurfaceExtractor::extract(withDeletedCell); });
+}
+
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);
     try {
+        testPolygonValidationAndMapping();
         const QString fixture=QString::fromUtf8(AEROSIM_FIXTURE_DIR)+"/cube_t00.vtk";
         auto cube=BoundaryMeshReader::read(fixture);
         require(cube->inputPoints==27 && cube->inputCells==8 && cube->boundaryFaces==24 && cube->uniqueBoundaryPoints==26,"cube counts");
@@ -140,6 +217,8 @@ int main(int argc,char** argv) {
         QStringList failures;
         QStringList ids;
         int idleCount = 0;
+        int importedBatches = 0;
+        QObject::connect(&service, &BoundaryLoadService::batchImported, &app, [&] { ++importedBatches; });
         QObject::connect(&service, &BoundaryLoadService::loaded, &app,
             [&](const QString &value, const QString &path, const QString &) {
                 ids.append(value);
@@ -161,6 +240,11 @@ int main(int argc,char** argv) {
         require(ids.size() == 2 && ids[0] != ids[1] && service.mesh(ids[0]) && service.mesh(ids[1]),
                 "each imported file must keep its own data and ID");
         require(idleCount == 1 && !service.busy(), "batch must return to idle once");
+        require(importedBatches == 1, "fit all successful meshes once per batch");
+        QTimer::singleShot(10000, &loop, &QEventLoop::quit);
+        service.loadFiles({broken});
+        loop.exec();
+        require(idleCount == 2 && importedBatches == 1, "failed import must preserve the camera");
         std::cout<<"Boundary tests passed: geometry, fields, IDs, winding, large grid, readers, rejection, async, cancellation\n";
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n';return 1;}
     return 0;
