@@ -53,6 +53,7 @@ signals:
     void boundaryViewRequested(const QString &command);
     void boundaryOrbitRequested(int dx, int dy);
     void boundaryBackgroundRequested(int mode);
+    void boundaryBackgroundColorsRequested(const QColor &bottom, const QColor &top, bool gradient);
 
 private:
     struct MeshUiState {
@@ -78,10 +79,14 @@ private:
     void appendHistory(const QString &message);
     void setHistoryCollapsed(bool collapsed);
     void emitBoundaryAppearance(int row);
+    void applyBackground();
     int selectedRow() const;
     bool boundaryMode_ = false;
     bool boundaryBusy_ = false;
     bool cgnsAvailable_ = false;
+    int backgroundMode_ = 0;
+    QColor customBackgroundColor_ = QColor(QStringLiteral("#b8a9e3"));
+    QActionGroup *backgroundActions_ = nullptr;
 
     QVector<MeshUiState> meshes_;
     QTableWidget *meshTable_ = nullptr;

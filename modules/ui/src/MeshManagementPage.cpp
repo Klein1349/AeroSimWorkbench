@@ -561,20 +561,41 @@ MeshManagementPage::MeshManagementPage(QWidget *viewportHost, QWidget *parent)
         QString::fromUtf8("切换视口背景"), icon(Glyph::Background));
     auto *backgroundMenu = new QMenu(toolbar);
     auto *backgroundModes = new QActionGroup(backgroundMenu);
+    backgroundActions_ = backgroundModes;
     backgroundModes->setExclusive(true);
     const QStringList backgroundLabels = {QString::fromUtf8("淡紫渐变"), QString::fromUtf8("深色"),
                                           QString::fromUtf8("灰白渐变")};
     for (int i = 0; i < backgroundLabels.size(); ++i) {
         auto *action = backgroundMenu->addAction(backgroundLabels.at(i));
+        action->setObjectName(QStringLiteral("meshBackgroundPreset_%1").arg(i));
+        action->setData(i);
         action->setCheckable(true);
         backgroundModes->addAction(action);
         action->setChecked(i == 0);
-        connect(action, &QAction::triggered, this, [this, canvas, i] {
-            canvas->setProperty("backgroundMode", i);
-            canvas->setStyleSheet(meshCanvasBackground(i));
-            if (boundaryMode_) emit boundaryBackgroundRequested(i);
+        connect(action, &QAction::triggered, this, [this, i] {
+            backgroundMode_ = i;
+            applyBackground();
         });
     }
+    backgroundMenu->addSeparator();
+    auto *customBackground = backgroundMenu->addAction(QString::fromUtf8("自定义颜色…"));
+    customBackground->setObjectName(QStringLiteral("meshBackgroundCustomColor"));
+    customBackground->setData(3);
+    customBackground->setCheckable(true);
+    backgroundModes->addAction(customBackground);
+    connect(customBackground, &QAction::triggered, this, [this] {
+        // Triggering a checkable action selects it before the dialog opens.
+        // Restore the actual selection until the user confirms a new color.
+        for (auto *action : backgroundActions_->actions())
+            action->setChecked(action->data().toInt() == backgroundMode_);
+        QColorDialog dialog(customBackgroundColor_, this);
+        dialog.setObjectName(QStringLiteral("meshBackgroundColorDialog"));
+        dialog.setWindowTitle(QString::fromUtf8("设置网格背景颜色"));
+        if (dialog.exec() != QDialog::Accepted || !dialog.selectedColor().isValid()) return;
+        customBackgroundColor_ = QColor(dialog.selectedColor().rgb());
+        backgroundMode_ = 3;
+        applyBackground();
+    });
     backgroundAction->setMenu(backgroundMenu);
     if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(backgroundAction)))
         button->setPopupMode(QToolButton::InstantPopup);
@@ -955,6 +976,8 @@ QVariantMap MeshManagementPage::layoutState() const
         : double(expandedHistoryHeight_) / qMax(1, height()));
     state.insert(QStringLiteral("historyCollapsed"), historyCollapsed_);
     state.insert(QStringLiteral("meshToolbarArea"), int(viewportWindow_->toolBarArea(viewToolbar_)));
+    state.insert(QStringLiteral("meshBackgroundMode"), backgroundMode_);
+    state.insert(QStringLiteral("meshBackgroundColor"), customBackgroundColor_.name());
     return state;
 }
 
@@ -970,6 +993,11 @@ void MeshManagementPage::restoreLayoutState(const QVariantMap &state)
         && toolbarArea != Qt::TopToolBarArea && toolbarArea != Qt::BottomToolBarArea)
         toolbarArea = Qt::RightToolBarArea;
     viewportWindow_->addToolBar(toolbarArea, viewToolbar_);
+    const int mode = state.value(QStringLiteral("meshBackgroundMode"), 0).toInt();
+    backgroundMode_ = mode >= 0 && mode <= 3 ? mode : 0;
+    const QColor color(state.value(QStringLiteral("meshBackgroundColor"), QStringLiteral("#b8a9e3")).toString());
+    customBackgroundColor_ = color.isValid() ? QColor(color.rgb()) : QColor(QStringLiteral("#b8a9e3"));
+    applyBackground();
 }
 
 void MeshManagementPage::restoreDefaultLayout()
@@ -978,6 +1006,30 @@ void MeshManagementPage::restoreDefaultLayout()
     expandedHistoryHeight_ = 150;
     setHistoryCollapsed(true);
     viewportWindow_->addToolBar(Qt::RightToolBarArea, viewToolbar_);
+    backgroundMode_ = 0;
+    customBackgroundColor_ = QColor(QStringLiteral("#b8a9e3"));
+    applyBackground();
+}
+
+void MeshManagementPage::applyBackground()
+{
+    auto *canvas = findChild<QFrame *>(QStringLiteral("meshViewerCanvas"));
+    const bool gradient = backgroundMode_ != 3;
+    const QColor top = !gradient ? customBackgroundColor_
+        : backgroundMode_ == 1 ? QColor("#2f3b49")
+        : backgroundMode_ == 2 ? QColor("#565c77") : QColor("#b8a9e3");
+    const QColor bottom = !gradient ? customBackgroundColor_
+        : backgroundMode_ == 1 ? QColor("#4a5a6d")
+        : backgroundMode_ == 2 ? QColor("#ffffff") : QColor("#f8f5fc");
+    canvas->setProperty("backgroundMode", backgroundMode_);
+    canvas->setStyleSheet(gradient ? meshCanvasBackground(backgroundMode_)
+        : QStringLiteral("#meshViewerCanvas { background:%1; }").arg(customBackgroundColor_.name()));
+    for (auto *action : backgroundActions_->actions())
+        action->setChecked(action->data().toInt() == backgroundMode_);
+    if (boundaryMode_) {
+        if (gradient) emit boundaryBackgroundRequested(backgroundMode_);
+        emit boundaryBackgroundColorsRequested(bottom, top, gradient);
+    }
 }
 
 void MeshManagementPage::enableBoundaryMode(bool cgnsAvailable)
@@ -1001,8 +1053,7 @@ void MeshManagementPage::enableBoundaryMode(bool cgnsAvailable)
             label->setText(QString::fromUtf8("不透明度"));
     }
     unitEditor_->setToolTip(QString::fromUtf8("单位标记，不执行坐标或物理量换算"));
-    const auto *canvas = findChild<QFrame *>(QStringLiteral("meshViewerCanvas"));
-    emit boundaryBackgroundRequested(canvas->property("backgroundMode").toInt());
+    applyBackground();
     viewerStatus_->setWordWrap(true);
     viewerStatus_->show();
     refreshEditor(); updateCount();

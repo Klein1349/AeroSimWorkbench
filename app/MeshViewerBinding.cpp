@@ -44,13 +44,8 @@ bool installMeshViewer(MainWindow &window)
                      page, &MeshManagementPage::selectBoundary);
     QObject::connect(viewer, &VtkSceneViewer::cameraOrientationChanged,
                      page, &MeshManagementPage::setBoundaryCameraOrientation);
-    QObject::connect(page, &MeshManagementPage::boundaryBackgroundRequested, viewer, [viewer](int mode) {
-        const QColor top = mode == 1 ? QColor("#2f3b49")
-                           : mode == 2 ? QColor("#565c77") : QColor("#b8a9e3");
-        const QColor bottom = mode == 1 ? QColor("#4a5a6d")
-                              : mode == 2 ? QColor("#ffffff") : QColor("#f8f5fc");
-        viewer->setBackground(bottom, top, true);
-    });
+    QObject::connect(page, &MeshManagementPage::boundaryBackgroundColorsRequested,
+                     viewer, &VtkSceneViewer::setBackground);
     QObject::connect(service, &BoundaryLoadService::started,
                      page, &MeshManagementPage::beginBoundary);
     QObject::connect(service, &BoundaryLoadService::loaded, page,
