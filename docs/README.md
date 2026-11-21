@@ -14,6 +14,7 @@
 | 文档 | 用途与适用范围 | 状态 |
 | --- | --- | --- |
 | [前处理网格管理](../modules/ui/README.md) · [历史版本图文记录](PreprocessMeshInteraction.md) | 按文件坐标定位、逐文件编辑外观、按可见网格确定相机中心 | Windows x64 Debug |
+| [UI 页面开发规范](../modules/ui/docs/UI-Development-Guidelines.md) | MainWindow + UiLayoutConfig + 功能页面的布局职责、公共参数分层、页面接入契约、布局保存/恢复规则与框架级验收 | 现行规范；以 `modules/ui` 实现为准 |
 | [第一阶段主工程集成说明](phase1-integration.md) | 当前 GUI/CLI、ApplicationController、contracts、Mock 和正式模块接入边界 | 现行骨架说明；正式业务目标尚未接入 |
 | [公共数据契约升级设计与实施计划](公共数据契约升级设计与实施计划.md) | 工作流、State/Batch/Task、多网格、资源与查询端口的增量升级规范及分 PR 计划 | PR 0 设计冻结；PR 1/2 已实现；PR 3～PR 7 数据模型已加入 `contracts/`，业务服务与查询端口未实现 |
 
@@ -25,6 +26,8 @@
 | [后处理集成准备](PostProcessIntegrationGuide.md) | 主窗口/工作区/VTKViewer 的关系、数据与场景所有权、分批接入路径 | 集成方案待评审 |
 | [后处理公共契约](PostProcessContracts.md) | 区分已有引用/端口、已加入的轻量标识及待确认的数据/场景协议 | 部分已实现；其余为接口草案 |
 | [后处理功能交接表](PostProcessTaskHandoff.md) | 保留 16 项功能编号、输入输出、依赖、建议接入位置及测试条件 | 功能要求保留；目标/API 待评审 |
+| [监控序列实现规划](PostProcessMonitorSeriesPlan.md) | 监控日志读取、序列模型与曲线视图的分层设计、P0–P3 优先级与验收口径 | 规划；P0 已实现，P1 未接入 UI |
+| [监控日志输入格式](PostProcessMonitorSeries/InputFormat.md) | 读取器实际接受的 CSV 形状、拒绝理由、警告清单与注册非 SU2 列约定的扩展点 | 草案；真实格式确认前以代码为准 |
 
 ## 测试数据与验证
 

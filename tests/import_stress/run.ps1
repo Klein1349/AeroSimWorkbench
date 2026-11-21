@@ -24,7 +24,7 @@ if (-not $SkipBuild) {
         New-Item -ItemType Directory -Force -Path (Split-Path $ribbon) | Out-Null
         Copy-Item -LiteralPath (Join-Path $LocalStack 'deps/SARibbon') -Destination $ribbon -Recurse
     }
-    & $cmake -S $repo -B $BuildDirectory -G 'Visual Studio 15 2017 Win64' "-DCMAKE_PREFIX_PATH=$LocalStack/deps/qt/5.12.12/msvc2017_64" "-DVTK_DIR=$LocalStack/v" "-DSARIBBON_SOURCE_DIR=$ribbon" "-DAEROSIM_CGNS_ROOT=$LocalStack/deps/cgns-4.4.0-debug" -DAEROSIM_BUILD_GUI=ON -DAEROSIM_BUILD_TESTS=ON -DAEROSIM_BUILD_VISUALIZATION=ON -DAEROSIM_BUILD_MESH_VIEWER=ON "-DCMAKE_PROJECT_AeroSimWorkbench_INCLUDE=$PSScriptRoot/inject.cmake"
+    & $cmake -S $repo -B $BuildDirectory -G 'Visual Studio 15 2017 Win64' "-DCMAKE_PREFIX_PATH=$LocalStack/deps/qt/5.12.12/msvc2017_64" "-DVTK_DIR=$LocalStack/v" "-DSARIBBON_SOURCE_DIR=$ribbon" "-DAEROSIM_CGNS_ROOT=$LocalStack/deps/cgns-4.4.0-debug" -DAEROSIM_BUILD_GUI=ON -DAEROSIM_BUILD_TESTS=ON -DAEROSIM_BUILD_VISUALIZATION=ON -DAEROSIM_BUILD_CHARTS=OFF "-DAEROSIM_EIGEN_ROOT=$LocalStack/deps/v/ThirdParty/eigen/vtkeigen" -DAEROSIM_BUILD_MESH_VIEWER=ON "-DCMAKE_PROJECT_AeroSimWorkbench_INCLUDE=$PSScriptRoot/inject.cmake"
     if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed' }
     & $cmake --build $BuildDirectory --config Debug --parallel 3
     if ($LASTEXITCODE -ne 0) { throw 'Production build failed' }

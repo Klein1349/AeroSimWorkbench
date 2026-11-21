@@ -1,4 +1,4 @@
-#include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include "aerosim/visualization/scene/MeshSceneViewer.h"
 
 #include <QApplication>
 #include <QKeyEvent>
@@ -23,7 +23,7 @@
 
 using aerosim::visualization::BoundaryMesh;
 using aerosim::visualization::BoundarySurfaceExtractor;
-using aerosim::visualization::VtkSceneViewer;
+using aerosim::visualization::MeshSceneViewer;
 
 static void scroll(QWidget *viewport, const QPoint &angle, const QPoint &pixels = {})
 {
@@ -96,9 +96,9 @@ static bool hasAppearance(vtkActor *actor, const QColor &color, double opacity,
 
 int main(int argc, char **argv)
 {
-    VtkSceneViewer::configureSurface();
+    MeshSceneViewer::configureSurface();
     QApplication app(argc, argv);
-    VtkSceneViewer viewer;
+    MeshSceneViewer viewer;
     auto *viewport = viewer.findChild<QVTKOpenGLNativeWidget *>();
     if (!viewport) return 1;
     auto *renderer = viewport->GetRenderWindow()->GetRenderers()->GetFirstRenderer();

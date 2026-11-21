@@ -3,15 +3,15 @@
 #include "aerosim/ui/MainWindow.h"
 #include "aerosim/ui/MeshManagementPage.h"
 #include "aerosim/visualization/data/BoundaryLoadService.h"
-#include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include "aerosim/visualization/scene/MeshSceneViewer.h"
 
 namespace aerosim {
 using visualization::BoundaryLoadService;
-using visualization::VtkSceneViewer;
+using visualization::MeshSceneViewer;
 
 void configureMeshViewerSurface()
 {
-    VtkSceneViewer::configureSurface();
+    MeshSceneViewer::configureSurface();
 }
 
 bool installMeshViewer(MainWindow &window)
@@ -19,7 +19,7 @@ bool installMeshViewer(MainWindow &window)
     auto *page = window.findChild<MeshManagementPage *>();
     if (!page) return false;
 
-    auto *viewer = new VtkSceneViewer;
+    auto *viewer = new MeshSceneViewer;
     if (!window.insertWidget(WidgetSlot::Viewport, viewer)) {
         delete viewer;
         return false;
@@ -31,21 +31,21 @@ bool installMeshViewer(MainWindow &window)
     QObject::connect(page, &MeshManagementPage::boundaryRemoveRequested,
                      service, &BoundaryLoadService::remove);
     QObject::connect(page, &MeshManagementPage::boundaryRemoveRequested,
-                     viewer, &VtkSceneViewer::removeObject);
+                     viewer, &MeshSceneViewer::removeObject);
     QObject::connect(page, &MeshManagementPage::boundaryVisibilityChanged,
-                     viewer, &VtkSceneViewer::setObjectVisible);
+                     viewer, &MeshSceneViewer::setObjectVisible);
     QObject::connect(page, &MeshManagementPage::boundaryAppearanceChanged,
-                     viewer, &VtkSceneViewer::setObjectAppearance);
+                     viewer, &MeshSceneViewer::setObjectAppearance);
     QObject::connect(page, &MeshManagementPage::boundaryViewRequested,
-                     viewer, &VtkSceneViewer::setCameraOrientation);
+                     viewer, &MeshSceneViewer::setCameraOrientation);
     QObject::connect(page, &MeshManagementPage::boundaryOrbitRequested,
-                     viewer, &VtkSceneViewer::orbitCamera);
-    QObject::connect(viewer, &VtkSceneViewer::boundaryPicked,
+                     viewer, &MeshSceneViewer::orbitCamera);
+    QObject::connect(viewer, &MeshSceneViewer::boundaryPicked,
                      page, &MeshManagementPage::selectBoundary);
-    QObject::connect(viewer, &VtkSceneViewer::cameraOrientationChanged,
+    QObject::connect(viewer, &MeshSceneViewer::cameraOrientationChanged,
                      page, &MeshManagementPage::setBoundaryCameraOrientation);
     QObject::connect(page, &MeshManagementPage::boundaryBackgroundColorsRequested,
-                     viewer, &VtkSceneViewer::setBackground);
+                     viewer, &MeshSceneViewer::setBackground);
     QObject::connect(service, &BoundaryLoadService::started,
                      page, &MeshManagementPage::beginBoundary);
     QObject::connect(service, &BoundaryLoadService::loaded, page,

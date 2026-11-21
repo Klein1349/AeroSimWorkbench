@@ -8,7 +8,7 @@
 #include "aerosim/ui/MeshManagementPage.h"
 #include "aerosim/visualization/data/BoundaryLoadService.h"
 #include "aerosim/visualization/scene/BoundaryPolyDataMapper.h"
-#include "aerosim/visualization/scene/VtkSceneViewer.h"
+#include "aerosim/visualization/scene/MeshSceneViewer.h"
 
 #include <QApplication>
 #include <QBuffer>
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
         MainWindow window;
         check(installMeshViewer(window), "Cannot install production viewer");
         auto* page = child<MeshManagementPage>(window);
-        auto* viewer = child<VtkSceneViewer>(window);
+        auto* viewer = child<MeshSceneViewer>(window);
         auto* loader = child<BoundaryLoadService>(*viewer);
         auto* viewport = child<QVTKOpenGLNativeWidget>(*viewer);
         auto* button = child<QPushButton>(*page, "importMeshButton");
