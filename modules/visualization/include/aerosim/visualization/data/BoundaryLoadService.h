@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QHash>
 #include <QQueue>
+#include <QSet>
 #include <QStringList>
 class QThread;
 namespace aerosim { namespace visualization {
@@ -22,10 +23,12 @@ signals:
     void loaded(const QString& id,const QString& path,const QString& summary);
     void failed(const QString& id,const QString& message);
     void busyChanged(bool busy);
+    void batchImported();
 private:
     struct Job;
     void startNext();
     QQueue<QString> pending_;
+    QSet<QString> importedThisBatch_;
     std::shared_ptr<Job> job_;
     QThread* thread_=nullptr;
     QHash<QString,std::shared_ptr<const BoundaryMesh>> meshes_;

@@ -36,6 +36,7 @@ if(AEROSIM_BUILD_MESH_VIEWER)
         "${mesh_root}/src/data/BoundaryLoadService.cpp"
         "${mesh_root}/src/data/BoundaryMeshReader.cpp"
         "${mesh_root}/src/features/BoundarySurfaceExtractor.cpp"
+        "${mesh_root}/src/features/SharedPolygonEdges.cpp"
         "${mesh_root}/include/aerosim/visualization/data/BoundaryLoadService.h")
     target_include_directories(aerosim_mesh_boundary PUBLIC "${mesh_root}/include")
     target_include_directories(aerosim_mesh_boundary SYSTEM PUBLIC ${VTK_INCLUDE_DIRS})
@@ -69,12 +70,22 @@ if(AEROSIM_BUILD_MESH_VIEWER)
     endif()
 
     add_library(aerosim_mesh_scene STATIC
+        "${mesh_root}/src/scene/BoundaryPolyDataMapper.cpp"
         "${mesh_root}/src/scene/MeshSceneViewer.cpp"
         "${mesh_root}/include/aerosim/visualization/scene/MeshSceneViewer.h")
     target_link_libraries(aerosim_mesh_scene PUBLIC aerosim_mesh_boundary Qt5::Widgets
         PRIVATE Qt5::OpenGL vtkGUISupportQt vtkRenderingCore vtkRenderingOpenGL2 vtkInteractionStyle)
 
     if(AEROSIM_BUILD_TESTS)
+        add_executable(aerosim_shared_polygon_edges_test "${mesh_root}/tests/SharedPolygonEdgesTest.cpp")
+        target_link_libraries(aerosim_shared_polygon_edges_test PRIVATE aerosim_mesh_boundary)
+        add_test(NAME mesh_shared_polygon_edges COMMAND aerosim_shared_polygon_edges_test)
+
+        add_executable(aerosim_mesh_wheel_test "${mesh_root}/tests/MeshWheelZoomTest.cpp")
+        target_link_libraries(aerosim_mesh_wheel_test PRIVATE aerosim_mesh_scene vtkGUISupportQt vtkRenderingCore)
+        add_test(NAME mesh_viewport_wheel_zoom COMMAND aerosim_mesh_wheel_test)
+        set_tests_properties(mesh_viewport_wheel_zoom PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
         add_executable(aerosim_mesh_boundary_tests "${mesh_root}/tests/BoundaryTests.cpp")
         target_link_libraries(aerosim_mesh_boundary_tests PRIVATE aerosim_mesh_boundary vtkIOXML)
         target_compile_definitions(aerosim_mesh_boundary_tests PRIVATE

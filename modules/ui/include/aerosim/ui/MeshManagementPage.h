@@ -9,7 +9,8 @@
 
 class QCheckBox;
 class QComboBox;
-class QDoubleSpinBox;
+class QActionGroup;
+class QGroupBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -39,7 +40,7 @@ public:
     void restoreDefaultLayout();
     void enableBoundaryMode(bool cgnsAvailable = false);
     void beginBoundary(const QString &id, const QString &path);
-    void finishBoundary(const QString &id, const QString &summary);
+    int finishBoundary(const QString &id, const QString &summary, qint64 boundaryFaces = 0);
     void failBoundary(const QString &id, const QString &message);
     void setBoundaryBusy(bool busy);
     void setBoundaryCameraOrientation(const QVector3D &from, const QVector3D &up);
@@ -47,12 +48,12 @@ public:
 signals:
     void boundaryImportRequested(const QStringList &paths);
     void boundaryRemoveRequested(const QString &id);
-    void boundaryStyleChanged(const QString &id, const QVariantMap &style);
+    void boundaryVisibilityChanged(const QString &id, bool visible);
+    void boundaryAppearanceChanged(const QString &id, const QColor &color, int opacityPercent, int mode);
     void boundaryViewRequested(const QString &command);
     void boundaryOrbitRequested(int dx, int dy);
-    void boundaryAxisRotationRequested(const QString &id, const QVector3D &axis);
-    void boundaryDragRotationRequested(const QString &id, int dx, int dy);
     void boundaryBackgroundRequested(int mode);
+    void boundaryBackgroundColorsRequested(const QColor &bottom, const QColor &top, bool gradient);
 
 private:
     struct MeshUiState {
@@ -61,10 +62,9 @@ private:
         bool ready = true;
         QString name;
         bool visible = true;
-        QString displayMode;
+        int displayMode = 0;
         QColor color;
         int opacity = 100;
-        double scale = 1.0;
         QString unit;
     };
 
@@ -75,13 +75,18 @@ private:
     void refreshEditor();
     void updateCurrentMesh();
     void updateCount();
+    void refreshCameraActions();
     void appendHistory(const QString &message);
     void setHistoryCollapsed(bool collapsed);
-    void emitBoundaryStyle(int row);
+    void emitBoundaryAppearance(int row);
+    void applyBackground();
     int selectedRow() const;
     bool boundaryMode_ = false;
     bool boundaryBusy_ = false;
     bool cgnsAvailable_ = false;
+    int backgroundMode_ = 0;
+    QColor customBackgroundColor_ = QColor(QStringLiteral("#b8a9e3"));
+    QActionGroup *backgroundActions_ = nullptr;
 
     QVector<MeshUiState> meshes_;
     QTableWidget *meshTable_ = nullptr;
@@ -90,13 +95,14 @@ private:
     QPushButton *deleteMeshButton_ = nullptr;
     QRadioButton *solidModelRadio_ = nullptr;
     QRadioButton *planarModelRadio_ = nullptr;
+    QGroupBox *displayProperties_ = nullptr;
+    QActionGroup *displayActions_ = nullptr;
     QLineEdit *nameEditor_ = nullptr;
     QCheckBox *visibleEditor_ = nullptr;
     QComboBox *displayModeEditor_ = nullptr;
     QPushButton *colorButton_ = nullptr;
     QSlider *opacityEditor_ = nullptr;
     QLabel *opacityValue_ = nullptr;
-    QDoubleSpinBox *scaleEditor_ = nullptr;
     QComboBox *unitEditor_ = nullptr;
     QLabel *viewerStatus_ = nullptr;
     // The orientation control is implemented in the page source file.

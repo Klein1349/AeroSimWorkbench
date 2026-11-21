@@ -1,7 +1,12 @@
 #include "aerosim/visualization/scene/MeshSceneViewer.h"
+#include "aerosim/visualization/scene/BoundaryPolyDataMapper.h"
 #include <QVTKOpenGLNativeWidget.h>
 #include <QApplication>
+#include <QKeyEvent>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QTimer>
+#include <QWheelEvent>
 #include <QVBoxLayout>
 #include <QThread>
 #include <QSurfaceFormat>
@@ -10,6 +15,7 @@
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
 #include <vtkActor.h>
+#include <vtkBoundingBox.h>
 #include <vtkCamera.h>
 #include <vtkCallbackCommand.h>
 #include <vtkCellPicker.h>
@@ -24,6 +30,62 @@ VTK_MODULE_INIT(vtkInteractionStyle);
 #include <array>
 #include <cmath>
 namespace aerosim { namespace visualization {
+namespace {
+class RotationCenterMarker final : public QWidget
+{
+public:
+    explicit RotationCenterMarker(QWidget *parent) : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("boundaryRotationCenterMarker"));
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        setFixedSize(31, 31);
+        timer_.setSingleShot(true);
+        connect(&timer_, &QTimer::timeout, this, &QWidget::hide);
+        hide();
+    }
+
+    void indicateCenter()
+    {
+        move((parentWidget()->width() - width()) / 2, (parentWidget()->height() - height()) / 2);
+        raise();
+        show();
+        timer_.start(1500);
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.translate(15.5, 15.5);
+        const QLine ticks[] = {{-13, 0, -5, 0}, {5, 0, 13, 0}, {0, -13, 0, -5}, {0, 5, 0, 13}};
+        for (const QPen &pen : {QPen(Qt::black, 3), QPen(Qt::white, 1)}) {
+            painter.setPen(pen);
+            painter.drawEllipse(QPointF(0, 0), 5, 5);
+            painter.drawLines(ticks, 4);
+            painter.drawPoint(QPointF(0, 0));
+        }
+    }
+
+private:
+    QTimer timer_;
+};
+
+void zoomCamera(vtkCamera *camera, double steps)
+{
+    const double factor = std::pow(1.2, steps);
+    if (camera->GetParallelProjection())
+        camera->SetParallelScale(camera->GetParallelScale() / factor);
+    else
+        camera->Dolly(factor);
+}
+
+void applyDisplayMode(vtkProperty *property, int mode)
+{
+    property->SetRepresentation(mode == 1 ? VTK_WIREFRAME : VTK_SURFACE);
+    property->SetEdgeVisibility(mode == 2);
+}
+}
 struct MeshSceneViewer::Impl {
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> window=vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
     vtkSmartPointer<vtkRenderer> renderer=vtkSmartPointer<vtkRenderer>::New();
@@ -31,9 +93,42 @@ struct MeshSceneViewer::Impl {
         vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New();
     unsigned long interactionObserver = 0;
     QHash<QString, vtkSmartPointer<vtkActor>> objects;
+    vtkBoundingBox visibleBounds;
     QVTKOpenGLNativeWidget *viewport = nullptr;
+    RotationCenterMarker *centerMarker = nullptr;
     QPoint pickPressPosition;
     bool pickPending = false;
+
+    void updateVisibleBounds()
+    {
+        visibleBounds.Reset();
+        for (const auto &actor : objects) {
+            if (!actor->GetVisibility()) continue;
+            if (const auto *bounds = actor->GetBounds()) visibleBounds.AddBounds(bounds);
+        }
+    }
+
+    void centerVisibleMeshes()
+    {
+        if (!visibleBounds.IsValid()) return;
+        auto *camera = renderer->GetActiveCamera();
+        double center[3], focus[3], position[3];
+        visibleBounds.GetCenter(center);
+        camera->GetFocalPoint(focus);
+        camera->GetPosition(position);
+        for (int axis = 0; axis < 3; ++axis)
+            position[axis] += center[axis] - focus[axis];
+        camera->SetPosition(position);
+        camera->SetFocalPoint(center);
+    }
+
+    void updateClippingRange()
+    {
+        if (!visibleBounds.IsValid()) return;
+        double bounds[6];
+        visibleBounds.GetBounds(bounds);
+        renderer->ResetCameraClippingRange(bounds);
+    }
 };
 MeshSceneViewer::MeshSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl) {
     setObjectName(QStringLiteral("boundaryVtkViewer"));
@@ -41,6 +136,7 @@ MeshSceneViewer::MeshSceneViewer(QWidget* parent):QWidget(parent),impl_(new Impl
     auto* widget=new QVTKOpenGLNativeWidget(this); layout->addWidget(widget);
     impl_->window->AddRenderer(impl_->renderer); widget->SetRenderWindow(impl_->window);
     impl_->viewport = widget;
+    impl_->centerMarker = new RotationCenterMarker(widget);
     widget->installEventFilter(this);
     impl_->window->GetInteractor()->SetInteractorStyle(impl_->style);
     vtkNew<vtkCallbackCommand> interaction;
@@ -66,47 +162,63 @@ void MeshSceneViewer::render() {
     Q_ASSERT(QThread::currentThread()==thread());
     if(isVisible()) impl_->window->Render();
 }
-void MeshSceneViewer::addBoundary(const QString& id,std::shared_ptr<const BoundaryMesh> mesh) {
+void MeshSceneViewer::addBoundary(const QString &id, std::shared_ptr<const BoundaryMesh> mesh, int initialMode) {
     if(!mesh || impl_->objects.contains(id)) return;
-    vtkNew<vtkPolyDataMapper> mapper; mapper->SetInputData(mesh->surface); mapper->ScalarVisibilityOff();
+    vtkNew<BoundaryPolyDataMapper> mapper;
+    mapper->SetInputData(mesh->surface);
+    mapper->SetSharedEdges(mesh->sharedEdges);
+    mapper->ScalarVisibilityOff();
     vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
     actor->SetMapper(mapper);
-    double center[3];
-    mesh->surface->GetCenter(center);
-    actor->SetOrigin(center);
-    actor->GetProperty()->SetEdgeColor(0.1, 0.15, 0.2);
+    // File coordinates are world coordinates for every mesh in the scene.
+    actor->DragableOff();
+    auto *property = actor->GetProperty();
+    const QColor surfaceColor(0xbc, 0xa9, 0xe4);
+    property->SetColor(surfaceColor.redF(), surfaceColor.greenF(), surfaceColor.blueF());
+    property->SetEdgeColor(0.1, 0.15, 0.2);
+    applyDisplayMode(property, initialMode);
     impl_->renderer->AddActor(actor);
     impl_->objects.insert(id, actor);
-    if (impl_->objects.size() == 1) setCameraOrientation(QStringLiteral("fit"));
-    else {
-        impl_->renderer->ResetCameraClippingRange();
-        render();
-    }
+    refreshVisibleBounds(impl_->objects.size() == 1);
 }
 void MeshSceneViewer::removeObject(const QString& id) {
     if(!impl_->objects.contains(id)) return;
-    impl_->renderer->RemoveActor(impl_->objects.take(id)); render();
+    const auto actor = impl_->objects.take(id);
+    impl_->renderer->RemoveActor(actor);
+    if (actor->GetVisibility()) refreshVisibleBounds(false);
+    else render();
 }
-void MeshSceneViewer::setObjectStyle(const QString& id,const QVariantMap& s) {
-    if(!impl_->objects.contains(id)) return;
-    auto* a=impl_->objects.value(id).GetPointer(); auto* p=a->GetProperty();
-    if(s.contains("visible")) a->SetVisibility(s.value("visible").toBool());
-    if(s.contains("color")) { QColor c=s.value("color").value<QColor>(); if(c.isValid()) p->SetColor(c.redF(),c.greenF(),c.blueF()); }
-    if(s.contains("opacity")) p->SetOpacity(qBound(0.0,s.value("opacity").toDouble()/100.0,1.0));
-    if (s.contains("scale")) {
-        const double scale = s.value("scale").toDouble();
-        if (std::isfinite(scale) && scale > 0) {
-            const auto *origin = a->GetOrigin();
-            // Retain world-origin scaling while using the mesh center as the rotation pivot.
-            a->SetPosition((scale - 1) * origin[0], (scale - 1) * origin[1], (scale - 1) * origin[2]);
-            a->SetScale(scale);
-        }
+void MeshSceneViewer::setObjectVisible(const QString &id, bool visible)
+{
+    auto actor = impl_->objects.value(id);
+    if (!actor || bool(actor->GetVisibility()) == visible) return;
+    actor->SetVisibility(visible);
+    refreshVisibleBounds(false);
+}
+
+void MeshSceneViewer::refreshVisibleBounds(bool fit)
+{
+    impl_->centerMarker->hide();
+    impl_->updateVisibleBounds();
+    if (fit) {
+        setCameraOrientation(QStringLiteral("fit"));
+        return;
     }
-    if(s.contains("mode")) {
-        const int m=s.value("mode").toInt();
-        p->SetRepresentation(m==1?VTK_WIREFRAME:VTK_SURFACE); p->SetEdgeVisibility(m==2);
-    }
-    impl_->renderer->ResetCameraClippingRange(); render();
+    impl_->centerVisibleMeshes();
+    impl_->updateClippingRange();
+    render();
+}
+
+void MeshSceneViewer::setObjectAppearance(const QString &id, const QColor &color,
+                                         int opacityPercent, int mode)
+{
+    auto actor = impl_->objects.value(id);
+    if (!actor || !color.isValid() || mode < 0 || mode > 2) return;
+    auto *property = actor->GetProperty();
+    property->SetColor(color.redF(), color.greenF(), color.blueF());
+    property->SetOpacity(qBound(0, opacityPercent, 100) / 100.0);
+    applyDisplayMode(property, mode);
+    render();
 }
 void MeshSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
     impl_->renderer->SetBackground(b.redF(),b.greenF(),b.blueF());
@@ -115,10 +227,23 @@ void MeshSceneViewer::setBackground(const QColor& b,const QColor& t,bool g) {
 void MeshSceneViewer::setCameraOrientation(const QString &command)
 {
     auto *camera = impl_->renderer->GetActiveCamera();
-    if (command == QStringLiteral("fit")) {
-        impl_->renderer->ResetCamera();
+    const bool reset = command == QStringLiteral("reset");
+    if (command == QStringLiteral("center")) {
+        impl_->centerVisibleMeshes();
+        if (impl_->visibleBounds.IsValid()) impl_->centerMarker->indicateCenter();
+    } else if (command == QStringLiteral("fit") || reset) {
+        if (impl_->visibleBounds.IsValid()) {
+            double bounds[6];
+            impl_->visibleBounds.GetBounds(bounds);
+            if (reset) {
+                const auto *focus = camera->GetFocalPoint();
+                camera->SetPosition(focus[0], focus[1], focus[2] + camera->GetDistance());
+                camera->SetViewUp(0, 1, 0);
+            }
+            impl_->renderer->ResetCamera(bounds);
+        }
     } else if (command == QStringLiteral("in") || command == QStringLiteral("out")) {
-        camera->Dolly(command == QStringLiteral("in") ? 1.2 : 1.0 / 1.2);
+        zoomCamera(camera, command == QStringLiteral("in") ? 1.0 : -1.0);
     } else {
         struct View { const char *name; QVector3D from; QVector3D up; };
         const std::array<View, 7> views = {{
@@ -143,7 +268,7 @@ void MeshSceneViewer::setCameraOrientation(const QString &command)
             break;
         }
     }
-    impl_->renderer->ResetCameraClippingRange();
+    impl_->updateClippingRange();
     publishCameraOrientation();
     render();
 }
@@ -155,35 +280,8 @@ void MeshSceneViewer::orbitCamera(int dx, int dy)
     camera->Azimuth(-dx * degreesPerPixel);
     camera->Elevation(-dy * degreesPerPixel);
     camera->OrthogonalizeViewUp();
-    impl_->renderer->ResetCameraClippingRange();
+    impl_->updateClippingRange();
     publishCameraOrientation();
-    render();
-}
-
-void MeshSceneViewer::rotateObjectAroundAxis(const QString &id, const QVector3D &axis)
-{
-    auto actor = impl_->objects.value(id);
-    if (!actor || !actor->GetVisibility()) return;
-    actor->RotateWXYZ(90.0, axis.x(), axis.y(), axis.z());
-    impl_->renderer->ResetCameraClippingRange();
-    render();
-}
-
-void MeshSceneViewer::rotateObjectByDrag(const QString &id, int dx, int dy)
-{
-    auto actor = impl_->objects.value(id);
-    if (!actor || !actor->GetVisibility()) return;
-    auto *camera = impl_->renderer->GetActiveCamera();
-    const auto *direction = camera->GetDirectionOfProjection();
-    const auto *viewUp = camera->GetViewUp();
-    const QVector3D forward(direction[0], direction[1], direction[2]);
-    const QVector3D up(viewUp[0], viewUp[1], viewUp[2]);
-    const auto right = QVector3D::crossProduct(forward, up).normalized();
-    const auto screenUp = QVector3D::crossProduct(right, forward).normalized();
-    constexpr double degreesPerPixel = 0.65;
-    if (dx) actor->RotateWXYZ(dx * degreesPerPixel, screenUp.x(), screenUp.y(), screenUp.z());
-    if (dy) actor->RotateWXYZ(dy * degreesPerPixel, right.x(), right.y(), right.z());
-    impl_->renderer->ResetCameraClippingRange();
     render();
 }
 
@@ -191,7 +289,39 @@ bool MeshSceneViewer::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched != impl_->viewport) return QWidget::eventFilter(watched, event);
     switch (event->type()) {
+    case QEvent::Resize:
+        impl_->centerMarker->hide();
+        break;
+    case QEvent::KeyPress: {
+        auto *key = static_cast<QKeyEvent *>(event);
+        // The page handles W/S for the selected mesh. VTK's fallback is scene-wide.
+        if (key->key() == Qt::Key_W || key->key() == Qt::Key_S) {
+            key->accept();
+            return true;
+        }
+        if (key->key() == Qt::Key_R && key->modifiers() == Qt::NoModifier) {
+            setCameraOrientation(QStringLiteral("fit"));
+            key->accept();
+            return true;
+        }
+        break;
+    }
+    case QEvent::Wheel: {
+        auto *wheel = static_cast<QWheelEvent *>(event);
+        // A conventional wheel notch is 120 angle units. Keep fractional
+        // steps for high-resolution wheels and pixel-only touchpad events.
+        const int delta = wheel->angleDelta().isNull() ? wheel->pixelDelta().y() : wheel->angleDelta().y();
+        const double steps = double(delta) / QWheelEvent::DefaultDeltasPerStep;
+        if (steps != 0.0) {
+            zoomCamera(impl_->renderer->GetActiveCamera(), steps);
+            impl_->updateClippingRange();
+            render();
+        }
+        wheel->accept();
+        return true;
+    }
     case QEvent::MouseButtonPress: {
+        impl_->centerMarker->hide();
         auto *mouse = static_cast<QMouseEvent *>(event);
         impl_->pickPending = mouse->button() == Qt::LeftButton && mouse->modifiers() == Qt::NoModifier;
         impl_->pickPressPosition = mouse->pos();
